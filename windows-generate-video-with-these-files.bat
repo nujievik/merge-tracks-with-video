@@ -1,8 +1,8 @@
 @echo off
-::generate video with these files v0.2.2
+::windows-generate-video-with-these-files-v0.3.0
+::This program is part of the generate-video-with-these-files-script repository
 ::Licensed under GPL-3.0. See LICENSE file for details.
-::author: nujievik
-::email: nujievik@gmail.com
+::Author: nujievik Email: nujievik@gmail.com
 
 setlocal enabledelayedexpansion
 ::задаем константы и инициализируем переменные
@@ -34,6 +34,8 @@ if !subtitle_dir_found! equ 1 (
 :: если фонтдир найдена ищем-качаем mkvtool иначе ffmpeg
 if !font_dir_found! equ 1 (
     call :search_mkvtoolnix
+    ::создаем фонлист
+    call :create_font_attach_list
 
 ) else (
     call :search_and_download_ffmpeg_ffprobe
@@ -86,6 +88,8 @@ set "MKVTOOLNIX_SOURCE_URL=https://mkvtoolnix.download/windows/releases/87.0/mkv
 set "MKVTOOLNIX_SOURCE_7Z=mkvtoolnix-64-bit-87.0.7z"
 set "MKVTOOLNIX_EXTRACT_DIR=%USERPROFILE%\Downloads"
 set "MKVMERGE_EXE=%MKVTOOLNIX_DIR%\mkvmerge.exe"
+set "MKVINFO_EXE=%MKVTOOLNIX_DIR%\mkvinfo.exe"
+set "MKVEXTRACT_EXE=%MKVTOOLNIX_DIR%\mkvextract.exe"
 
 
 :: определяем директорию скрипта
@@ -437,17 +441,37 @@ exit
 where mkvmerge >nul 2>&1
 if %errorlevel% equ 0 (
     set "MKVMERGE_EXE=mkvmerge"
-    goto :EOF
+    where mkvinfo >nul 2>&1
+    if %errorlevel% equ 0 (
+        set "MKVINFO_EXE=mkvinfo"
+        where mkvextract >nul 2>&1
+        if %errorlevel% equ 0 (
+            set "MKVEXTRACT_EXE=mkvextract"
+            goto :EOF
+        )
+    )
 )
 
 ::проверяем доступен ли mkvmerge в стандартных директориях
 if exist "%PROGRAMFILES%\MkvToolNix\mkvmerge.exe" (
     set "MKVMERGE_EXE=%PROGRAMFILES%\MkvToolNix\mkvmerge.exe"
-    goto :EOF
+    if exist "%PROGRAMFILES%\MkvToolNix\mkvinfo.exe" (
+        set "MKVINFO_EXE=%PROGRAMFILES%\MkvToolNix\mkvinfo.exe"
+        if exist "%PROGRAMFILES%\MkvToolNix\mkvextract.exe" (
+            set "MKVEXTRACT_EXE=%PROGRAMFILES%\MkvToolNix\mkvextract.exe"
+            goto :EOF
+        )
+    )
 )
 if exist "%PROGRAMFILES(x86)%\MkvToolNix\mkvmerge.exe" (
     set "MKVMERGE_EXE=%PROGRAMFILES(x86)%\MkvToolNix\mkvmerge.exe"
-    goto :EOF
+    if exist "%PROGRAMFILES(x86)%\MkvToolNix\mkvinfo.exe" (
+        set "MKVINFO_EXE=%PROGRAMFILES(x86)%\MkvToolNix\mkvinfo.exe"
+        if exist "%PROGRAMFILES(x86)%\MkvToolNix\mkvextract.exe" (
+            set "MKVEXTRACT_EXE=%PROGRAMFILES(x86)%\MkvToolNix\mkvextract.exe"
+            goto :EOF
+        )
+    )
 )
 
 :: если не найден mkvmerge
@@ -480,6 +504,10 @@ goto :EOF
 
 
 :success
+::удаляем временные файлы
+if exist "%SCRIPT_DIR%\delete-temp-files.py" (
+    python "%SCRIPT_DIR%\delete-temp-files.py" "%VIDEO_DIR%" >nul 2>&1
+)
 echo Execution completed successfully. !count_generated_file! files generated.
 pause
 exit
@@ -880,7 +908,28 @@ set "search_dir=%SCRIPT_DIR%"
 set "file2_found=1"
 goto :EOF
 
+:run_python_generate_from_chapters
+if "!ext1!" neq ".mkv" goto :EOF
+set "chapters_file=%VIDEO_DIR%\temp_chapters.xml"
+::удаляем chapters от предыдущего видео если есть
+if exist "!chapters_file!" (
+    del "!chapters_file!"
+)
+::пробуем извлечь chapters из video
+"%MKVEXTRACT_EXE%" "!video_file!" chapters "!chapters_file!" >nul 2>&1
+::выходим если нет chapters или скрипта
+if not exist "!chapters_file!" goto :EOF
+if not exist "%SCRIPT_DIR%\merge-video-from-split-chapters.py" goto :EOF
 
+:: если создан фонтлист
+if !font_attach_list_created! equ 1 (
+    set "font_list_txt=%VIDEO_DIR%\temp_font_list.txt"
+    if not exist "font_list_txt" (
+        echo "!font_attach_list!" > "!font_list_txt!"
+    )
+)
+python "%SCRIPT_DIR%\merge-video-from-split-chapters.py" "%MKVINFO_EXE%" "%MKVMERGE_EXE%" "!output_file!" "%VIDEO_DIR%" "!video_file!" "!chapters_file!" "%audio_file%" "!subtitle_file!" "!font_dir!" "!font_list_txt!" >nul 2>&1
+goto :EOF
 
 :ffmpeg_replace_audio_replace_sub
 set "output_file=%SCRIPT_DIR%\!file1_name!_replaced_audio_replaced_sub.mkv"
@@ -889,9 +938,16 @@ if exist "!output_file!" (
     call :set_exit_flags_when_output_file_already_exist
     goto :EOF
 )
+call :run_python_generate_from_chapters
+if exist "!output_file!" (
+    set /a count_generated_file+=1
+    if !count_generated_file! geq %FILE_LIMIT% call :success
+    call :set_exit_flags_when_output_file_already_exist
+    goto :EOF
+)
 
 echo Replacing audio track of "!video_file!" with the audio track of "!audio_file!", adding or replacing the subtitle "!subtitle_file!" and saving result to "!output_file!"
-"%FFMPEG_EXE%" -i "!video_file!" -i "!audio_file!" -i "!subtitle_file!" %FFMPEG_PARAMS_AUDIO_SUB% "!output_file!"
+"%FFMPEG_EXE%" -i "!video_file!" -i "!audio_file!" -i "!subtitle_file!" %FFMPEG_PARAMS_AUDIO_SUB% "!output_file!" >nul 2>&1
 set /a count_generated_file+=1
 
 :: если количество сгенерированных файлов больше или равно лимиту вызываем завершающую ф-цию
@@ -912,10 +968,17 @@ if exist "!output_file!" (
     call :set_exit_flags_when_output_file_already_exist
     goto :EOF
 )
+call :run_python_generate_from_chapters
+if exist "!output_file!" (
+    set /a count_generated_file+=1
+    if !count_generated_file! geq %FILE_LIMIT% call :success
+    call :set_exit_flags_when_output_file_already_exist
+    goto :EOF
+)
 
 
 echo Replacing audio track of "!video_file!" with the audio track of "!audio_file!" and saving result to "!output_file!"
-"%FFMPEG_EXE%" -i "!video_file!" -i "!audio_file!" %FFMPEG_PARAMS_AUDIO_ONLY% "!output_file!"
+"%FFMPEG_EXE%" -i "!video_file!" -i "!audio_file!" %FFMPEG_PARAMS_AUDIO_ONLY% "!output_file!" >nul 2>&1
 set /a count_generated_file+=1
 
 :: если количество сгенерированных файлов больше или равно лимиту вызываем завершающую ф-цию
@@ -933,9 +996,16 @@ if exist "!output_file!" (
     call :set_exit_flags_when_output_file_already_exist
     goto :EOF
 )
+call :run_python_generate_from_chapters
+if exist "!output_file!" (
+    set /a count_generated_file+=1
+    if !count_generated_file! geq %FILE_LIMIT% call :success
+    call :set_exit_flags_when_output_file_already_exist
+    goto :EOF
+)
 
 echo Adding or replacing subtitle track "!subtitle_file!" to "!video_file!" and saving result to "!output_file!"
-"%FFMPEG_EXE%" -i "!video_file!" -i "!subtitle_file!" %FFMPEG_PARAMS_SUB_ONLY% "!output_file!"
+"%FFMPEG_EXE%" -i "!video_file!" -i "!subtitle_file!" %FFMPEG_PARAMS_SUB_ONLY% "!output_file!" >nul 2>&1
 set /a count_generated_file+=1
 
 :: если количество сгенерированных файлов больше или равно лимиту вызываем завершающую ф-цию
@@ -983,13 +1053,17 @@ if exist "!output_file!" (
     call :set_exit_flags_when_output_file_already_exist
     goto :EOF
 )
+call :run_python_generate_from_chapters
+if exist "!output_file!" (
+    set /a count_generated_file+=1
+    if !count_generated_file! geq %FILE_LIMIT% call :success
+    call :set_exit_flags_when_output_file_already_exist
+    goto :EOF
+)
 
 cd "%FONT_DIR%"
-if !font_attach_list_created! equ 0 (
-    call :create_font_attach_list
-)
 echo Replacing audio track of "!video_file!" with the audio track of "!audio_file!", adding or replacing subtitle "!subtitle_file!", attach the fonts and saving result to "!output_file!". Attach fonts: !font_attach_list!
-"%MKVMERGE_EXE%" -o "!output_file!" -a 0 -s 0 "!video_file!" -a 0 "!audio_file!" -s 0 "!subtitle_file!" !font_attach_list!
+"%MKVMERGE_EXE%" -o "!output_file!" -a 0 -s 0 "!video_file!" -a 0 "!audio_file!" -s 0 "!subtitle_file!" !font_attach_list! >nul 2>&1
 set /a count_generated_file+=1
 
 :: если количество сгенерированных файлов больше или равно лимиту вызываем завершающую ф-цию
@@ -1008,14 +1082,17 @@ if exist "!output_file!" (
     call :set_exit_flags_when_output_file_already_exist
     goto :EOF
 )
-
-cd "%FONT_DIR%"
-if !font_attach_list_created! equ 0 (
-    call :create_font_attach_list
+call :run_python_generate_from_chapters
+if exist "!output_file!" (
+    set /a count_generated_file+=1
+    if !count_generated_file! geq %FILE_LIMIT% call :success
+    call :set_exit_flags_when_output_file_already_exist
+    goto :EOF
 )
 
+cd "%FONT_DIR%"
 echo Adding or replacing subtitle track "!subtitle_file!" and attach the fonts to "!video_file!" and saving result to "!output_file!". Attach fonts: !font_attach_list!
-"%MKVMERGE_EXE%" -o "!output_file!" -s 0 "!video_file!" -s 0 "!subtitle_file!" !font_attach_list!
+"%MKVMERGE_EXE%" -o "!output_file!" -s 0 "!video_file!" -s 0 "!subtitle_file!" !font_attach_list! >nul 2>&1
 set /a count_generated_file+=1
 
 :: если количество сгенерированных файлов больше или равно лимиту вызываем завершающую ф-цию
