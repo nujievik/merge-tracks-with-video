@@ -1,5 +1,5 @@
 @echo off
-::windows-generate-video-with-these-files-v0.3.0
+::windows-generate-video-with-these-files-v0.3.1
 ::This program is part of the generate-video-with-these-files-script repository
 ::Licensed under GPL-3.0. See LICENSE file for details.
 ::Author: nujievik Email: nujievik@gmail.com
@@ -703,14 +703,14 @@ for %%f in (*.*) do (
                     echo "!file1_name!" | findstr /C:"!file2_name!" >nul
                     if !errorlevel! equ 0 (
 
-                        :: проверить что имя видео не содержит _replaced_
+                        :: проверить что имена видео и файла не содержат _replaced_
                         call :check_specific_replaced_name
                     )
 
                     echo "!file2_name!" | findstr /C:"!file1_name!" >nul
                     if !errorlevel! equ 0 (
 
-                        :: проверить что имя видео не содержит _replaced_
+                        :: проверить что имена видео и файла2 не содержат _replaced_
                         call :check_specific_replaced_name
                     )
                 )
@@ -725,13 +725,17 @@ cd "!current_dir!"
 goto :EOF
 
 :check_specific_replaced_name
-::проверять есть смысл только если видео в директории скрипта
+::проверять видео есть смысл только если видео в директории скрипта
 if !count_search_video_dir! equ 0 (
     :: выходим если имя видеофайла служебное
     echo "!file1_name!" | findstr /C:"_replaced_" >nul
     if !errorlevel! equ 0 (
         goto :EOF
     )
+)
+echo "!file2_name!" | findstr /C:"_replaced_" >nul
+if !errorlevel! equ 0 (
+    goto :EOF
 )
 set "search_file=!search_dir!\!file2_name!!ext2!"
 set "file2_found=1"

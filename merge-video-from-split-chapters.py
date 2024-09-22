@@ -1,5 +1,5 @@
 """
-merge-video-from-split-chapters-v0.1.0
+merge-video-from-split-chapters-v0.3.1
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -133,6 +133,14 @@ def parse_chapters_file(chapters_file, video_dir, video_file, check_exist_ext_fi
         if chapter_segment_uid_text is None:
             print("UID is missing")
             video_to_be_split = video_file
+            #переназначаем начало сплита и записываем конец сплита в переменную - сделано потому что mkvmerge переходит при сплите к следующему ключевому кадру от указанного времени
+            try:
+                previous_chapter_end
+            except NameError:
+                previous_chapter_end = chapter_time_end
+            else:
+                chapter_time_start = previous_chapter_end
+                previous_chapter_end = chapter_time_end
         else:
             print(f"UID: {chapter_segment_uid_text}")
             # Пробуем считать данные из txt
