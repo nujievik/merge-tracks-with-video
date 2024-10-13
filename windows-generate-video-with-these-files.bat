@@ -1,5 +1,5 @@
 @echo off
-::windows-generate-video-with-these-files-v0.3.1
+::windows-generate-video-with-these-files-v0.3.2
 ::This program is part of the generate-video-with-these-files-script repository
 ::Licensed under GPL-3.0. See LICENSE file for details.
 ::Author: nujievik Email: nujievik@gmail.com
@@ -504,6 +504,7 @@ goto :EOF
 
 
 :success
+pause
 ::удаляем временные файлы
 if exist "%SCRIPT_DIR%\delete-temp-files.py" (
     python "%SCRIPT_DIR%\delete-temp-files.py" "%VIDEO_DIR%" >nul 2>&1
@@ -932,7 +933,7 @@ if !font_attach_list_created! equ 1 (
         echo "!font_attach_list!" > "!font_list_txt!"
     )
 )
-python "%SCRIPT_DIR%\merge-video-from-split-chapters.py" "%MKVINFO_EXE%" "%MKVMERGE_EXE%" "!output_file!" "%VIDEO_DIR%" "!video_file!" "!chapters_file!" "%audio_file%" "!subtitle_file!" "!font_dir!" "!font_list_txt!" >nul 2>&1
+python "%SCRIPT_DIR%\merge-video-from-split-chapters.py" "%MKVINFO_EXE%" "%MKVMERGE_EXE%" "!output_file!" "%VIDEO_DIR%" "!video_file!" "!chapters_file!" "%audio_file%" "!subtitle_file!" "!font_dir!" "!font_list_txt!"
 goto :EOF
 
 :ffmpeg_replace_audio_replace_sub
