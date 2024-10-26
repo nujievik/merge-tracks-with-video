@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.1
+generate-video-with-these-files-v0.4.2
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -1173,6 +1173,9 @@ class FileDictionary:
                         search_method = subdir.rglob('*')
                         repeat_search = True
                         break
+                if repeat_search:
+                    break
+
         return found_dir_list
 
     @staticmethod
