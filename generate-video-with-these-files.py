@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.0
+generate-video-with-these-files-v0.4.1
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -14,24 +14,31 @@ import shlex
 from pathlib import Path
 from datetime import timedelta
 
-AUDIO_EXTENSIONS = {'.mka', '.m4a', '.aac', '.ac3', '.dts', '.dtshd', '.eac3', '.ec3', '.flac',
-                    '.mp2', '.mpa', '.mp3', '.opus', '.truehd', '.wav', '.3gp', '.flv', '.m2ts',
-                    '.mkv', '.mp4', '.mpeg', '.mpg', '.mov', '.ts', '.ogg', '.ogm', '.webm'}
+EXTENSIONS = {
+    'video': {'.mkv', '.m4v', '.mp4', '.avi', '.h264', '.hevc', '.ts', '.3gp',
+              '.flv', '.m2ts', '.mpeg', '.mpg', '.mov', '.ogm', '.webm'},
 
-VIDEO_EXTENSIONS = {'.mkv', '.m4v', '.mp4', '.avi', '.h264', '.hevc', '.ts', '.3gp', '.flv',
-                    '.m2ts', '.mpeg', '.mpg', '.mov', '.ogm', '.webm'}
+    'audio': {'.mka', '.m4a', '.aac', '.ac3', '.dts', '.dtshd', '.eac3', '.ec3', '.flac',
+                '.mp2', '.mpa', '.mp3', '.opus', '.truehd', '.wav', '.3gp', '.flv', '.m2ts',
+                '.mkv', '.mp4', '.mpeg', '.mpg', '.mov', '.ts', '.ogg', '.ogm', '.webm'},
 
-#контейнеры которые могут содержать как видео так и аудио
-CONTAINER_EXTENSIONS = {'.mkv', '.mp4', '.avi', '.3gp', '.flv', '.m2ts', '.mpeg', '.mpg', '.mov',
-                  '.ogg', '.ogm', '.ts', '.webm', '.wmv'}
+    'container': {'.mkv', '.mp4', '.avi', '.3gp', '.flv', '.m2ts', '.mpeg', '.mpg', '.mov',
+                    '.ogg', '.ogm', '.ts', '.webm', '.wmv'},
 
-SUBTITLES_EXTENSIONS = {'.ass', '.mks', '.ssa', '.sub', '.srt'}
+    'subtitles': {'.ass', '.mks', '.ssa', '.sub', '.srt'},
 
-FONT_EXTENSIONS = {'.ttf', '.otf'}
+    'font': {'.ttf', '.otf'}
+}
 
-SEARCH_STRING_SUB = {'Rus sub', 'Rus. sub', 'Russian sub', 'надписи' 'sign', 'Sub'}
+KEYS = {
+    'search_subdir': ['надписи', 'sign', 'russiansub', 'russub', "субтит", 'sub'],
 
-LIMIT_SEARCH_UPPER = 3
+    'skipdir_long': {"bonus", "бонус", "special", "bdmenu", "commentary", "creditless"},
+
+    'skipdir_short': {"nc", "nd", "op", "pv"},
+
+    'skip_file': {"_replaced_", "_merged_", "_added_", "_temp_"}
+}
 
 def execute_command(command):
     try:
@@ -55,10 +62,6 @@ def extract_chapters(video, chapters):
     command = [str(mkvextract), str(video), "chapters", str(chapters)]
     execute_command(command)
 
-def file_have_video_track(filepath):
-    command = [str(mkvmerge), "-i", str(filepath)]
-    return True if "video" in get_stdout(command) else False
-
 def clear_console():
     if os.name == 'nt':  # Windows
         os.system('cls')
@@ -72,15 +75,6 @@ def delete_temp_files(directory):
                 filepath.unlink()
     except Exception as e:
         print(f"Error: {e}")
-
-def remove_repeat_fonts(font_set):
-    stems = set()
-    cleaned_set = set()
-    for font in font_set:
-        if not font.stem in stems:
-            stems.add(font.stem)
-            cleaned_set.add(font)
-    return cleaned_set
 
 def timedelta_to_str(td):
     total_seconds = int(td.total_seconds())
@@ -128,40 +122,6 @@ def get_track_type_id(filepath, track_type):
                 id_list.append(int(match.group(1)))
     return id_list
 
-def path_contain_keyword(directory, filepath):
-    keywords = {"bonus", "бонус", "special", "bdmenu", "commentary", "creditless"}
-    tail_path_str = str(filepath).replace(str(directory), "")
-    tail_path = Path(tail_path_str)
-    search_str = str(tail_path.parent).lower().replace(" ", "")
-
-    if any(keyword in search_str for keyword in keywords):
-        return True
-
-    keywords = {"nc", "nd", "op", "pv"}
-    while tail_path != tail_path.parent:
-        tail_path = tail_path.parent
-        search_str = tail_path.name.lower().replace(" ", "")
-        if any(keyword == search_str for keyword in keywords):
-            return True
-    return False
-
-def find_files_with_extensions(directory, extensions, search_name="", recursive_search=False):
-    search_method = directory.rglob('*') if recursive_search else directory.glob('*')
-    found_files_list = []
-    for filepath in sorted(search_method):
-        if recursive_search and path_contain_keyword(directory, filepath):
-            continue
-
-        filename = filepath.stem
-        keywords = {"_replaced_", "_merged_", "_added_", "_temp_"}
-        #если найденный файл содержит служебное имя пропускаем
-        if any(keyword in filename for keyword in keywords):
-            continue
-
-        if (search_name in filename or filename in search_name) and filepath.is_file() and filepath.suffix in extensions:
-            found_files_list.append(filepath)
-    return found_files_list
-
 def get_file_info(filepath, search_query):
     mkvinfo_stdout = get_stdout([str(mkvinfo), str(filepath)])
     for line in mkvinfo_stdout.splitlines():
@@ -184,7 +144,7 @@ def get_file_info(filepath, search_query):
     return None
 
 def find_video_with_uid(search_dir, target_uid):
-    video_list = find_files_with_extensions(search_dir, ".mkv")
+    video_list = FileDictionary.find_files_with_extensions(search_dir, ".mkv")
     for video in video_list:
         video_uid = get_file_info(video, "Segment UID")
         if video_uid.lower() == target_uid.lower():
@@ -279,7 +239,7 @@ def create_message_dictionary():
     msg[5] = f"{msg[4]}\nAll next options will be use default values."
     msg[6] = f"\n\n{msg[1]}\n{msg[2]}\nSetAll - set next generating settings for all next files\n"
     msg[7] = "Next generating settings will be set for all next files."
-    msg[8] = f"Files for generating a new video not found. Checked the directory '{str(START_DIRECTORY)}', its subdirectories and {LIMIT_SEARCH_UPPER} directories up."
+    msg[8] = f"Files for generating a new video not found. Checked the directory '{str(START_DIRECTORY)}', its subdirectories and {FileDictionary.limit_search_dir_up} directories up."
 
 def user_requests():
     global pro_mode, limit_video_generating, save_dir, save_orig_audio
@@ -359,7 +319,7 @@ def user_requests2(video_list):
         print(lmsg, "all files.")
         gensettings_for_all_will_be_set = True
 
-def user_requests3(video, audio_list, subtitles_list, font_set):
+def user_requests3(fd, video, audio_list, subtitles_list, font_set):
     global pro_mode, gensettings_for_all_will_be_set, gensettings_for_all_setted, save_orig_audio, save_orig_sub, save_orig_font
     output_str = f"Processed files:\nVideo: \n{str(video)}"
     if audio_list:
@@ -384,12 +344,12 @@ def user_requests3(video, audio_list, subtitles_list, font_set):
         user_input = input(lmsg2)
     if "defaultall" in user_input.lower():
         print(msg[5])
-        save_orig_audio = not audio_dir_found or not audio_list
+        save_orig_audio = not fd.get_audio_dir_found() or not audio_list
         pro_mode = False
         return
     elif user_input == "":
         print(msg[4])
-        save_orig_audio = not audio_dir_found or not audio_list
+        save_orig_audio = not fd.get_audio_dir_found() or not audio_list
     elif user_input.lower() in ("yes", "y"):
         print("Original audio will be save.")
         save_orig_audio = True
@@ -398,7 +358,7 @@ def user_requests3(video, audio_list, subtitles_list, font_set):
         save_orig_audio = False
     else:
         print("Incorrect input!", msg[4])
-        save_orig_audio = not audio_dir_found or not audio_list
+        save_orig_audio = not fd.get_audio_dir_found() or not audio_list
 
     lmsg2 = "Do you want to save original subtitles? [y/n].\n> "
     print(f"\n{output_str}", lmsg)
@@ -412,12 +372,12 @@ def user_requests3(video, audio_list, subtitles_list, font_set):
         user_input = input(lmsg2)
     if "defaultall" in user_input.lower():
         print(msg[5])
-        save_orig_sub = not subtitles_dir_found or not subtitles_list
+        save_orig_sub = not fd.get_subtitles_dir_found() or not subtitles_list
         pro_mode = False
         return
     elif user_input == "":
         print(msg[4])
-        save_orig_sub = not subtitles_dir_found or not subtitles_list
+        save_orig_sub = not fd.get_subtitles_dir_found() or not subtitles_list
     elif user_input.lower() in ("yes", "y"):
         print("Original subtitles will be save.")
         save_orig_sub = True
@@ -426,7 +386,7 @@ def user_requests3(video, audio_list, subtitles_list, font_set):
         save_orig_sub = False
     else:
         print("Incorrect input!", msg[4])
-        save_orig_sub = not subtitles_dir_found or not subtitles_list
+        save_orig_sub = not fd.get_subtitles_dir_found() or not subtitles_list
 
     if save_orig_sub:
         save_orig_font = True
@@ -465,255 +425,12 @@ def user_requests3(video, audio_list, subtitles_list, font_set):
     if gensettings_for_all_will_be_set:
         gensettings_for_all_setted = True
 
-def find_subdirectorys_by_string(base_dir):
-    search_method = base_dir.glob('*')
-    found_dirs_list = []
-    repeat_search = True
-    while repeat_search:
-        repeat_search = False
-        for subdir in sorted(search_method):
-            if subdir.is_dir() and any(keyword.lower() in subdir.name.lower() for keyword in SEARCH_STRING_SUB):
-                found_dir = subdir
-                found_dirs_list.append(found_dir)
-                search_method = found_dir.rglob('*')
-                repeat_search = True
-    return found_dirs_list
-
 def merge_file_segments(segment_list, output):
     command = [str(mkvmerge), "-o", str(output)]
     command.append(segment_list[0])
     for segment in segment_list[1:]:
         command.append(f"+{str(segment)}")
     execute_command(command)
-
-def search_video_dir_upper(directory, extensions):
-    filepath_list = find_files_with_extensions(directory, extensions)
-    for filepath in filepath_list:
-        count = 0
-        search_dir = directory
-        while count <= LIMIT_SEARCH_UPPER:
-            video_list = find_files_with_extensions(search_dir, VIDEO_EXTENSIONS, filepath.stem)
-            for video in video_list:
-                #не выполняем если видео совпадает с файлом
-                if video == filepath:
-                    continue
-                #проверяем что в видео есть видеодорожка, если нужно
-                if video.suffix not in CONTAINER_EXTENSIONS or video.parent != directory or file_have_video_track(video):
-                    video_dir = video.parent
-                    return True, video_dir
-            search_dir = search_dir.parent
-            count += 1
-    return False, None
-
-def find_dir_with_filename_to_videoname(video_list, search_dir, search_extensions, recursive_search):
-    new_found_list = []
-    for video in video_list:
-        found_list = find_files_with_extensions(search_dir, search_extensions, video.stem, recursive_search)
-        for found in found_list:
-            #если найденный файл == видео пропускаем
-            if found == video:
-                continue
-            #проверяем что в видео есть видеодорожка, если нужно
-            if video.suffix not in CONTAINER_EXTENSIONS or video.parent != search_dir or file_have_video_track(video):
-                return found.parent
-    return None
-
-def search_subdir_when_adir_start_dir(audio_dir, video_dir):
-    recursive_search = False
-    video_list = find_files_with_extensions(video_dir, VIDEO_EXTENSIONS)
-    if video_dir == audio_dir:
-        subtitles_dir = find_dir_with_filename_to_videoname(video_list, audio_dir, SUBTITLES_EXTENSIONS, recursive_search)
-        if subtitles_dir:
-            return True, subtitles_dir
-        else:
-            return False, None
-
-    search_dir_list = [audio_dir, video_dir]
-    #поиск в стартовой директории и в видеодир без рекурсии
-    for search_dir in search_dir_list:
-        subtitles_dir = find_dir_with_filename_to_videoname(video_list, search_dir, SUBTITLES_EXTENSIONS, recursive_search)
-        if subtitles_dir:
-            return True, subtitles_dir
-
-    #поиск в сабдиректориях по запросу с рекурсией
-    search_dir_list = [video_dir] + find_subdirectorys_by_string(video_dir)
-    for search_dir in reversed(search_dir_list):
-        for recursive_search in [False, True]:
-            subtitles_dir = find_dir_with_filename_to_videoname(video_list, search_dir, SUBTITLES_EXTENSIONS, recursive_search=recursive_search)
-            if subtitles_dir:
-                return True, subtitles_dir
-
-    return False, None
-
-def get_trackname_from_tail(tail):
-    execute = True
-    while execute:
-        if re.match(r'^\..{3}\..*$', tail):
-            tail = tail[4:]
-        else:
-            execute = False
-
-    for ext in AUDIO_EXTENSIONS | VIDEO_EXTENSIONS | SUBTITLES_EXTENSIONS:
-        if tail.lower().startswith(ext):
-            tail = tail[len(ext):]
-        if tail.lower().endswith(ext):
-            tail = tail[:-len(ext)]
-
-    tail = tail.strip(' _.')
-    if tail.startswith('[') and tail.endswith(']') and tail.count('[') == 1:
-        tail = tail.strip('[]')
-    return tail
-
-def get_trackname_from_dirname(name):
-    if name.startswith('[') and name.endswith(']') and name.count('[') == 1:
-        name = name.strip(' _.[]')
-    else:
-        name = name.strip(' _.')
-    return name
-
-def get_trackname(tail, dir_name):
-    tail = get_trackname_from_tail(tail) if len(tail) > 2 else tail
-    if len(tail) > 2:
-        trackname = tail
-    else:
-        trackname = get_trackname_from_dirname(dir_name)
-    return trackname
-
-def clear_lists_create_dictionarys(video_list, audio_list, subtitles_list):
-    new_video_list = []
-    audio_dictionary = {}
-    audio_trackname_dictionary = {}
-    subtitles_dictionary = {}
-    sub_trackname_dictionary = {}
-
-    count = 0
-    for video in video_list:
-        skip_video = False
-        save_video = False
-        found_video_track = False
-        audio_dictionary[f"audio_list_{count}"] = []
-        audio_trackname_dictionary[f"audio_trackname_list_{count}"] = []
-        subtitles_dictionary[f"subtitles_list_{count}"] = []
-        sub_trackname_dictionary[f"subtitles_trackname_list_{count}"] = []
-
-        for audio in audio_list:
-            #если audio совпадает с video пропускаем audio или video
-            if video == audio:
-                if found_video_track or file_have_video_track(video):
-                    found_video_track = True
-                    continue
-                else:
-                    skip_video = True
-                    break
-
-            if video.stem in audio.stem:
-                audio_dictionary[f"audio_list_{count}"].append(audio)
-                tail = audio.stem[len(video.stem):]
-                dir_name = audio.parent.name
-                trackname = get_trackname(tail, dir_name)
-                audio_trackname_dictionary[f"audio_trackname_list_{count}"].append(trackname)
-                save_video = True
-
-        if skip_video:
-            continue
-
-        for subtitles in subtitles_list:
-            #если имена частично совпадают
-            if video.stem in subtitles.stem:
-                subtitles_dictionary[f"subtitles_list_{count}"].append(subtitles)
-                tail = subtitles.stem[len(video.stem):]
-                dir_name = subtitles.parent.name
-                trackname = get_trackname(tail, dir_name)
-                sub_trackname_dictionary[f"subtitles_trackname_list_{count}"].append(trackname)
-                save_video = True
-
-        if save_video:
-            new_video_list.append(video)
-            count += 1
-
-    return new_video_list, audio_dictionary, audio_trackname_dictionary, subtitles_dictionary, sub_trackname_dictionary
-
-def get_file_list_dictionarys():
-    global audio_dir_found, subtitles_dir_found
-    search_dir = START_DIRECTORY
-    audio_dir_found = False
-    subtitles_dir_found = False
-    font_dir_found = False
-
-    #пробуем найти видеодир в директориях выше
-    #через аудио
-    video_dir_found, video_dir = search_video_dir_upper(search_dir, AUDIO_EXTENSIONS)
-    if video_dir_found:
-        audio_dir = search_dir
-        audio_dir_found = True
-        subtitles_dir_found, subtitles_dir = search_subdir_when_adir_start_dir(audio_dir, video_dir)
-    #через сабы
-    if not video_dir_found:
-        video_dir_found, video_dir = search_video_dir_upper(search_dir, SUBTITLES_EXTENSIONS)
-        if video_dir_found:
-            subtitles_dir = search_dir
-            subtitles_dir_found = True
-
-    #если найден сабдир ищем фонтдир
-    if subtitles_dir_found:
-        font_list = find_files_with_extensions(subtitles_dir, FONT_EXTENSIONS, "", recursive_search=True)
-        if font_list:
-            font_dir = font_list[0].parent
-            font_dir_found = True
-        else: #пробуем поискать в директории выше
-            if subtitles_dir != video_dir:
-                font_list = find_files_with_extensions(subtitles_dir.parent, FONT_EXTENSIONS, "", recursive_search=True)
-        if not font_dir_found and font_list:
-            font_dir = font_list[0].parent
-            font_dir_found = True
-
-    #формируем списки файлов
-    audio_list = []
-    subtitles_list = []
-    font_set = set()
-
-    search_dir = video_dir if video_dir_found else START_DIRECTORY
-    video_list = find_files_with_extensions(search_dir, VIDEO_EXTENSIONS)
-    if not video_list:
-        print(msg[8])
-        sys.exit(0)
-
-    if audio_dir_found or subtitles_dir_found:
-        recursive_search = False
-        if audio_dir_found:
-            search_dir = audio_dir
-            audio_list = find_files_with_extensions(search_dir, AUDIO_EXTENSIONS, "", recursive_search)
-        if subtitles_dir_found:
-            search_dir = subtitles_dir
-            subtitles_list = find_files_with_extensions(search_dir, SUBTITLES_EXTENSIONS, "", recursive_search)
-        if font_dir_found:
-            search_dir = font_dir
-            font_set = set(find_files_with_extensions(search_dir, FONT_EXTENSIONS, "", recursive_search))
-
-    else:
-        search_dir = START_DIRECTORY
-        recursive_search = True
-
-        audio_list = find_files_with_extensions(search_dir, AUDIO_EXTENSIONS, "", recursive_search)
-        subtitles_list = find_files_with_extensions(search_dir, SUBTITLES_EXTENSIONS, "", recursive_search)
-        font_set = set(find_files_with_extensions(search_dir, FONT_EXTENSIONS, "", recursive_search))
-        if font_set:
-            font_set = remove_repeat_fonts(font_set)
-
-    video_list, audio_dictionary, audio_trackname_dictionary, subtitles_dictionary, sub_trackname_dictionary = clear_lists_create_dictionarys(video_list, audio_list, subtitles_list)
-    if not video_list: #пробуем найти mkv мб линкованное
-        video_list = find_files_with_extensions(search_dir, ".mkv")
-        if not video_list:
-            print(msg[8])
-            sys.exit(0)
-        else:
-            video_list = [video for video in video_list if file_have_video_track(video)]
-            audio_dictionary = audio_trackname_dictionary = subtitles_dictionary = sub_trackname_dictionary = font_set = {}
-            if not video_list:
-                print(msg[8])
-                sys.exit(0)
-
-    return video_list, audio_dictionary, audio_trackname_dictionary, subtitles_dictionary, sub_trackname_dictionary, font_set
 
 def get_chapters_info(video, chapters_file):
     try:
@@ -843,7 +560,7 @@ def get_segment_info(mkvmerge_stdout, partname, split_start, split_end):
 
     return segment, defacto_start, defacto_end, offset_start, offset_end
 
-def split_file(input_file, partname, start, end, file_type="video"):
+def split_file(input_file, partname, start, end, file_type="video", track_id=""):
     command = [str(mkvmerge), "-o", str(partname), "--split", f"timecodes:{start},{end}", "--no-global-tags", "--no-chapters", "--no-subtitles"]
     if "video" in file_type:
         command.append("--no-audio")
@@ -851,6 +568,8 @@ def split_file(input_file, partname, start, end, file_type="video"):
             command.append("--no-attachments")
     else:
         command.extend(["--no-video", "--no-attachments"])
+        if track_id:
+            command.extend(["-a", f"{track_id}"])
     command.append(str(input_file))
 
     # Выполняем команду и ищем переназначения
@@ -923,10 +642,10 @@ def get_all_segments_linked_video(video, uid_list, start_list, end_list):
         count += 1
     return source_list, segment_list, offset_start_list, offset_end_list, lengths_list
 
-def get_retimed_segments_orig_audio(video, source_list, lengths_list):
+def get_retimed_segments_orig_audio(video, source_list, lengths_list, track_id):
     a_segment_list = []
     prev_lengths = timedelta(0)
-    uid_lenghs = timedelta(0)
+    uid_lengths = timedelta(0)
     a_lengths = timedelta(0)
     count = 0
     for source in source_list:
@@ -935,19 +654,19 @@ def get_retimed_segments_orig_audio(video, source_list, lengths_list):
         offset_lengths = a_lengths - prev_lengths
 
         if source == video:
-            start = prev_lengths - uid_lenghs - offset_lengths if count > 0 else timedelta(0)
-            end = start + length
+            start = prev_lengths - uid_lengths + offset_lengths if prev_lengths - uid_lengths + offset_lengths > timedelta(0) else timedelta(0)
+            end = lengths - uid_lengths
         else:
-            start = timedelta(0)
-            end = start + length
-            uid_lenghs = uid_lenghs + length
+            start = offset_lengths if offset_lengths > timedelta(0) else timedelta(0)
+            end = start + length - offset_lengths if start != timedelta(0) else length
+            uid_lengths = uid_lengths + length
 
         partname = Path(save_dir) / f"_temp_{count}.mka"
-        a_segment, a_length, offset_start, offset_end = split_file(source, partname, start, end, "audio")
+        a_segment, a_length, offset_start, offset_end = split_file(source, partname, start, end, "audio", track_id)
         if offset_start > timedelta(milliseconds=200) or offset_end > timedelta(milliseconds=200):
             new_start = start - offset_start if start - offset_start > timedelta(0) else start
             new_end = end - offset_end
-            a_segment, a_length, offset_start, offset_end = split_file(source, partname, new_start, new_end, "audio")
+            a_segment, a_length, offset_start, offset_end = split_file(source, partname, new_start, new_end, "audio", track_id)
         a_lengths = a_lengths + a_length
         a_segment_list.append(a_segment)
         prev_lengths = lengths
@@ -1010,25 +729,12 @@ def get_retimed_audio_list(audio_list, video, source_list, lengths_list, offset_
     count_insert = 0
     retimed_audio_list = []
     if save_orig_audio:
-        orig_audio = Path(save_dir) / f"_temp_audio_{count}.mka"
-        segment_list = get_retimed_segments_orig_audio(video, source_list, lengths_list)
-        merge_file_segments(segment_list, orig_audio)
-        #проверяем сколько аудио дорожек внутри
-        audio_id_list = get_track_type_id(orig_audio, "audio")
-        amount_tracks = len(audio_id_list)
-        if amount_tracks > 1:
-            new_path =  Path(save_dir) / f"_temp_audio_{count+amount_tracks+1}.mka"
-            if new_path.exists():
-                new_path.unlink()
-            orig_audio.rename(new_path)
-
-            for audio_id in audio_id_list:
-                retimed_audio = Path(save_dir) / f"_temp_audio_{count}.mka"
-                extract_track(new_path, retimed_audio, audio_id)
-                retimed_audio_list.append(retimed_audio)
-                count += 1
-                count_insert += 1
-        else:
+        #count audio track in video
+        audio_track_id_list = get_track_type_id(video, "audio")
+        for track_id in audio_track_id_list:
+            segment_list = get_retimed_segments_orig_audio(video, source_list, lengths_list, track_id)
+            orig_audio = Path(save_dir) / f"_temp_audio_{count}.mka"
+            merge_file_segments(segment_list, orig_audio)
             retimed_audio_list.append(orig_audio)
             count += 1
             count_insert += 1
@@ -1064,7 +770,7 @@ def retime_original_sub(segment_orig_sub_list, video, source_list, lengths_list,
         count = 0
         prev_lengths = timedelta(0)
         prev_offset_end = timedelta(0)
-        lengths_ext_files = timedelta(0)
+        uid_lengths = timedelta(0)
         prev_nonuid_offset_end = timedelta(0)
         for lengths in lengths_list:
             length = lengths - prev_lengths
@@ -1072,8 +778,8 @@ def retime_original_sub(segment_orig_sub_list, video, source_list, lengths_list,
             offset_end = offset_end_list[count]
 
             if source_list[count] == video:
-                start = prev_lengths - lengths_ext_files
-                retime_offset = (offset_start - prev_nonuid_offset_end) + lengths_ext_files
+                start = prev_lengths - uid_lengths if prev_lengths - uid_lengths > timedelta(0) else timedelta(0)
+                retime_offset = (offset_start - prev_nonuid_offset_end) + uid_lengths
                 remove_border_start = start
             else:
                 start = offset_start - prev_offset_end if offset_start - prev_offset_end > timedelta(0) else timedelta(0)
@@ -1107,7 +813,7 @@ def retime_original_sub(segment_orig_sub_list, video, source_list, lengths_list,
             if source_list[count] == video:
                 prev_nonuid_offset_end = offset_end
             else:
-                lengths_ext_files = lengths_ext_files + length
+                uid_lengths = uid_lengths + length
             count += 1
     return retimed_sub
 
@@ -1174,12 +880,12 @@ def get_retimed_sub_list(ext_subtitles_list, video, source_list, lengths_list, o
     retimed_sub_list = []
     segment_orig_sub_list = []
     #проверяем сколько дорожек субтитров в исходном видео
-    subtitles_id_list = get_track_type_id(video, "subtitles")
-    for subtitles_id in subtitles_id_list:
+    sub_track_id_list = get_track_type_id(video, "subtitles")
+    for track_id in sub_track_id_list:
         count_temp = 0
         for source in source_list:
             split_original_sub = Path(save_dir) / f"_temp_subtitles_{count + count_temp}.ass"
-            extract_track(source, split_original_sub, subtitles_id)
+            extract_track(source, split_original_sub, track_id)
             segment_orig_sub_list.append(split_original_sub)
             count_temp += 1
         #объединяем и ретаймим
@@ -1230,7 +936,7 @@ def processing_linked_video(video, audio_list, subtitles_list, font_set):
 
     return output, segment_video_list, retimed_audio_list, retimed_sub_list, count_insert_audio, count_insert_sub
 
-def merge_all_files(output, video_list, audio_list, audio_trackname_list, subtitles_list, subtitles_trackname_list, font_set, save_chapters=True):
+def merge_all_files(output, video_list, audio_list, audio_trackname_list, subtitles_list, subtitles_trackname_list, font_set, save_chapters=True, coding_cp1251=False, opt_sub={}):
     command = [str(mkvmerge), "-o", str(output)]
     if not save_chapters:
         command.append("--no-chapters")
@@ -1261,6 +967,10 @@ def merge_all_files(output, video_list, audio_list, audio_trackname_list, subtit
     #сабы
     count = 0
     for sub in subtitles_list:
+        opt_id = opt_sub.get(str(sub), None)
+        if opt_id:
+            command.extend(["--sub-charset", f"{opt_id}:windows-1251"])
+
         track_name = subtitles_trackname_list[count]
         if track_name and not (sub.suffix in (".mks", ".mkv") and get_file_info(sub, "Name:")):
             track_id_list = get_track_type_id(sub, "subtitles")
@@ -1284,15 +994,32 @@ def merge_all_files(output, video_list, audio_list, audio_trackname_list, subtit
 
     except subprocess.CalledProcessError as e:
         command_out = e.output.decode()
+        if pro_mode:
+            print(command_out)
         cleaned_out = ''.join(command_out.split()).lower()
         last_line_out = command_out.splitlines()[-1]
         cleaned_lline_out = ''.join(last_line_out.split()).lower()
-        if pro_mode:
-            print(command_out)
+
+        if not coding_cp1251 and "textsubtitletrackcontainsinvalid8-bitcharacters" in cleaned_out:
+            print("Invalid 8-bit characters in subtitles file!\nTrying to generate with windows-1251 coding.")
+            opt_sub = {}
+            for line in command_out.splitlines():
+                if line.startswith("Warning") and "invalid 8-bit characters" in line:
+                    file_name_match = re.search(r"'(/[^']+)'", line)
+                    file_name = file_name_match.group(1) if file_name_match else None
+                    file_path = Path(file_name)
+
+                    track_id_match = re.search(r"track (\d+)", line)
+                    track_id = track_id_match.group(1) if track_id_match else None
+                    if file_name:
+                        opt_sub[f'{str(file_path)}'] = None
+                        if track_id:
+                            opt_sub[f'{str(file_path)}'] = track_id
+            merge_all_files(output, video_list, audio_list, audio_trackname_list, subtitles_list, subtitles_trackname_list, font_set, save_chapters, coding_cp1251=True, opt_sub=opt_sub)
 
         if not cleaned_lline_out.startswith("error"):
             print(lmsg)
-        
+
             if "thecodec'sprivatedatadoesnotmatch" in cleaned_out:
                 print(f"Attention! The video file maybe corrupted because video parts have mismatched codec parameters. Please check the video file.")
 
@@ -1313,8 +1040,9 @@ def merge_all_files(output, video_list, audio_list, audio_trackname_list, subtit
                 print(f"Error executing the command!\n{last_line_out}\nExiting the script.")
                 sys.exit(1)
 
-def set_flags_call_merge(video_list, audio_dictionary, audio_trackname_dictionary, subtitles_dictionary, sub_trackname_dictionary, font_set):
+def set_flags_call_merge(fd):
     global limit_video_generating, save_orig_audio, save_orig_sub, save_orig_font
+    video_list, audio_dictionary, audio_trackname_dictionary, subtitles_dictionary, sub_trackname_dictionary, font_set = fd.get_file_list_dictionaries()
     if pro_mode:
         user_requests2(video_list)
     initial_font_set = font_set
@@ -1325,20 +1053,20 @@ def set_flags_call_merge(video_list, audio_dictionary, audio_trackname_dictionar
         video_to_merge_list = [video]
         font_list = initial_font_set
 
-        audio_list = audio_dictionary.get(f"audio_list_{count}", [])
-        audio_trackname_list = audio_trackname_dictionary.get(f"audio_trackname_list_{count}", [])
+        audio_list = audio_dictionary.get(count, [])
+        audio_trackname_list = audio_trackname_dictionary.get(count, [])
         if not pro_mode:
-            save_orig_audio = not audio_dir_found or not audio_list
+            save_orig_audio = not fd.get_audio_dir_found() or not audio_list
 
-        subtitles_list = subtitles_dictionary.get(f"subtitles_list_{count}", [])
-        subtitles_trackname_list = sub_trackname_dictionary.get(f"subtitles_trackname_list_{count}", [])
+        subtitles_list = subtitles_dictionary.get(count, [])
+        subtitles_trackname_list = sub_trackname_dictionary.get(count, [])
         if not pro_mode:
             save_orig_font = True #вшитые фонты могут юзать как вшитые сабы так и внешние
-            save_orig_sub = not subtitles_dir_found or not subtitles_list
+            save_orig_sub = not fd.get_subtitles_dir_found() or not subtitles_list
             font_set = font_set if subtitles_list else set()
 
         if pro_mode and not gensettings_for_all_setted:
-            user_requests3(video, audio_list, subtitles_list, font_set)
+            user_requests3(fd, video, audio_list, subtitles_list, font_set)
 
         if video.suffix == '.mkv':
             result = processing_linked_video(video, audio_list, subtitles_list, font_set)
@@ -1376,20 +1104,367 @@ def set_flags_call_merge(video_list, audio_dictionary, audio_trackname_dictionar
             break
     return gen_before_count, generated_count
 
+class FileDictionary:
+    def __init__(self, start_directory):
+        self.__start_directory = start_directory
+        self.__video_dir_found = False
+        self.__audio_dir_found = False
+        self.__subtitles_dir_found = False
+        self.__font_dir_found = False
+        self.__video_list = []
+        self.__audio_dictionary = {}
+        self.__audio_trackname_dictionary = {}
+        self.__subtitles_dictionary = {}
+        self.__sub_trackname_dictionary = {}
+        self.__font_set = set()
+
+    limit_search_dir_up = 3
+
+    @staticmethod
+    def clean_tail(tail):
+        execute = True
+        while execute:
+            if re.match(r'^\..{3}\..*$', tail):
+                tail = tail[4:]
+            else:
+                execute = False
+
+        for ext in EXTENSIONS['video'] | EXTENSIONS['audio'] | EXTENSIONS['subtitles']:
+            if tail.lower().startswith(ext):
+                tail = tail[len(ext):]
+            if tail.lower().endswith(ext):
+                tail = tail[:-len(ext)]
+
+        tail = tail.strip(' _.')
+        if tail.startswith('[') and tail.endswith(']') and tail.count('[') == 1:
+            tail = tail.strip('[]')
+        return tail
+
+    @staticmethod
+    def clean_dirname(dir_name):
+        if dir_name.startswith('[') and dir_name.endswith(']') and dir_name.count('[') == 1:
+            cleaned_dir_name = dir_name.strip(' _.[]')
+        else:
+            cleaned_dir_name = dir_name.strip(' _.')
+        return cleaned_dir_name
+
+    @staticmethod
+    def remove_repeat_fonts(font_set):
+        stems = set()
+        cleaned_set = set()
+        for font in font_set:
+            if not font.stem in stems:
+                stems.add(font.stem)
+                cleaned_set.add(font)
+        return cleaned_set
+
+    @staticmethod
+    def find_subdirectories_by_string(base_dir):
+        search_method = base_dir.glob('*')
+        found_dir_list = []
+        repeat_search = True
+        while repeat_search:
+            repeat_search = False
+            for subdir in sorted(search_method, reverse=True):
+                cln_subdir_name = re.sub(r"[ .]", "", subdir.name).lower()
+                for key in KEYS['search_subdir']:
+                    if key in cln_subdir_name and subdir.is_dir():
+                        found_dir_list.append(subdir)
+                        search_method = subdir.rglob('*')
+                        repeat_search = True
+                        break
+        return found_dir_list
+
+    @staticmethod
+    def file_have_video_track(filepath):
+        command = [str(mkvmerge), "-i", str(filepath)]
+        return True if "video" in get_stdout(command) else False
+
+    @staticmethod
+    def path_contains_keyword(base_dir, filepath):
+        tail_path_str = str(filepath).replace(str(base_dir), "")
+        tail_path = Path(tail_path_str)
+        search_str = str(tail_path.parent).lower().replace(" ", "")
+
+        if any(key in search_str for key in KEYS['skipdir_long']):
+            return True
+
+        while tail_path != tail_path.parent:
+            tail_path = tail_path.parent
+            search_str = tail_path.name.lower().replace(" ", "")
+            if any(key == search_str for key in KEYS['skipdir_short']):
+                return True
+        return False
+
+    @classmethod
+    def find_files_with_extensions(cls, search_dir, extensions, search_name="", recursive_search=False):
+        search_method = search_dir.rglob('*') if recursive_search else search_dir.glob('*')
+        found_files_list = []
+        for filepath in sorted(search_method):
+            if recursive_search and cls.path_contains_keyword(search_dir, filepath):
+                continue
+
+            filename = filepath.stem
+            #если найденный файл содержит служебное имя пропускаем
+            if any(key in filename for key in KEYS['skip_file']):
+                continue
+
+            if (search_name in filename or filename in search_name) and filepath.is_file() and filepath.suffix in extensions:
+                found_files_list.append(filepath)
+        return found_files_list
+
+    @classmethod
+    def search_video_dir_upper(cls, directory, extensions):
+        filepath_list = cls.find_files_with_extensions(directory, extensions)
+        for filepath in filepath_list:
+            count = 0
+            search_dir = directory
+            while count <= cls.limit_search_dir_up:
+                video_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['video'], filepath.stem)
+                for video in video_list:
+                    #не выполняем если видео совпадает с файлом
+                    if video == filepath:
+                        continue
+                    #проверяем что в видео есть видеодорожка, если нужно
+                    if video.suffix not in EXTENSIONS['container'] or video.parent != directory or cls.file_have_video_track(video):
+                        return video.parent
+
+                search_dir = search_dir.parent
+                count += 1
+        return None
+
+    @classmethod
+    def find_dir_with_filename_to_videoname(cls, video_list, search_dir, search_extensions, recursive_search):
+        new_found_list = []
+        for video in video_list:
+            found_list = cls.find_files_with_extensions(search_dir, search_extensions, video.stem, recursive_search)
+            for found in found_list:
+                #если найденный файл == видео пропускаем
+                if found == video:
+                    continue
+                #проверяем что в видео есть видеодорожка, если нужно
+                if video.suffix not in EXTENSIONS['container'] or video.parent != search_dir or cls.file_have_video_track(video):
+                    return found.parent
+        return None
+
+    @classmethod
+    def search_subdir_when_adir_start_dir(cls, audio_dir, video_dir):
+        recursive_search = False
+        video_list = cls.find_files_with_extensions(video_dir, EXTENSIONS['video'])
+        if video_dir == audio_dir:
+            subtitles_dir = cls.find_dir_with_filename_to_videoname(video_list, audio_dir, EXTENSIONS['subtitles'], recursive_search)
+            if subtitles_dir:
+                return subtitles_dir
+            else:
+                return None
+
+        search_dir_list = [audio_dir, video_dir]
+        #поиск в стартовой директории и в видеодир без рекурсии
+        for search_dir in search_dir_list:
+            subtitles_dir = cls.find_dir_with_filename_to_videoname(video_list, search_dir, EXTENSIONS['subtitles'], recursive_search)
+            if subtitles_dir:
+                return subtitles_dir
+
+        #поиск в сабдиректориях по запросу с рекурсией
+        search_dir_list = [video_dir] + cls.find_subdirectories_by_string(video_dir)
+        for search_dir in reversed(search_dir_list):
+            for recursive_search in [False, True]:
+                subtitles_dir = cls.find_dir_with_filename_to_videoname(video_list, search_dir, EXTENSIONS['subtitles'], recursive_search=recursive_search)
+                if subtitles_dir:
+                    return subtitles_dir
+        return None
+
+    @classmethod
+    def find_font_directory(cls, subtitles_dir, video_dir):
+        font_list = cls.find_files_with_extensions(subtitles_dir, EXTENSIONS['font'], "", recursive_search=True)
+        if font_list:
+            return font_list[0].parent
+        else:
+            if subtitles_dir != video_dir:
+                font_list = cls.find_files_with_extensions(subtitles_dir.parent, EXTENSIONS['font'], "", recursive_search=True)
+            if font_list:
+                return font_list[0].parent
+        return None
+
+    @classmethod
+    def collect_files_from_found_directories(cls, audio_dir, subtitles_dir, font_dir):
+        audio_list = []
+        subtitles_list = []
+        font_set = set()
+
+        recursive_search=False
+        if audio_dir:
+            audio_list = cls.find_files_with_extensions(audio_dir, EXTENSIONS['audio'], "", recursive_search)
+        if subtitles_dir:
+            subtitles_list = cls.find_files_with_extensions(subtitles_dir, EXTENSIONS['subtitles'], "", recursive_search)
+        if font_dir:
+            font_set = set(cls.find_files_with_extensions(font_dir, EXTENSIONS['font'], "", recursive_search))
+        return audio_list, subtitles_list, font_set
+
+    @classmethod
+    def collect_files_from_start_directory(cls, search_dir):
+        recursive_search = True
+        audio_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['audio'], "", recursive_search)
+        subtitles_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['subtitles'], "", recursive_search)
+        font_set = set(cls.find_files_with_extensions(search_dir, EXTENSIONS['font'], "", recursive_search))
+        return audio_list, subtitles_list, font_set
+
+    @classmethod
+    def get_trackname(cls, tail, dir_name):
+        tail = cls.clean_tail(tail) if len(tail) > 2 else tail
+        if len(tail) > 2:
+            trackname = tail
+        else:
+            trackname = cls.clean_dirname(dir_name)
+        return trackname
+
+    @classmethod
+    def create_dictionaries(cls, video_list, audio_list, subtitles_list):
+        new_video_list = []
+        audio_dictionary = {}
+        audio_trackname_dictionary = {}
+        subtitles_dictionary = {}
+        sub_trackname_dictionary = {}
+
+        count = 0
+        for video in video_list:
+            skip_video = False
+            save_video = False
+            found_video_track = False
+            audio_dictionary[count] = []
+            audio_trackname_dictionary[count] = []
+            subtitles_dictionary[count] = []
+            sub_trackname_dictionary[count] = []
+
+            for audio in audio_list:
+                #если audio совпадает с video пропускаем audio или video
+                if video == audio:
+                    if found_video_track or cls.file_have_video_track(video):
+                        found_video_track = True
+                        continue
+                    else:
+                        skip_video = True
+                        break
+
+                if video.stem in audio.stem:
+                    audio_dictionary[count].append(audio)
+                    tail = audio.stem[len(video.stem):]
+                    dir_name = audio.parent.name
+                    trackname = cls.get_trackname(tail, dir_name)
+                    audio_trackname_dictionary[count].append(trackname)
+                    save_video = True
+
+            if skip_video:
+                continue
+
+            for subtitles in subtitles_list:
+                #если имена частично совпадают
+                if video.stem in subtitles.stem:
+                    subtitles_dictionary[count].append(subtitles)
+                    tail = subtitles.stem[len(video.stem):]
+                    dir_name = subtitles.parent.name
+                    trackname = cls.get_trackname(tail, dir_name)
+                    sub_trackname_dictionary[count].append(trackname)
+                    save_video = True
+
+            if save_video:
+                new_video_list.append(video)
+                count += 1
+
+        #delete last element if empty
+        if not audio_dictionary.get(count):
+            audio_dictionary.pop(count, None)
+            audio_trackname_dictionary.pop(count, None)
+        if not subtitles_dictionary.get(count):
+            subtitles_dictionary.pop(count, None)
+            sub_trackname_dictionary.pop(count, None)
+
+        return new_video_list, audio_dictionary, audio_trackname_dictionary, subtitles_dictionary, sub_trackname_dictionary
+
+    def find_directories(self):
+        video_dir = None
+        audio_dir = None
+        subtitles_dir = None
+        font_dir = None
+        search_dir = self.__start_directory
+
+        # Поиск видеодиректории через аудио
+        video_dir = FileDictionary.search_video_dir_upper(search_dir, EXTENSIONS['audio'])
+        if video_dir:
+            self.__video_dir_found = True
+            self.__audio_dir_found = True
+            audio_dir = search_dir
+            subtitles_dir = FileDictionary.search_subdir_when_adir_start_dir(audio_dir, video_dir)
+            if subtitles_dir:
+                self.__subtitles_dir_found = True
+
+        else: # Поиск видеодиректории через сабы
+            video_dir = FileDictionary.search_video_dir_upper(search_dir, EXTENSIONS['subtitles'])
+            if video_dir:
+                self.__video_dir_found = True
+                self.__subtitles_dir_found = True
+                subtitles_dir = search_dir
+
+        # Если найден сабдир, ищем фонтдир
+        if self.__subtitles_dir_found:
+            font_dir = FileDictionary.find_font_directory(subtitles_dir, video_dir)
+            if font_dir:
+                self.__font_dir_found = True
+
+        return video_dir, audio_dir, subtitles_dir, font_dir
+
+    def get_file_list_dictionaries(self):
+        video_dir, audio_dir, subtitles_dir, font_dir = self.find_directories()
+
+        search_dir = video_dir if video_dir else self.__start_directory
+        video_list = FileDictionary.find_files_with_extensions(search_dir, EXTENSIONS['video'])
+        if not video_list:
+            print(msg[8])
+            sys.exit(0)
+
+        if self.__audio_dir_found or self.__subtitles_dir_found:
+            audio_list, subtitles_list, self.__font_set = FileDictionary.collect_files_from_found_directories(audio_dir, subtitles_dir, font_dir)
+        else:
+            audio_list, subtitles_list, self.__font_set = FileDictionary.collect_files_from_start_directory(self.__start_directory)
+            if self.__font_set:
+                self.__font_set = FileDictionary.remove_repeat_fonts(self.__font_set)
+
+        self.__video_list, self.__audio_dictionary, self.__audio_trackname_dictionary, self.__subtitles_dictionary, self.__sub_trackname_dictionary = FileDictionary.create_dictionaries(video_list, audio_list, subtitles_list)
+
+        if not self.__video_list: #пробуем найти mkv для линковки
+            self.__audio_dictionary = self.__audio_trackname_dictionary = self.__subtitles_dictionary = self.__sub_trackname_dictionary = self.__font_set = {}
+            self.__video_list = FileDictionary.find_files_with_extensions(self.__start_directory, ".mkv")
+            if not self.__video_list:
+                print(msg[8])
+                sys.exit(0)
+
+        return self.__video_list, self.__audio_dictionary, self.__audio_trackname_dictionary, self.__subtitles_dictionary, self.__sub_trackname_dictionary, self.__font_set
+
+    def get_audio_dir_found(self):
+        return self.__audio_dir_found
+
+    def get_subtitles_dir_found(self):
+        return self.__subtitles_dir_found
+
+    def get_font_dir_found(self):
+        return self.__font_dir_found
+
 def main():
     global START_DIRECTORY, save_dir, pro_mode, limit_video_generating, save_orig_audio, save_orig_sub, save_orig_font, gensettings_for_all_setted
+    count_args = len(sys.argv)
+
     lmsg = "Usage: python generate-video-with-these-files.py <mode> <start-dir> <save-dir>"
-    if len(sys.argv) > 4:
-        print(f"Incorrect argument length! {lmsg}")
+    if count_args > 4:
+        print(f"Incorrect count args! {lmsg}")
         sys.exit(1)
 
-    if len(sys.argv) > 1 and 'default' in sys.argv[1].lower():
+    if count_args > 1 and 'default' in sys.argv[1].lower():
         pro_mode = False
     else:
         pro_mode = True
 
     lmsg2 = f"Incorrect start directory arg! {lmsg}"
-    if len(sys.argv) > 2:
+    if count_args > 2:
         try:
             START_DIRECTORY = Path(sys.argv[2])
             if not START_DIRECTORY.exists():
@@ -1402,7 +1477,7 @@ def main():
         START_DIRECTORY = Path(__file__).resolve().parent
 
     lmsg2 = f"Incorrect save directory arg! {lmsg}"
-    if len(sys.argv) > 3:
+    if count_args > 3:
         try:
             save_dir = Path(sys.argv[3])
             if not save_dir.exists():
@@ -1428,8 +1503,8 @@ def main():
         user_requests()
 
     print(f"Trying to generate a new video in the save directory '{str(save_dir)}' using files from the start directory '{str(START_DIRECTORY)}'.")
-    args = get_file_list_dictionarys()
-    gen_before_count, generated_count = set_flags_call_merge(*args)
+    fd = FileDictionary(START_DIRECTORY)
+    gen_before_count, generated_count = set_flags_call_merge(fd)
     delete_temp_files(save_dir)
 
     if generated_count:
