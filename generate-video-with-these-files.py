@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.3
+generate-video-with-these-files-v0.4.4
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -62,7 +62,30 @@ def delete_temp_files(directory):
     except Exception as e:
         print(f"Error: {e}")
 
-class TimeUtils:
+class Converter:
+    @staticmethod
+    def str_to_path(str_in, check_exists=False):
+        try:
+            path_out = Path(str_in)
+            if check_exists and not path_out.exists():
+                print("Error. Path not exists!")
+                return None
+        except Exception:
+            return None
+
+        return path_out
+
+    @staticmethod
+    def str_to_number(str_in, int_num=True, positive=True):
+        try:
+            number = int(str_in) if int_num else float(str_in)
+            if positive and number <= 0:
+                return None
+        except Exception:
+            return None
+
+        return number
+
     @staticmethod
     def timedelta_to_str(td):
         total_seconds = int(td.total_seconds())
@@ -137,7 +160,7 @@ class FileInfo:
                     match = re.search(r"Duration:\s*(.*)", line)  # Находим всю часть после 'Duration:'
                     if match:
                         file_duration = match.group(1).strip()  # Убираем пробелы
-                        file_duration_timedelta = TimeUtils.str_to_timedelta(file_duration)
+                        file_duration_timedelta = Converter.str_to_timedelta(file_duration)
                         return file_duration_timedelta
 
                 if "Name:" in search_query:
@@ -211,29 +234,52 @@ class Messages():
 class Flags():
     def __init__(self):
         self.__flags = {
+            "count_sys_argv": 0,
             "start_dir": None,
             "save_dir": None,
             "pro_mode": False,
             "limit_search_dir_up": 3,
             "limit_generate": 99999,
-            "generated_count": 0,
-            "gen_before_count": 0,
+            "count_generated": 0,
+            "count_gen_before": 0,
             "video_dir_found": False,
             "audio_dir_found": False,
             "subtitles_dir_found": False,
             "font_dir_found": False,
+            "save_global_tags": True,
+            "save_chapters": True,
             "save_audio": True,
-            "save_orig_audio": True,
-            "save_orig_sub": True,
-            "save_orig_font": True,
+            "save_original_audio": True,
+            "save_subtitles": True,
+            "save_original_subtitles": True,
+            "save_fonts": True,
+            "save_original_fonts": True,
+            "save_attachments": True,
+            "save_original_attachments": True,
             "add_msg_setall": False,
             "gensettings_for_all_will_be_set": True,
-            "gensettings_for_all_setted": False,
+            "gensettings_for_all_setted": False
+        }
+
+    sync_flag_dict = {
+        "save_fonts": ["save_attachments"],
+        "save_attachments": ["save_fonts"],
+        "save_original_fonts": ["save_original_attachments"],
+        "save_original_attachments": "save_original_fonts"
+        }
+
+    argv_count_dict = {
+        "--limit-generate=": "limit_generate",
+        "--limit-search-up=": "limit_search_dir_up"
         }
 
     def set_flag(self, key, value):
         if key in self.__flags:
             self.__flags[key] = value
+            if key in Flags.sync_flag_dict:
+                sync_keys = Flags.sync_flag_dict[key]
+                for skey in sync_keys:
+                    self.__flags[skey] = value
         else:
             print(f"Error flag '{key}' not found, flag not set.")
 
@@ -241,6 +287,64 @@ class Flags():
         if not key in self.__flags:
             print(f"Flag '{key}' not found, return None.")
         return self.__flags.get(key, None)
+
+    def processing_sys_argv(self):
+        self.set_flag("count_sys_argv", len(sys.argv))
+        lmsg = "Usage: python generate-video-with-these-files.py <mode> <start-dir> <save-dir> <*args>"
+
+        if self.flag("count_sys_argv") > 1 and 'default' in sys.argv[1].lower():
+            self.set_flag("pro_mode", False)
+        else:
+            self.set_flag("pro_mode", True)
+
+        if self.flag("count_sys_argv") > 2:
+            start_dir = Converter.str_to_path(sys.argv[2])
+            if start_dir:
+                self.set_flag("start_dir", start_dir)
+            else:
+                print(f"Incorrect start directory arg! {lmsg}")
+                sys.exit(1)
+        else:
+            self.set_flag("start_dir", Path(__file__).resolve().parent)
+
+        if self.flag("count_sys_argv") > 3:
+            save_dir = Converter.str_to_path(sys.argv[3])
+            if save_dir:
+                self.set_flag("save_dir", save_dir)
+            else:
+                print(f"Incorrect save directory arg! {lmsg}")
+                sys.exit(1)
+        else:
+            self.set_flag("save_dir", self.flag("start_dir"))
+
+        if self.flag("count_sys_argv") > 4:
+            self.set_flag("pro_mode", True)
+            self.set_flag("gensettings_for_all_setted", True)
+
+            args = set(sys.argv[4:])
+            for arg in args:
+                if arg.startswith("--save-"):
+                    state = True
+                    clean_arg = arg.replace("--save-", "save_")
+                else:
+                    state = False
+                    clean_arg = arg.replace("--no-", "save_")
+                clean_arg = clean_arg.replace("-", "_")
+
+                if clean_arg in self.__flags:
+                    self.set_flag(clean_arg, state)
+                    continue
+
+                index = arg.find("=")
+                if index != -1:
+                    key = arg[:index + 1]
+                    str_number = arg[index + 1:]
+                    number = Converter.str_to_number(str_number)
+                    if number and key in Flags.argv_count_dict:
+                        self.set_flag(Flags.argv_count_dict[key], number)
+                        continue
+
+                print(f"Unrecognized argv {arg}, skip this.")
 
 class Requests(Flags):
     @staticmethod
@@ -272,25 +376,18 @@ class Requests(Flags):
                 self.set_flag(flag, default)
 
             elif is_number:
-                try:
-                    user_input = int(user_input)
-                    if user_input <= 0:
-                        print("Please enter a positive number! Try again.")
-                        continue
-                    self.set_flag(flag, user_input)
-                except ValueError:
-                    print("Please enter a number! Try again.")
+                number = Converter.str_to_number(user_input)
+                if number:
+                    self.set_flag(flag, number)
+                else:
+                    print("Please enter a positive number! Try again.")
                     continue
 
             elif is_dir:
-                try:
-                    user_input = Path(user_input)
-                    if user_input.is_dir():
-                        self.set_flag(flag, user_input)
-                    else:
-                        print("Please enter a correct path! Try again.")
-                        continue
-                except Exception:
+                path = Converter.str_to_path(user_input)
+                if path:
+                    self.set_flag(flag, path)
+                else:
                     print("Please enter a correct path! Try again.")
                     continue
 
@@ -309,27 +406,30 @@ class Requests(Flags):
 
     def user_requests1(self):
         Requests.clear_console()
-        user_input = input(f"{Messages.msg[1]}\n\nSelect mode:\n 0 - Default mode\n 1 - PRO mode\n> ")
-        Requests.clear_console()
-        if user_input not in ("1", "0", ""):
-            print("Incorrect input!")
-        if user_input == "1":
-            print("PRO mode set.")
-            self.set_flag("pro_mode", True)
-        else:
-            print("Default mode set.")
-            self.set_flag("pro_mode", False)
-            return
 
-        print(f"{Messages.msg[3]}Enter the limit number of files to generate:")
-        self.set_flag_by_user_input("limit_generate", 99999, is_number=True)
-        limit = self.flag("limit_generate") if self.flag("limit_generate") != 99999 else "all"
-        Requests.clear_console()
-        print(f"{self.lmsg}Generate will be executed for {limit} files.")
-        if not self.flag("pro_mode"):
-            return
+        if self.flag("count_sys_argv") < 2:
+            user_input = input(f"{Messages.msg[1]}\n\nSelect mode:\n 0 - Default mode\n 1 - PRO mode\n> ")
+            Requests.clear_console()
+            if user_input not in ("1", "0", ""):
+                print("Incorrect input!")
+            if user_input == "1":
+                print("PRO mode set.")
+                self.set_flag("pro_mode", True)
+            else:
+                print("Default mode set.")
+                self.set_flag("pro_mode", False)
+                return
 
-        print(f"{Messages.msg[3]}Enter the save directory for generated files (required full path):")
+        if self.flag("count_sys_argv") < 3:
+            print(f"{Messages.msg[3]}Enter the limit number of files to generate:")
+            self.set_flag_by_user_input("limit_generate", 99999, is_number=True)
+            limit = self.flag("limit_generate") if self.flag("limit_generate") != 99999 else "all"
+            Requests.clear_console()
+            print(f"{self.lmsg}Generate will be executed for {limit} files.")
+            if not self.flag("pro_mode"):
+                return
+
+        print(f"{Messages.msg[3]}Enter the save directory for generated files:")
         self.set_flag_by_user_input("save_dir", self.flag("save_dir"), is_dir=True)
         Requests.clear_console()
         print(f"{self.lmsg}The save directory has been set to {self.flag("save_dir")}.\n")
@@ -366,8 +466,8 @@ class Requests(Flags):
 
         print(f"{output_str}{self.up_msg}Do you want to save original audio? [y/n]")
         def_flag = not self.flag("audio_dir_found") or not vid.audio_list
-        self.set_flag_by_user_input("save_orig_audio", def_flag, is_yes_no=True)
-        tale = "be save." if self.flag("save_orig_audio") else "NOT be save."
+        self.set_flag_by_user_input("save_original_audio", def_flag, is_yes_no=True)
+        tale = "be save." if self.flag("save_original_audio") else "NOT be save."
         Requests.clear_console()
         print(f"{self.lmsg}Original audio will {tale}")
         if not self.flag("pro_mode"):
@@ -375,23 +475,23 @@ class Requests(Flags):
 
         print(f"{output_str}{self.up_msg}Do you want to save original subtitles? [y/n]")
         def_flag = not self.flag("subtitles_dir_found") or not vid.subtitles_list
-        self.set_flag_by_user_input("save_orig_sub", def_flag, is_yes_no=True)
-        tale = "be save." if self.flag("save_orig_sub") else "NOT be save."
+        self.set_flag_by_user_input("save_original_subtitles", def_flag, is_yes_no=True)
+        tale = "be save." if self.flag("save_original_subtitles") else "NOT be save."
         Requests.clear_console()
         print(f"{self.lmsg}Original subtitles will {tale}")
         if not self.flag("pro_mode"):
             return
 
-        if self.flag("save_orig_sub"):
-            self.set_flag("save_orig_font", True)
+        if self.flag("save_original_subtitles"):
+            self.set_flag("save_original_fonts", True)
 
-        elif not self.flag("save_orig_sub") and not vid.subtitles_list:
-            self.set_flag("save_orig_font", False)
+        elif not self.flag("save_original_subtitles") and not vid.subtitles_list:
+            self.set_flag("save_original_fonts", False)
 
         else:
             print(f"{output_str}{self.up_msg}Do you want to save original fonts? External subtitles also will be used original fonts. [y/n]")
-            self.set_flag_by_user_input("save_orig_font", True, is_yes_no=True)
-            tale = "be save." if self.flag("save_orig_font") else "NOT be save."
+            self.set_flag_by_user_input("save_original_fonts", True, is_yes_no=True)
+            tale = "be save." if self.flag("save_original_fonts") else "NOT be save."
             Requests.clear_console()
             print(f"{self.lmsg}Original fonts will {tale}")
 
@@ -720,31 +820,37 @@ class FileDictionary:
 class Merge(FileDictionary):
     def set_output_path(self, tail=""):
         partname = f"{self.video.stem}{tail}"
-        if self.audio_list:
-            if self.flags.flag("save_orig_audio"):
+        if self.audio_list and self.flags.flag("save_audio"):
+            if self.flags.flag("save_original_audio"):
                 partname = partname + "_added_audio"
             else:
                 partname = partname + "_replaced_audio"
 
-        if self.subtitles_list:
-            if self.flags.flag("save_orig_sub"):
-                partname = partname + "_added_sub"
+        if self.subtitles_list and self.flags.flag("save_subtitles"):
+            if self.flags.flag("save_original_subtitles"):
+                partname = partname + "_added_subs"
             else:
-                partname = partname + "_replaced_sub"
-            if self.font_set:
-                partname = partname + "_added_font"
+                partname = partname + "_replaced_subs"
+
+        if self.font_set and self.flags.flag("save_fonts"):
+            if self.flags.flag("save_original_fonts"):
+                partname = partname + "_added_fonts"
+            else:
+                partname = partname + "_replaced_fonts"
 
         self.output = Path(self.flags.flag("save_dir")) / f"{partname}.mkv"
 
-    def execute_merge(self, save_chapters=True, coding_cp1251=False, opt_sub={}):
+    def execute_merge(self, coding_cp1251=False, opt_sub={}):
         command = [str(Tools.mkvmerge), "-o", str(self.output)]
-        if not save_chapters:
+        if not self.flags.flag("save_global_tags"):
+            command.append("--no-global-tags")
+        if not self.flags.flag("save_chapters"):
             command.append("--no-chapters")
-        if not self.flags.flag("save_orig_audio"):
+        if not self.flags.flag("save_original_audio"):
             command.append("--no-audio")
-        if not self.flags.flag("save_orig_sub"):
+        if not self.flags.flag("save_original_subtitles"):
             command.append("--no-subtitles")
-        if not self.flags.flag("save_orig_font"):
+        if not self.flags.flag("save_original_fonts"):
             command.append("--no-attachments")
 
         #добавляем видеофайлы
@@ -752,35 +858,35 @@ class Merge(FileDictionary):
         for video in self.merge_video_list[1:]:
             command.append(f"+{str(video)}")
 
-        #Добавляем аудио
-        count = 0
-        for audio in self.audio_list:
-            track_name = self.audio_trackname_list[count]
-            if track_name and not (audio.suffix in (".mka", ".mkv") and FileInfo.get_file_info(audio, "Name:")):
-                track_id_list = FileInfo.get_track_type_id(audio, "audio") #получаем инфу об аудиотреках
-                for track_id in track_id_list:
-                    command.extend(["--track-name", f"{track_id}:{track_name}", str(audio)])
-            else:
-                command.append(str(audio))
-            count += 1
+        if self.flags.flag("save_audio"): #add audio
+            count = 0
+            for audio in self.audio_list:
+                track_name = self.audio_trackname_list[count]
+                if track_name and not (audio.suffix in (".mka", ".mkv") and FileInfo.get_file_info(audio, "Name:")):
+                    track_id_list = FileInfo.get_track_type_id(audio, "audio") #получаем инфу об аудиотреках
+                    for track_id in track_id_list:
+                        command.extend(["--track-name", f"{track_id}:{track_name}", str(audio)])
+                else:
+                    command.append(str(audio))
+                count += 1
 
-        #сабы
-        count = 0
-        for sub in self.subtitles_list:
-            opt_id = opt_sub.get(str(sub), None)
-            if opt_id:
-                command.extend(["--sub-charset", f"{opt_id}:windows-1251"])
+        if self.flags.flag("save_subtitles"): #add subtitles
+            count = 0
+            for sub in self.subtitles_list:
+                opt_id = opt_sub.get(str(sub), None)
+                if opt_id:
+                    command.extend(["--sub-charset", f"{opt_id}:windows-1251"])
 
-            track_name = self.sub_trackname_list[count]
-            if track_name and not (sub.suffix in (".mks", ".mkv") and FileInfo.get_file_info(sub, "Name:")):
-                track_id_list = FileInfo.get_track_type_id(sub, "subtitles")
-                for track_id in track_id_list:
-                    command.extend(["--track-name", f"{track_id}:{track_name}", str(sub)])
-            else:
-                command.append(str(sub))
-            count += 1
+                track_name = self.sub_trackname_list[count]
+                if track_name and not (sub.suffix in (".mks", ".mkv") and FileInfo.get_file_info(sub, "Name:")):
+                    track_id_list = FileInfo.get_track_type_id(sub, "subtitles")
+                    for track_id in track_id_list:
+                        command.extend(["--track-name", f"{track_id}:{track_name}", str(sub)])
+                else:
+                    command.append(str(sub))
+                count += 1
 
-        if count > 0: #добавляем фонты если добавлены сабы
+        if self.flags.flag("save_fonts"):
             for font in self.font_set:
                 command.extend(["--attach-file", str(font)])
 
@@ -816,7 +922,7 @@ class Merge(FileDictionary):
                             opt_sub[f'{str(file_path)}'] = None
                             if track_id:
                                 opt_sub[f'{str(file_path)}'] = track_id
-                self.execute_merge(save_chapters=save_chapters, coding_cp1251=True, opt_sub=opt_sub)
+                self.execute_merge(coding_cp1251=True, opt_sub=opt_sub)
                 return
 
             if not cleaned_lline_out.startswith("error"):
@@ -828,7 +934,9 @@ class Merge(FileDictionary):
             else:
                 if "containschapterswhoseformatwasnotrecognized" in cleaned_lline_out:
                     print(f"{last_line_out}\nTrying to generate without chapters.")
-                    self.execute_merge(save_chapters=False, coding_cp1251=coding_cp1251, opt_sub=opt_sub)
+                    self.flags.set_flag("save_chapters", False)
+                    self.execute_merge(coding_cp1251=coding_cp1251, opt_sub=opt_sub)
+                    self.flags.set_flag("save_chapters", True)
 
                 elif "nospaceleft" in cleaned_lline_out:
                     if self.output.exists():
@@ -844,22 +952,24 @@ class Merge(FileDictionary):
                     print(f"Error executing the command!\n{last_line_out}\nExiting the script.")
                     sys.exit(1)
 
-    def set_flags(self):
+    def set_merge_flags(self):
         if self.flags.flag("pro_mode"):
             if not self.flags.flag("gensettings_for_all_setted"):
                 self.flags.user_requests3(self)
         else:
-            save_orig_audio = not self.flags.flag("audio_dir_found") or not self.audio_list
-            self.flags.set_flag("save_orig_audio", save_orig_audio)
+            save_original_audio = not self.flags.flag("audio_dir_found") or not self.audio_list
+            self.flags.set_flag("save_original_audio", save_original_audio)
 
-            self.flags.set_flag("save_orig_font", True)
-            save_orig_sub = not self.flags.flag("subtitles_dir_found") or not self.subtitles_list
-            self.flags.set_flag("save_orig_sub", save_orig_sub)
+            save_original_subtitles = not self.flags.flag("subtitles_dir_found") or not self.subtitles_list
+            self.flags.set_flag("save_original_subtitles", save_original_subtitles)
+
+            save_fonts = True if self.subtitles_list else False
+            self.flags.set_flag("save_fonts", save_fonts)
 
     def merge_all_files(self):
-        generated_count = 0
-        gen_before_count = 0
-        if self.flags.flag("pro_mode"):
+        count_generated = 0
+        count_gen_before = 0
+        if self.flags.flag("pro_mode") and not self.flags.flag("gensettings_for_all_setted"):
             self.flags.user_requests2(self)
 
         for self.video in self.video_list:
@@ -869,7 +979,7 @@ class Merge(FileDictionary):
             self.subtitles_list = self.subtitles_dictionary.get(str(self.video), [])
             self.sub_trackname_list = self.sub_trackname_dictionary.get(str(self.video), [])
 
-            self.set_flags()
+            self.set_merge_flags()
             if self.video.suffix == ".mkv":
                 if not self.processing_linked_video():
                     self.set_output_path()
@@ -877,17 +987,17 @@ class Merge(FileDictionary):
                 self.set_output_path()
 
             if self.output.exists():
-                gen_before_count += 1
+                count_gen_before += 1
                 continue
 
             self.execute_merge()
-            generated_count += 1
+            count_generated += 1
 
-            if generated_count >= self.flags.flag("limit_generate"):
+            if count_generated >= self.flags.flag("limit_generate"):
                 break
 
-        self.flags.set_flag("generated_count", generated_count)
-        self.flags.set_flag("gen_before_count", gen_before_count)
+        self.flags.set_flag("count_generated", count_generated)
+        self.flags.set_flag("count_gen_before", count_gen_before)
 
 class Video(Merge):
     @staticmethod
@@ -905,12 +1015,12 @@ class Video(Merge):
         timestamps = re.findall(r'Timestamp used in split decision: (\d{2}:\d{2}:\d{2}\.\d{9})', mkvmerge_stdout)
         if len(timestamps) == 2:
             segment = Path(partname.parent) / f"{partname.stem}-002{partname.suffix}"
-            defacto_start = TimeUtils.str_to_timedelta(timestamps[0])
-            defacto_end = TimeUtils.str_to_timedelta(timestamps[1])
+            defacto_start = Converter.str_to_timedelta(timestamps[0])
+            defacto_end = Converter.str_to_timedelta(timestamps[1])
             offset_start = defacto_start - split_start
             offset_end = defacto_end - split_end
         elif len(timestamps) == 1:
-            timestamp = TimeUtils.str_to_timedelta(timestamps[0])
+            timestamp = Converter.str_to_timedelta(timestamps[0])
             #если переназначение для старта
             if split_start > timedelta(0):
                 segment = Path(partname.parent) / f"{partname.stem}-002{partname.suffix}"
@@ -939,11 +1049,11 @@ class Video(Merge):
         execute_command(command)
 
     @staticmethod
-    def split_file(input_file, partname, start, end, file_type="video", save_orig_font=True, track_id=""):
+    def split_file(input_file, partname, start, end, file_type="video", save_original_fonts=True, track_id=""):
         command = [str(Tools.mkvmerge), "-o", str(partname), "--split", f"timecodes:{start},{end}", "--no-global-tags", "--no-chapters", "--no-subtitles"]
         if "video" in file_type:
             command.append("--no-audio")
-            if not save_orig_font:
+            if not save_original_fonts:
                 command.append("--no-attachments")
         else:
             command.extend(["--no-video", "--no-attachments"])
@@ -987,11 +1097,11 @@ class Video(Merge):
             self.uid_list.append(chapter_uid)
 
             chapter_start = chapter_atom.find("ChapterTimeStart")
-            chapter_start = TimeUtils.str_to_timedelta(chapter_start.text) if chapter_start is not None else None
+            chapter_start = Converter.str_to_timedelta(chapter_start.text) if chapter_start is not None else None
             self.start_list.append(chapter_start)
 
             chapter_end = chapter_atom.find("ChapterTimeEnd")
-            chapter_end = TimeUtils.str_to_timedelta(chapter_end.text) if chapter_end is not None else None
+            chapter_end = Converter.str_to_timedelta(chapter_end.text) if chapter_end is not None else None
             self.end_list.append(chapter_end)
 
         if all(uid is None for uid in self.uid_list): #если нет внешних файлов
@@ -1051,13 +1161,13 @@ class Video(Merge):
             line1, line2, line3, line4, line5, line6 = read
             self.to_split = Path(line1)
             #если время предыдущего сплита совпадает
-            if TimeUtils.str_to_timedelta(line2) == self.start and (TimeUtils.str_to_timedelta(line3) == self.end or TimeUtils.str_to_timedelta(line4) <= self.end):
+            if Converter.str_to_timedelta(line2) == self.start and (Converter.str_to_timedelta(line3) == self.end or Converter.str_to_timedelta(line4) <= self.end):
                 #и нужный сплит существует не сплитуем
                 self.segment = Path(self.flags.flag("save_dir")) / f"_temp_{self.uid}.mkv"
                 if self.segment.exists():
-                    self.length = TimeUtils.str_to_timedelta(line4)
-                    self.offset_start = TimeUtils.str_to_timedelta(line5)
-                    self.offset_end = TimeUtils.str_to_timedelta(line6)
+                    self.length = Converter.str_to_timedelta(line4)
+                    self.offset_start = Converter.str_to_timedelta(line5)
+                    self.offset_end = Converter.str_to_timedelta(line6)
                     self.execute_split = False
         else:
             self.to_split = Video.find_video_with_uid(self.video_dir, self.uid)
@@ -1077,7 +1187,7 @@ class Video(Merge):
 
         if self.execute_split:
             self.prev_lengths = self.lengths
-            self.segment, length, self.offset_start, self.offset_end = Video.split_file(self.to_split, self.partname, self.start, self.end, save_orig_font=self.flags.flag("save_orig_font"))
+            self.segment, length, self.offset_start, self.offset_end = Video.split_file(self.to_split, self.partname, self.start, self.end, save_original_fonts=self.flags.flag("save_original_fonts"))
             self.lengths = self.lengths + length
 
             if self.uid: # сплит по внешнему файлу переименовываем чтоб использовать дальше
@@ -1212,7 +1322,7 @@ class Video(Merge):
     def get_retimed_audio_list(self):
         self.retimed_audio_list = []
         count = 0
-        if self.flags.flag("save_orig_audio"):
+        if self.flags.flag("save_original_audio"):
             audio_track_id_list = FileInfo.get_track_type_id(self.video, "audio")
             for self.track_id in audio_track_id_list:
                 self.get_retimed_segments_orig_audio()
@@ -1277,8 +1387,8 @@ class Video(Merge):
                         parts = line.split(',')
                         str_dialogue_time_start = parts[1].strip()
                         str_dialogue_time_end = parts[2].strip()
-                        dialogue_time_start = TimeUtils.str_to_timedelta(str_dialogue_time_start)
-                        dialogue_time_end = TimeUtils.str_to_timedelta(str_dialogue_time_end)
+                        dialogue_time_start = Converter.str_to_timedelta(str_dialogue_time_start)
+                        dialogue_time_end = Converter.str_to_timedelta(str_dialogue_time_end)
 
                         #не включаем строки не входящие в сегмент
                         if dialogue_time_start < remove_border_start and dialogue_time_end < remove_border_start:
@@ -1289,8 +1399,8 @@ class Video(Merge):
                         else: #ретаймим и записываем
                             new_dialogue_time_start = dialogue_time_start + retime_offset
                             new_dialogue_time_end = dialogue_time_end + retime_offset
-                            str_new_dialogue_time_start = TimeUtils.timedelta_to_str(new_dialogue_time_start)
-                            str_new_dialogue_time_end = TimeUtils.timedelta_to_str(new_dialogue_time_end)
+                            str_new_dialogue_time_start = Converter.timedelta_to_str(new_dialogue_time_start)
+                            str_new_dialogue_time_end = Converter.timedelta_to_str(new_dialogue_time_end)
                             line = f"{parts[0]},{str_new_dialogue_time_start},{str_new_dialogue_time_end},{','.join(parts[3:])}"
                             file.write(line)
 
@@ -1339,8 +1449,8 @@ class Video(Merge):
                         parts = line.split(',')
                         str_dialogue_time_start = parts[1].strip()
                         str_dialogue_time_end = parts[2].strip()
-                        dialogue_time_start = TimeUtils.str_to_timedelta(str_dialogue_time_start)
-                        dialogue_time_end = TimeUtils.str_to_timedelta(str_dialogue_time_end)
+                        dialogue_time_start = Converter.str_to_timedelta(str_dialogue_time_start)
+                        dialogue_time_end = Converter.str_to_timedelta(str_dialogue_time_end)
 
                         #не включаем строки не входящие в сегмент
                         if dialogue_time_start < remove_border_start and dialogue_time_end < remove_border_start:
@@ -1351,8 +1461,8 @@ class Video(Merge):
                         else: #ретаймим и записываем
                             new_dialogue_time_start = dialogue_time_start + retime_offset
                             new_dialogue_time_end = dialogue_time_end + retime_offset
-                            str_new_dialogue_time_start = TimeUtils.timedelta_to_str(new_dialogue_time_start)
-                            str_new_dialogue_time_end = TimeUtils.timedelta_to_str(new_dialogue_time_end)
+                            str_new_dialogue_time_start = Converter.timedelta_to_str(new_dialogue_time_start)
+                            str_new_dialogue_time_end = Converter.timedelta_to_str(new_dialogue_time_end)
                             line = f"{parts[0]},{str_new_dialogue_time_start},{str_new_dialogue_time_end},{','.join(parts[3:])}"
                             file.write(line)
                 prev_lengths = lengths
@@ -1363,7 +1473,7 @@ class Video(Merge):
         count = 0
         self.retimed_sub_list = []
 
-        if self.flags.flag("save_orig_sub"):
+        if self.flags.flag("save_original_subtitles"):
             self.segment_orig_sub_list = []
 
             #проверяем сколько дорожек субтитров в исходном видео
@@ -1419,52 +1529,13 @@ class Video(Merge):
         self.subtitles_list = self.retimed_sub_list
         return self.output
 
-def processing_input_args(flags):
-    count_args = len(sys.argv)
-
-    lmsg = "Usage: python generate-video-with-these-files.py <mode> <start-dir> <save-dir>"
-    if count_args > 4:
-        print(f"Incorrect count args! {lmsg}")
-        sys.exit(1)
-
-    if count_args > 1 and 'default' in sys.argv[1].lower():
-        flags.set_flag("pro_mode", False)
-    else:
-        flags.set_flag("pro_mode", True)
-
-    lmsg2 = f"Incorrect start directory arg! {lmsg}"
-    if count_args > 2:
-        try:
-            flags.set_flag("start_dir", Path(sys.argv[2]))
-            if not flags.flag("start_dir").exists():
-                print(lmsg2)
-                sys.exit(1)
-        except Exception:
-            print(lmsg2)
-            sys.exit(1)
-    else:
-        flags.set_flag("start_dir", Path(__file__).resolve().parent)
-
-    lmsg2 = f"Incorrect save directory arg! {lmsg}"
-    if count_args > 3:
-        try:
-            flags.set_flag("save_dir", Path(sys.argv[3]))
-            if not flags.flag("save_dir").exists():
-                print(lmsg2)
-                sys.exit(1)
-        except Exception:
-            print(lmsg2)
-            sys.exit(1)
-    else:
-        flags.set_flag("save_dir", flags.flag("start_dir"))
-
 def main():
     flags = Requests()
-    processing_input_args(flags)
+    flags.processing_sys_argv()
 
     Tools.set_mkvtools_paths()
     Messages.create_dictionary(flags)
-    if flags.flag("pro_mode"):
+    if flags.flag("pro_mode") and flags.flag("count_sys_argv") < 4:
         flags.user_requests1()
 
     print(f"\nTrying to generate a new video in the save directory '{str(flags.flag("save_dir"))}' using files from the start directory '{str(flags.flag("start_dir"))}'.")
@@ -1472,12 +1543,13 @@ def main():
     vid.merge_all_files()
     delete_temp_files(flags.flag("save_dir"))
 
-    if flags.flag("generated_count"):
-        print(f"\nThe script was executed successfully. {flags.flag("generated_count")} video files were generated in the directory '{str(flags.flag("save_dir"))}'")
+    if flags.flag("count_generated"):
+        print(f"\nThe script was executed successfully. {flags.flag("count_generated")} video files were generated in the directory '{str(flags.flag("save_dir"))}'")
     else:
         print(Messages.msg[8])
-    if flags.flag("gen_before_count"):
-        print(f"{flags.flag("gen_before_count")} video files in the save directory '{str(flags.flag("save_dir"))}' had generated names before the current run of the script. Generation for these files has been skipped.")
+
+    if flags.flag("count_gen_before"):
+        print(f"{flags.flag("count_gen_before")} video files in the save directory '{str(flags.flag("save_dir"))}' had generated names before the current run of the script. Generation for these files has been skipped.")
 
 if __name__ == "__main__":
     main()
