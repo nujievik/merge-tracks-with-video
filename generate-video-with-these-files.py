@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.4
+generate-video-with-these-files-v0.4.5
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -62,7 +62,7 @@ def delete_temp_files(directory):
     except Exception as e:
         print(f"Error: {e}")
 
-class Converter:
+class TypeConverter:
     @staticmethod
     def str_to_path(str_in, check_exists=False):
         try:
@@ -160,7 +160,7 @@ class FileInfo:
                     match = re.search(r"Duration:\s*(.*)", line)  # Находим всю часть после 'Duration:'
                     if match:
                         file_duration = match.group(1).strip()  # Убираем пробелы
-                        file_duration_timedelta = Converter.str_to_timedelta(file_duration)
+                        file_duration_timedelta = TypeConverter.str_to_timedelta(file_duration)
                         return file_duration_timedelta
 
                 if "Name:" in search_query:
@@ -298,7 +298,7 @@ class Flags():
             self.set_flag("pro_mode", True)
 
         if self.flag("count_sys_argv") > 2:
-            start_dir = Converter.str_to_path(sys.argv[2])
+            start_dir = TypeConverter.str_to_path(sys.argv[2])
             if start_dir:
                 self.set_flag("start_dir", start_dir)
             else:
@@ -308,7 +308,7 @@ class Flags():
             self.set_flag("start_dir", Path(__file__).resolve().parent)
 
         if self.flag("count_sys_argv") > 3:
-            save_dir = Converter.str_to_path(sys.argv[3])
+            save_dir = TypeConverter.str_to_path(sys.argv[3])
             if save_dir:
                 self.set_flag("save_dir", save_dir)
             else:
@@ -339,7 +339,7 @@ class Flags():
                 if index != -1:
                     key = arg[:index + 1]
                     str_number = arg[index + 1:]
-                    number = Converter.str_to_number(str_number)
+                    number = TypeConverter.str_to_number(str_number)
                     if number and key in Flags.argv_count_dict:
                         self.set_flag(Flags.argv_count_dict[key], number)
                         continue
@@ -376,7 +376,7 @@ class Requests(Flags):
                 self.set_flag(flag, default)
 
             elif is_number:
-                number = Converter.str_to_number(user_input)
+                number = TypeConverter.str_to_number(user_input)
                 if number:
                     self.set_flag(flag, number)
                 else:
@@ -384,7 +384,7 @@ class Requests(Flags):
                     continue
 
             elif is_dir:
-                path = Converter.str_to_path(user_input)
+                path = TypeConverter.str_to_path(user_input)
                 if path:
                     self.set_flag(flag, path)
                 else:
@@ -982,7 +982,10 @@ class Merge(FileDictionary):
             self.set_merge_flags()
             if self.video.suffix == ".mkv":
                 if not self.processing_linked_video():
+                    if not self.audio_list and not self.subtitles_list and not self.font_set:
+                        continue #пропускаем если нет ни линковки ни аудио ни сабов ни шрифтов
                     self.set_output_path()
+
             else:
                 self.set_output_path()
 
@@ -1015,12 +1018,12 @@ class Video(Merge):
         timestamps = re.findall(r'Timestamp used in split decision: (\d{2}:\d{2}:\d{2}\.\d{9})', mkvmerge_stdout)
         if len(timestamps) == 2:
             segment = Path(partname.parent) / f"{partname.stem}-002{partname.suffix}"
-            defacto_start = Converter.str_to_timedelta(timestamps[0])
-            defacto_end = Converter.str_to_timedelta(timestamps[1])
+            defacto_start = TypeConverter.str_to_timedelta(timestamps[0])
+            defacto_end = TypeConverter.str_to_timedelta(timestamps[1])
             offset_start = defacto_start - split_start
             offset_end = defacto_end - split_end
         elif len(timestamps) == 1:
-            timestamp = Converter.str_to_timedelta(timestamps[0])
+            timestamp = TypeConverter.str_to_timedelta(timestamps[0])
             #если переназначение для старта
             if split_start > timedelta(0):
                 segment = Path(partname.parent) / f"{partname.stem}-002{partname.suffix}"
@@ -1097,11 +1100,11 @@ class Video(Merge):
             self.uid_list.append(chapter_uid)
 
             chapter_start = chapter_atom.find("ChapterTimeStart")
-            chapter_start = Converter.str_to_timedelta(chapter_start.text) if chapter_start is not None else None
+            chapter_start = TypeConverter.str_to_timedelta(chapter_start.text) if chapter_start is not None else None
             self.start_list.append(chapter_start)
 
             chapter_end = chapter_atom.find("ChapterTimeEnd")
-            chapter_end = Converter.str_to_timedelta(chapter_end.text) if chapter_end is not None else None
+            chapter_end = TypeConverter.str_to_timedelta(chapter_end.text) if chapter_end is not None else None
             self.end_list.append(chapter_end)
 
         if all(uid is None for uid in self.uid_list): #если нет внешних файлов
@@ -1161,13 +1164,13 @@ class Video(Merge):
             line1, line2, line3, line4, line5, line6 = read
             self.to_split = Path(line1)
             #если время предыдущего сплита совпадает
-            if Converter.str_to_timedelta(line2) == self.start and (Converter.str_to_timedelta(line3) == self.end or Converter.str_to_timedelta(line4) <= self.end):
+            if TypeConverter.str_to_timedelta(line2) == self.start and (TypeConverter.str_to_timedelta(line3) == self.end or TypeConverter.str_to_timedelta(line4) <= self.end):
                 #и нужный сплит существует не сплитуем
                 self.segment = Path(self.flags.flag("save_dir")) / f"_temp_{self.uid}.mkv"
                 if self.segment.exists():
-                    self.length = Converter.str_to_timedelta(line4)
-                    self.offset_start = Converter.str_to_timedelta(line5)
-                    self.offset_end = Converter.str_to_timedelta(line6)
+                    self.length = TypeConverter.str_to_timedelta(line4)
+                    self.offset_start = TypeConverter.str_to_timedelta(line5)
+                    self.offset_end = TypeConverter.str_to_timedelta(line6)
                     self.execute_split = False
         else:
             self.to_split = Video.find_video_with_uid(self.video_dir, self.uid)
@@ -1387,8 +1390,8 @@ class Video(Merge):
                         parts = line.split(',')
                         str_dialogue_time_start = parts[1].strip()
                         str_dialogue_time_end = parts[2].strip()
-                        dialogue_time_start = Converter.str_to_timedelta(str_dialogue_time_start)
-                        dialogue_time_end = Converter.str_to_timedelta(str_dialogue_time_end)
+                        dialogue_time_start = TypeConverter.str_to_timedelta(str_dialogue_time_start)
+                        dialogue_time_end = TypeConverter.str_to_timedelta(str_dialogue_time_end)
 
                         #не включаем строки не входящие в сегмент
                         if dialogue_time_start < remove_border_start and dialogue_time_end < remove_border_start:
@@ -1399,8 +1402,8 @@ class Video(Merge):
                         else: #ретаймим и записываем
                             new_dialogue_time_start = dialogue_time_start + retime_offset
                             new_dialogue_time_end = dialogue_time_end + retime_offset
-                            str_new_dialogue_time_start = Converter.timedelta_to_str(new_dialogue_time_start)
-                            str_new_dialogue_time_end = Converter.timedelta_to_str(new_dialogue_time_end)
+                            str_new_dialogue_time_start = TypeConverter.timedelta_to_str(new_dialogue_time_start)
+                            str_new_dialogue_time_end = TypeConverter.timedelta_to_str(new_dialogue_time_end)
                             line = f"{parts[0]},{str_new_dialogue_time_start},{str_new_dialogue_time_end},{','.join(parts[3:])}"
                             file.write(line)
 
@@ -1449,8 +1452,8 @@ class Video(Merge):
                         parts = line.split(',')
                         str_dialogue_time_start = parts[1].strip()
                         str_dialogue_time_end = parts[2].strip()
-                        dialogue_time_start = Converter.str_to_timedelta(str_dialogue_time_start)
-                        dialogue_time_end = Converter.str_to_timedelta(str_dialogue_time_end)
+                        dialogue_time_start = TypeConverter.str_to_timedelta(str_dialogue_time_start)
+                        dialogue_time_end = TypeConverter.str_to_timedelta(str_dialogue_time_end)
 
                         #не включаем строки не входящие в сегмент
                         if dialogue_time_start < remove_border_start and dialogue_time_end < remove_border_start:
@@ -1461,8 +1464,8 @@ class Video(Merge):
                         else: #ретаймим и записываем
                             new_dialogue_time_start = dialogue_time_start + retime_offset
                             new_dialogue_time_end = dialogue_time_end + retime_offset
-                            str_new_dialogue_time_start = Converter.timedelta_to_str(new_dialogue_time_start)
-                            str_new_dialogue_time_end = Converter.timedelta_to_str(new_dialogue_time_end)
+                            str_new_dialogue_time_start = TypeConverter.timedelta_to_str(new_dialogue_time_start)
+                            str_new_dialogue_time_end = TypeConverter.timedelta_to_str(new_dialogue_time_end)
                             line = f"{parts[0]},{str_new_dialogue_time_start},{str_new_dialogue_time_end},{','.join(parts[3:])}"
                             file.write(line)
                 prev_lengths = lengths
