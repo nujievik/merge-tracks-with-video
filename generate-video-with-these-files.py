@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.5
+generate-video-with-these-files-v0.4.6
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -99,33 +99,6 @@ class TypeConverter:
         hours, minutes, seconds = time_str.split(':')
         total_seconds = int(hours) * 3600 + int(minutes) * 60 + float(seconds)
         return timedelta(seconds=total_seconds)
-
-class TxtUtils:
-    @staticmethod
-    def write_lines_to_file(filepath, *args):
-        with open(filepath, 'w', encoding='utf-8') as file:
-            for line in args:
-                file.write(f"{line}\n")
-
-    @staticmethod
-    def add_lines_to_file(filepath, *args):
-        with open(filepath, 'a', encoding='utf-8') as file:
-            for line in args:
-                file.write(f"{line}\n")
-
-    @staticmethod
-    def read_lines_from_file(filepath, num_lines):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as file:
-                lines = file.readlines()
-            # Проверяем, что в файле достаточно строк
-            if len(lines) >= num_lines:
-                return [line.strip() for line in lines[:num_lines]]
-            else:
-                return None
-
-        except FileNotFoundError:
-            return None
 
 class FileInfo:
     @staticmethod
@@ -265,7 +238,7 @@ class Flags():
         "save_fonts": ["save_attachments"],
         "save_attachments": ["save_fonts"],
         "save_original_fonts": ["save_original_attachments"],
-        "save_original_attachments": "save_original_fonts"
+        "save_original_attachments": ["save_original_fonts"]
         }
 
     argv_count_dict = {
@@ -290,35 +263,30 @@ class Flags():
 
     def processing_sys_argv(self):
         self.set_flag("count_sys_argv", len(sys.argv))
-        lmsg = "Usage: python generate-video-with-these-files.py <mode> <start-dir> <save-dir> <*args>"
+        lmsg = "Usage: python generate-video-with-these-files.py <start-dir> <save-dir> <mode> <*args>"
 
-        if self.flag("count_sys_argv") > 1 and 'default' in sys.argv[1].lower():
-            self.set_flag("pro_mode", False)
-        else:
-            self.set_flag("pro_mode", True)
-
-        if self.flag("count_sys_argv") > 2:
-            start_dir = TypeConverter.str_to_path(sys.argv[2])
-            if start_dir:
-                self.set_flag("start_dir", start_dir)
-            else:
+        if self.flag("count_sys_argv") > 1:
+            start_dir = TypeConverter.str_to_path(sys.argv[1])
+            if not start_dir:
                 print(f"Incorrect start directory arg! {lmsg}")
                 sys.exit(1)
         else:
-            self.set_flag("start_dir", Path(__file__).resolve().parent)
+            start_dir = Path(__file__).resolve().parent
+        self.set_flag("start_dir", start_dir)
 
-        if self.flag("count_sys_argv") > 3:
-            save_dir = TypeConverter.str_to_path(sys.argv[3])
-            if save_dir:
-                self.set_flag("save_dir", save_dir)
-            else:
+        if self.flag("count_sys_argv") > 2:
+            save_dir = TypeConverter.str_to_path(sys.argv[2])
+            if not save_dir:
                 print(f"Incorrect save directory arg! {lmsg}")
                 sys.exit(1)
         else:
-            self.set_flag("save_dir", self.flag("start_dir"))
+            save_dir = start_dir
+        self.set_flag("save_dir", save_dir)
+
+        is_pro_mode = (self.flag("count_sys_argv") == 3 and 'default' not in sys.argv[3].lower()) or self.flag("count_sys_argv") > 4
+        self.set_flag("pro_mode", is_pro_mode)
 
         if self.flag("count_sys_argv") > 4:
-            self.set_flag("pro_mode", True)
             self.set_flag("gensettings_for_all_setted", True)
 
             args = set(sys.argv[4:])
@@ -967,6 +935,7 @@ class Merge(FileDictionary):
             self.flags.set_flag("save_fonts", save_fonts)
 
     def merge_all_files(self):
+        self.linked_uid_info_dict = {}
         count_generated = 0
         count_gen_before = 0
         if self.flags.flag("pro_mode") and not self.flags.flag("gensettings_for_all_setted"):
@@ -1153,28 +1122,27 @@ class Video(Merge):
             self.start_list = temp_start_list
             self.end_list = temp_end_list
 
-    def rw_uid_file_info(self):
-        self.txt_uid = Path(self.flags.flag("save_dir")) / f"_temp_{self.uid}.txt"
+    def read_uid_file_info(self):
         self.segment = None
         self.length = None
         self.offset_start = None
         self.offset_end = None
-        read = TxtUtils.read_lines_from_file(self.txt_uid, 6)
-        if read:
-            line1, line2, line3, line4, line5, line6 = read
-            self.to_split = Path(line1)
-            #если время предыдущего сплита совпадает
-            if TypeConverter.str_to_timedelta(line2) == self.start and (TypeConverter.str_to_timedelta(line3) == self.end or TypeConverter.str_to_timedelta(line4) <= self.end):
+
+        info_list = self.linked_uid_info_dict.get(f"{self.uid}", None)
+        if info_list and len(info_list) == 6:
+            self.to_split = info_list[0]
+            #если время предыдущего сплита этого uid совпадает
+            if info_list[1] == self.start and (info_list[2] == self.end or info_list[3] <= self.end):
                 #и нужный сплит существует не сплитуем
                 self.segment = Path(self.flags.flag("save_dir")) / f"_temp_{self.uid}.mkv"
                 if self.segment.exists():
-                    self.length = TypeConverter.str_to_timedelta(line4)
-                    self.offset_start = TypeConverter.str_to_timedelta(line5)
-                    self.offset_end = TypeConverter.str_to_timedelta(line6)
+                    self.length = info_list[3]
+                    self.offset_start = info_list[4]
+                    self.offset_end = info_list[5]
                     self.execute_split = False
+
         else:
             self.to_split = Video.find_video_with_uid(self.video_dir, self.uid)
-            TxtUtils.write_lines_to_file(self.txt_uid, self.to_split, self.start, self.end)
 
     def get_segment_linked_video(self):
         self.execute_split = True
@@ -1183,7 +1151,7 @@ class Video(Merge):
         self.chapter_end = self.end
 
         if self.uid:
-            self.rw_uid_file_info()
+            self.read_uid_file_info()
         else:
             self.to_split = self.video
             self.start = self.prev_nonuid_end
@@ -1199,7 +1167,10 @@ class Video(Merge):
                     new_path.unlink()
                 self.segment.rename(new_path)
                 self.segment = new_path
-                TxtUtils.add_lines_to_file(self.txt_uid, self.lengths - self.prev_lengths, self.offset_start, self.offset_end)
+
+                length = self.lengths - self.prev_lengths
+                self.linked_uid_info_dict[f"{self.uid}"] = [self.to_split, self.start, self.end, length, self.offset_start, self.offset_end]
+
         else:
             self.lengths = self.lengths + self.length
 
