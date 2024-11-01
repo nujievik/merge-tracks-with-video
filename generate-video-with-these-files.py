@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.6
+generate-video-with-these-files-v0.4.7
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -194,20 +194,12 @@ class Messages():
     @classmethod
     def create_dictionary(cls, flags):
         cls.msg = {
-            1: "[Enter] - use a default value.",
-            2: "DefaultAll - use default values for ALL next options."
-            }
-        cls.msg[3] = f"\n{cls.msg[1]}\n{cls.msg[2]}\n\n"
-        cls.msg[4] = "Use a default value.\n"
-        cls.msg[5] = f"{cls.msg[4]}All next options will be use default values.\n"
-        cls.msg[6] = f"\n{cls.msg[1]}\n{cls.msg[2]}\nSetAll - set next generate settings for all next files.\n\n"
-        cls.msg[7] = "Next generate settings will be set for all next files."
-        cls.msg[8] = f"Files for generating a new video not found. Checked the directory '{str(flags.flag("start_dir"))}', its subdirectories and {flags.flag("limit_search_dir_up")} directories up."
+            "notfound": f"Files for generating a new video not found. Checked the directory '{str(flags.flag("start_dir"))}', its subdirectories and {flags.flag("limit_search_dir_up")} directories up."
+        }
 
 class Flags():
     def __init__(self):
         self.__flags = {
-            "count_sys_argv": 0,
             "start_dir": None,
             "save_dir": None,
             "pro_mode": False,
@@ -228,10 +220,7 @@ class Flags():
             "save_fonts": True,
             "save_original_fonts": True,
             "save_attachments": True,
-            "save_original_attachments": True,
-            "add_msg_setall": False,
-            "gensettings_for_all_will_be_set": True,
-            "gensettings_for_all_setted": False
+            "save_original_attachments": True
         }
 
     sync_flag_dict = {
@@ -262,209 +251,63 @@ class Flags():
         return self.__flags.get(key, None)
 
     def processing_sys_argv(self):
-        self.set_flag("count_sys_argv", len(sys.argv))
-        lmsg = "Usage: python generate-video-with-these-files.py <start-dir> <save-dir> <mode> <*args>"
+        start_dir = None
+        save_dir = None
+        pro_mode = False
 
-        if self.flag("count_sys_argv") > 1:
-            start_dir = TypeConverter.str_to_path(sys.argv[1])
-            if not start_dir:
-                print(f"Incorrect start directory arg! {lmsg}")
-                sys.exit(1)
+        if len(sys.argv) > 1:
+            args = list(sys.argv[1:])
         else:
-            start_dir = Path(__file__).resolve().parent
-        self.set_flag("start_dir", start_dir)
+            args = []
 
-        if self.flag("count_sys_argv") > 2:
-            save_dir = TypeConverter.str_to_path(sys.argv[2])
-            if not save_dir:
-                print(f"Incorrect save directory arg! {lmsg}")
-                sys.exit(1)
-        else:
-            save_dir = start_dir
-        self.set_flag("save_dir", save_dir)
+        for arg in args:
+            if not arg.startswith("--"):
+                found_dir = TypeConverter.str_to_path(arg)
+                if not found_dir:
+                    print(f"Incorrect directory arg {arg}!")
+                    sys.exit(1)
 
-        is_pro_mode = (self.flag("count_sys_argv") == 3 and 'default' not in sys.argv[3].lower()) or self.flag("count_sys_argv") > 4
-        self.set_flag("pro_mode", is_pro_mode)
-
-        if self.flag("count_sys_argv") > 4:
-            self.set_flag("gensettings_for_all_setted", True)
-
-            args = set(sys.argv[4:])
-            for arg in args:
-                if arg.startswith("--save-"):
-                    state = True
-                    clean_arg = arg.replace("--save-", "save_")
-                else:
-                    state = False
-                    clean_arg = arg.replace("--no-", "save_")
-                clean_arg = clean_arg.replace("-", "_")
-
-                if clean_arg in self.__flags:
-                    self.set_flag(clean_arg, state)
+                if not start_dir:
+                    start_dir = found_dir
+                    continue
+                elif not save_dir:
+                    save_dir = found_dir
                     continue
 
-                index = arg.find("=")
-                if index != -1:
-                    key = arg[:index + 1]
-                    str_number = arg[index + 1:]
-                    number = TypeConverter.str_to_number(str_number)
-                    if number and key in Flags.argv_count_dict:
-                        self.set_flag(Flags.argv_count_dict[key], number)
-                        continue
+            if arg.startswith("--save-"):
+                state = True
+                clean_arg = arg.replace("--save-", "save_")
+            else:
+                state = False
+                clean_arg = arg.replace("--no-", "save_")
+            clean_arg = clean_arg.replace("-", "_")
 
-                print(f"Unrecognized argv {arg}, skip this.")
-
-class Requests(Flags):
-    @staticmethod
-    def clear_console():
-        if os.name == 'nt':  # Windows
-            os.system('cls')
-        else:  # Unix
-            os.system('clear')
-
-    def set_flag_by_user_input(self, flag, default, is_number=False, is_dir=False, is_yes_no=False):
-        self.lmsg = ""
-        while True:
-            user_input = input("> ")
-
-            if user_input.lower() == "defaultall":
-                self.lmsg = Messages.msg[5]
-                self.set_flag(flag, default)
-                self.set_flag("pro_mode", False)
-
-            elif user_input.lower() == "setall" and self.flag("add_msg_setall"):
-                print(Messages.msg[7] + "\nPlease enter a value for the current option.")
-                self.up_msg = Messages.msg[3]
-                self.set_flag("add_msg_setall", False)
-                self.set_flag("gensettings_for_all_will_be_set", True)
+            if clean_arg in self.__flags:
+                self.set_flag(clean_arg, state)
+                pro_mode = True
                 continue
 
-            elif user_input == "":
-                self.lmsg = Messages.msg[4]
-                self.set_flag(flag, default)
-
-            elif is_number:
-                number = TypeConverter.str_to_number(user_input)
-                if number:
-                    self.set_flag(flag, number)
-                else:
-                    print("Please enter a positive number! Try again.")
+            index = arg.find("=")
+            if index != -1:
+                key = arg[:index + 1]
+                str_number = arg[index + 1:]
+                number = TypeConverter.str_to_number(str_number)
+                if number and key in Flags.argv_count_dict:
+                    self.set_flag(Flags.argv_count_dict[key], number)
+                    pro_mode = True
                     continue
 
-            elif is_dir:
-                path = TypeConverter.str_to_path(user_input)
-                if path:
-                    self.set_flag(flag, path)
-                else:
-                    print("Please enter a correct path! Try again.")
-                    continue
+            print(f"Unrecognized arg '{arg}', skip this.")
 
-            elif is_yes_no:
-                if user_input.lower() not in ("yes", "y", "no", "n"):
-                    print("Incorrect input! Try again.")
-                    continue
-                elif user_input.lower() in ("yes", "y"):
-                    self.set_flag(flag, True)
-                else:
-                    self.set_flag(flag, False)
+        if not start_dir:
+            start_dir = Path(__file__).resolve().parent
+            save_dir = start_dir
+        elif not save_dir:
+            save_dir = start_dir
 
-            else:
-                ("Error. Incorrect call set_flag_by_user_input.")
-            return
-
-    def user_requests1(self):
-        Requests.clear_console()
-
-        if self.flag("count_sys_argv") < 2:
-            user_input = input(f"{Messages.msg[1]}\n\nSelect mode:\n 0 - Default mode\n 1 - PRO mode\n> ")
-            Requests.clear_console()
-            if user_input not in ("1", "0", ""):
-                print("Incorrect input!")
-            if user_input == "1":
-                print("PRO mode set.")
-                self.set_flag("pro_mode", True)
-            else:
-                print("Default mode set.")
-                self.set_flag("pro_mode", False)
-                return
-
-        if self.flag("count_sys_argv") < 3:
-            print(f"{Messages.msg[3]}Enter the limit number of files to generate:")
-            self.set_flag_by_user_input("limit_generate", 99999, is_number=True)
-            limit = self.flag("limit_generate") if self.flag("limit_generate") != 99999 else "all"
-            Requests.clear_console()
-            print(f"{self.lmsg}Generate will be executed for {limit} files.")
-            if not self.flag("pro_mode"):
-                return
-
-        print(f"{Messages.msg[3]}Enter the save directory for generated files:")
-        self.set_flag_by_user_input("save_dir", self.flag("save_dir"), is_dir=True)
-        Requests.clear_console()
-        print(f"{self.lmsg}The save directory has been set to {self.flag("save_dir")}.\n")
-        if not self.flag("pro_mode"):
-            return
-
-    def user_requests2(self, vid):
-        print("\nFound video files:")
-        for video in vid.video_list:
-            print(str(video))
-
-        print(f"{Messages.msg[3]}Do you want set generate settings for ALL these video? [y/n]. If not, you must be set settings for each video.")
-        self.set_flag_by_user_input("gensettings_for_all_will_be_set", True, is_yes_no=True)
-        tale = "all files." if self.flag("gensettings_for_all_will_be_set") else "each file separate."
-        Requests.clear_console()
-        print(f"{self.lmsg}Generate settings will be set for {tale}")
-        if not self.flag("pro_mode"):
-            return
-
-        if not self.flag("gensettings_for_all_will_be_set"):
-            self.set_flag("add_msg_setall", True)
-
-    def user_requests3(self, vid):
-        output_str = f"\nProcessed files:\nVideo: \n{str(vid.video)}"
-        if vid.audio_list:
-            output_str = output_str + "\nAudio: \n" + "\n".join([str(audio) for audio in vid.audio_list])
-        if vid.subtitles_list:
-            output_str = output_str + "\nSubtitle: \n" + "\n".join([str(sub) for sub in vid.subtitles_list])
-            if vid.font_set:
-                output_str = output_str + "\nFont: \n" + "\n".join([str(font) for font in vid.font_set])
-        output_str = output_str + "\n"
-
-        self.up_msg = Messages.msg[6] if self.flag("add_msg_setall") else Messages.msg[3]
-
-        print(f"{output_str}{self.up_msg}Do you want to save original audio? [y/n]")
-        def_flag = not self.flag("audio_dir_found") or not vid.audio_list
-        self.set_flag_by_user_input("save_original_audio", def_flag, is_yes_no=True)
-        tale = "be save." if self.flag("save_original_audio") else "NOT be save."
-        Requests.clear_console()
-        print(f"{self.lmsg}Original audio will {tale}")
-        if not self.flag("pro_mode"):
-            return
-
-        print(f"{output_str}{self.up_msg}Do you want to save original subtitles? [y/n]")
-        def_flag = not self.flag("subtitles_dir_found") or not vid.subtitles_list
-        self.set_flag_by_user_input("save_original_subtitles", def_flag, is_yes_no=True)
-        tale = "be save." if self.flag("save_original_subtitles") else "NOT be save."
-        Requests.clear_console()
-        print(f"{self.lmsg}Original subtitles will {tale}")
-        if not self.flag("pro_mode"):
-            return
-
-        if self.flag("save_original_subtitles"):
-            self.set_flag("save_original_fonts", True)
-
-        elif not self.flag("save_original_subtitles") and not vid.subtitles_list:
-            self.set_flag("save_original_fonts", False)
-
-        else:
-            print(f"{output_str}{self.up_msg}Do you want to save original fonts? External subtitles also will be used original fonts. [y/n]")
-            self.set_flag_by_user_input("save_original_fonts", True, is_yes_no=True)
-            tale = "be save." if self.flag("save_original_fonts") else "NOT be save."
-            Requests.clear_console()
-            print(f"{self.lmsg}Original fonts will {tale}")
-
-        if self.flag("gensettings_for_all_will_be_set"):
-            self.set_flag("gensettings_for_all_setted", True)
+        self.set_flag("start_dir", start_dir)
+        self.set_flag("save_dir", save_dir)
+        self.set_flag("pro_mode", pro_mode)
 
 class FileDictionary:
     def __init__(self, flags):
@@ -765,7 +608,7 @@ class FileDictionary:
         search_dir = self.video_dir if self.video_dir else self.flags.flag("start_dir")
         video_list = FileDictionary.find_files_with_extensions(search_dir, EXTENSIONS['video'])
         if not video_list:
-            print(Messages.msg[8])
+            print(Messages.msg["notfound"])
             sys.exit(0)
 
         if self.flags.flag("audio_dir_found") or self.flags.flag("subtitles_dir_found"):
@@ -782,7 +625,7 @@ class FileDictionary:
             self.audio_dictionary = self.audio_trackname_dictionary = self.subtitles_dictionary = self.sub_trackname_dictionary = self.font_set = {}
             self.video_list = FileDictionary.find_files_with_extensions(self.flags.flag("start_dir"), ".mkv")
             if not self.video_list:
-                print(Messages.msg[8])
+                print(Messages.msg["notfound"])
                 sys.exit(0)
 
 class Merge(FileDictionary):
@@ -921,25 +764,19 @@ class Merge(FileDictionary):
                     sys.exit(1)
 
     def set_merge_flags(self):
-        if self.flags.flag("pro_mode"):
-            if not self.flags.flag("gensettings_for_all_setted"):
-                self.flags.user_requests3(self)
-        else:
-            save_original_audio = not self.flags.flag("audio_dir_found") or not self.audio_list
-            self.flags.set_flag("save_original_audio", save_original_audio)
+        save_original_audio = not self.flags.flag("audio_dir_found") or not self.audio_list
+        self.flags.set_flag("save_original_audio", save_original_audio)
 
-            save_original_subtitles = not self.flags.flag("subtitles_dir_found") or not self.subtitles_list
-            self.flags.set_flag("save_original_subtitles", save_original_subtitles)
+        save_original_subtitles = not self.flags.flag("subtitles_dir_found") or not self.subtitles_list
+        self.flags.set_flag("save_original_subtitles", save_original_subtitles)
 
-            save_fonts = True if self.subtitles_list else False
-            self.flags.set_flag("save_fonts", save_fonts)
+        save_fonts = True if self.subtitles_list else False
+        self.flags.set_flag("save_fonts", save_fonts)
 
     def merge_all_files(self):
         self.linked_uid_info_dict = {}
         count_generated = 0
         count_gen_before = 0
-        if self.flags.flag("pro_mode") and not self.flags.flag("gensettings_for_all_setted"):
-            self.flags.user_requests2(self)
 
         for self.video in self.video_list:
             self.merge_video_list = [self.video]
@@ -948,7 +785,9 @@ class Merge(FileDictionary):
             self.subtitles_list = self.subtitles_dictionary.get(str(self.video), [])
             self.sub_trackname_list = self.sub_trackname_dictionary.get(str(self.video), [])
 
-            self.set_merge_flags()
+            if not self.flags.flag("pro_mode"):
+                self.set_merge_flags()
+
             if self.video.suffix == ".mkv":
                 if not self.processing_linked_video():
                     if not self.audio_list and not self.subtitles_list and not self.font_set:
@@ -1504,13 +1343,11 @@ class Video(Merge):
         return self.output
 
 def main():
-    flags = Requests()
+    flags = Flags()
     flags.processing_sys_argv()
 
     Tools.set_mkvtools_paths()
     Messages.create_dictionary(flags)
-    if flags.flag("pro_mode") and flags.flag("count_sys_argv") < 4:
-        flags.user_requests1()
 
     print(f"\nTrying to generate a new video in the save directory '{str(flags.flag("save_dir"))}' using files from the start directory '{str(flags.flag("start_dir"))}'.")
     vid = Video(flags)
@@ -1520,7 +1357,7 @@ def main():
     if flags.flag("count_generated"):
         print(f"\nThe script was executed successfully. {flags.flag("count_generated")} video files were generated in the directory '{str(flags.flag("save_dir"))}'")
     else:
-        print(Messages.msg[8])
+        print(Messages.msg["notfound"])
 
     if flags.flag("count_gen_before"):
         print(f"{flags.flag("count_gen_before")} video files in the save directory '{str(flags.flag("save_dir"))}' had generated names before the current run of the script. Generation for these files has been skipped.")
