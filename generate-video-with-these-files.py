@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.9
+generate-video-with-these-files-v0.4.10
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -16,14 +16,14 @@ from datetime import timedelta
 
 EXTENSIONS = {
     'video': {'.mkv', '.m4v', '.mp4', '.avi', '.h264', '.hevc', '.ts', '.3gp',
-              '.flv', '.m2ts', '.mpeg', '.mpg', '.mov', '.ogm', '.webm'},
+              '.flv', '.m2ts', '.mpeg', '.mpg', '.mov', '.ogm', '.webm', '.wmv'},
 
-    'audio': {'.mka', '.m4a', '.aac', '.ac3', '.dts', '.dtshd', '.eac3', '.ec3', '.flac',
-                '.mp2', '.mpa', '.mp3', '.opus', '.truehd', '.wav', '.3gp', '.flv', '.m2ts',
-                '.mkv', '.mp4', '.mpeg', '.mpg', '.mov', '.ts', '.ogg', '.ogm', '.webm'},
+    'audio': {'.mka', '.m4a', '.aac', '.ac3', '.dts', '.dtshd', '.eac3', '.ec3', '.flac', '.mp2',
+              '.mpa', '.mp3', '.opus', '.truehd', '.wav', '.3gp', '.flv', '.m2ts', '.mkv', '.mp4',
+              '.avi', '.mpeg', '.mpg', '.mov', '.ts', '.ogg', '.ogm', '.webm', '.wmv'},
 
     'container': {'.mkv', '.mp4', '.avi', '.3gp', '.flv', '.m2ts', '.mpeg', '.mpg', '.mov',
-                    '.ogg', '.ogm', '.ts', '.webm', '.wmv'},
+                  '.ogg', '.ogm', '.ts', '.webm', '.wmv'},
 
     'subtitles': {'.ass', '.mks', '.ssa', '.sub', '.srt'},
 
@@ -203,6 +203,7 @@ class Flags():
             "start_dir": None,
             "save_dir": None,
             "pro_mode": False,
+            "output_partname": "",
             "limit_search_up": 3,
             "limit_generate": 99999,
             "count_generated": 0,
@@ -275,14 +276,20 @@ class Flags():
                 pro_mode = True
                 continue
 
-            clean_arg = arg.replace("--", "").replace("-", "_")
+            clean_arg = arg.replace("--", "")
             index = clean_arg.find("=")
             if index != -1:
-                key = clean_arg[:index]
-                str_number = clean_arg[index + 1:]
-                number = TypeConverter.str_to_number(str_number)
+                key = clean_arg[:index].replace("-", "_")
+                value = clean_arg[index + 1:]
+                number = TypeConverter.str_to_number(value)
                 if (number or number == 0) and key in self.__flags:
                     self.set_flag(key, number)
+                    pro_mode = True
+                    continue
+
+                if key == "output_partname":
+                    value = value.strip("'\"")
+                    self.set_flag(key, value)
                     pro_mode = True
                     continue
 
@@ -630,31 +637,36 @@ class FileDictionary:
 
 class Merge(FileDictionary):
     def set_output_path(self, tail=""):
-        partname = f"{self.video.stem}{tail}"
-        if self.audio_list and self.flags.flag("save_audio"):
-            if self.flags.flag("save_original_audio"):
-                partname = partname + "_added_audio"
-            else:
-                partname = partname + "_replaced_audio"
+        if self.output_partname:
+            name = f"{self.output_partname}{self.count_output_name:0{len(str(self.video_list_length))}d}"
+            self.output = Path(self.flags.flag("save_dir")) / f"{name}.mkv"
 
-        if self.subtitles_list and self.flags.flag("save_subtitles"):
-            if self.flags.flag("save_original_subtitles"):
-                partname = partname + "_added_subs"
-            else:
-                partname = partname + "_replaced_subs"
+        else:
+            partname = f"{self.video.stem}{tail}"
+            if self.audio_list and self.flags.flag("save_audio"):
+                if self.flags.flag("save_original_audio"):
+                    partname = partname + "_added_audio"
+                else:
+                    partname = partname + "_replaced_audio"
 
-        if self.font_list and self.flags.flag("save_fonts"):
-            if self.flags.flag("save_original_fonts"):
-                partname = partname + "_added_fonts"
-            else:
-                partname = partname + "_replaced_fonts"
+            if self.subtitles_list and self.flags.flag("save_subtitles"):
+                if self.flags.flag("save_original_subtitles"):
+                    partname = partname + "_added_subs"
+                else:
+                    partname = partname + "_replaced_subs"
 
-        self.output = Path(self.flags.flag("save_dir")) / f"{partname}.mkv"
+            if self.font_list and self.flags.flag("save_fonts"):
+                if self.flags.flag("save_original_fonts"):
+                    partname = partname + "_added_fonts"
+                else:
+                    partname = partname + "_replaced_fonts"
+
+            self.output = Path(self.flags.flag("save_dir")) / f"{partname}.mkv"
 
     def execute_merge(self, coding_cp1251=False, opt_sub={}):
         command = [str(Tools.mkvmerge), "-o", str(self.output)]
 
-        empty_no_attachments_arg = self.flags.flag("save_original_fonts") and not self.flags.flag("sort_original_fonts")
+        empty_no_attachments_arg = not self.orig_font_list or (self.flags.flag("save_original_fonts") and not self.flags.flag("sort_original_fonts"))
 
         if not empty_no_attachments_arg:
             command.append("--no-attachments")
@@ -800,13 +812,19 @@ class Merge(FileDictionary):
                 filepath = Path(self.orig_font_dir) / name
                 command.append(f"{count}:{filepath}")
                 count += 1
-            execute_command(command)
+            try:
+                subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except Exception:
+                pass
 
         self.orig_font_list = FileDictionary.find_files_with_extensions(self.orig_font_dir, EXTENSIONS["font"])
 
     def merge_all_files(self):
+        self.video_list_length = len(self.video_list)
+        self.output_partname = self.flags.flag("output_partname")
         self.linked_uid_info_dict = {}
         self.orig_font_dir = Path(self.flags.flag("save_dir")) / "_temp_orig_fonts"
+        self.count_output_name = 1
         count_generated = 0
         count_gen_before = 0
 
@@ -832,6 +850,7 @@ class Merge(FileDictionary):
 
             if self.output.exists():
                 count_gen_before += 1
+                self.count_output_name += 1
                 continue
 
             if self.flags.flag("sort_original_fonts") and self.flags.flag("save_original_fonts"):
@@ -844,6 +863,8 @@ class Merge(FileDictionary):
 
             if count_generated >= self.flags.flag("limit_generate"):
                 break
+
+            self.count_output_name += 1
 
         self.flags.set_flag("count_generated", count_generated)
         self.flags.set_flag("count_gen_before", count_gen_before)
