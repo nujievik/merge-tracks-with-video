@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.7
+generate-video-with-these-files-v0.4.8
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -76,10 +76,10 @@ class TypeConverter:
         return path_out
 
     @staticmethod
-    def str_to_number(str_in, int_num=True, positive=True):
+    def str_to_number(str_in, int_num=True, non_negative=True):
         try:
             number = int(str_in) if int_num else float(str_in)
-            if positive and number <= 0:
+            if non_negative and number < 0:
                 return None
         except Exception:
             return None
@@ -194,7 +194,7 @@ class Messages():
     @classmethod
     def create_dictionary(cls, flags):
         cls.msg = {
-            "notfound": f"Files for generating a new video not found. Checked the directory '{str(flags.flag("start_dir"))}', its subdirectories and {flags.flag("limit_search_dir_up")} directories up."
+            "notfound": f"Files for generating a new video not found. Checked the directory '{str(flags.flag("start_dir"))}', its subdirectories and {flags.flag("limit_search_up")} directories up."
         }
 
 class Flags():
@@ -203,7 +203,7 @@ class Flags():
             "start_dir": None,
             "save_dir": None,
             "pro_mode": False,
-            "limit_search_dir_up": 3,
+            "limit_search_up": 3,
             "limit_generate": 99999,
             "count_generated": 0,
             "count_gen_before": 0,
@@ -219,29 +219,12 @@ class Flags():
             "save_original_subtitles": True,
             "save_fonts": True,
             "save_original_fonts": True,
-            "save_attachments": True,
-            "save_original_attachments": True
-        }
-
-    sync_flag_dict = {
-        "save_fonts": ["save_attachments"],
-        "save_attachments": ["save_fonts"],
-        "save_original_fonts": ["save_original_attachments"],
-        "save_original_attachments": ["save_original_fonts"]
-        }
-
-    argv_count_dict = {
-        "--limit-generate=": "limit_generate",
-        "--limit-search-up=": "limit_search_dir_up"
+            "sort_original_fonts": True
         }
 
     def set_flag(self, key, value):
         if key in self.__flags:
             self.__flags[key] = value
-            if key in Flags.sync_flag_dict:
-                sync_keys = Flags.sync_flag_dict[key]
-                for skey in sync_keys:
-                    self.__flags[skey] = value
         else:
             print(f"Error flag '{key}' not found, flag not set.")
 
@@ -274,26 +257,32 @@ class Flags():
                     save_dir = found_dir
                     continue
 
-            if arg.startswith("--save-"):
-                state = True
-                clean_arg = arg.replace("--save-", "save_")
-            else:
+            if arg.startswith("--no"):
                 state = False
                 clean_arg = arg.replace("--no-", "save_")
-            clean_arg = clean_arg.replace("-", "_")
+            else:
+                state = True
+                clean_arg = arg.replace("--", "")
+            clean_arg = clean_arg.replace("-", "_").replace("_attachments", "_fonts")
+            clean_arg_alt = clean_arg.replace("save_", "")
 
             if clean_arg in self.__flags:
                 self.set_flag(clean_arg, state)
                 pro_mode = True
                 continue
+            if clean_arg_alt in self.__flags:
+                self.set_flag(clean_arg_alt, state)
+                pro_mode = True
+                continue
 
-            index = arg.find("=")
+            clean_arg = arg.replace("--", "").replace("-", "_")
+            index = clean_arg.find("=")
             if index != -1:
-                key = arg[:index + 1]
-                str_number = arg[index + 1:]
+                key = clean_arg[:index]
+                str_number = clean_arg[index + 1:]
                 number = TypeConverter.str_to_number(str_number)
-                if number and key in Flags.argv_count_dict:
-                    self.set_flag(Flags.argv_count_dict[key], number)
+                if (number or number == 0) and key in self.__flags:
+                    self.set_flag(key, number)
                     pro_mode = True
                     continue
 
@@ -317,7 +306,7 @@ class FileDictionary:
         self.audio_trackname_dictionary = {}
         self.subtitles_dictionary = {}
         self.sub_trackname_dictionary = {}
-        self.font_set = set()
+        self.font_list = []
         self.create_file_list_set_dictionaries()
 
     @staticmethod
@@ -349,14 +338,22 @@ class FileDictionary:
         return cleaned_dir_name
 
     @staticmethod
-    def remove_repeat_fonts(font_set):
+    def remove_repeat_sort_fonts(font_list):
         stems = set()
-        cleaned_set = set()
-        for font in font_set:
+        stem_list = []
+        cleaned_list = []
+        for font in font_list:
             if not font.stem in stems:
                 stems.add(font.stem)
-                cleaned_set.add(font)
-        return cleaned_set
+                stem_list.append(font.stem)
+
+        stem_list.sort(key=str.lower)
+        for stem in stem_list:
+            for font in font_list:
+                if font.stem == stem:
+                    cleaned_list.append(font)
+                    break
+        return cleaned_list
 
     @staticmethod
     def find_subdirectories_by_string(base_dir):
@@ -396,8 +393,11 @@ class FileDictionary:
 
     @classmethod
     def find_files_with_extensions(cls, search_dir, extensions, search_name="", recursive_search=False):
+        if not search_dir.exists():
+            return []
         search_method = search_dir.rglob('*') if recursive_search else search_dir.glob('*')
         found_files_list = []
+
         for filepath in sorted(search_method):
             if recursive_search and cls.path_contains_keyword(search_dir, filepath):
                 continue
@@ -417,7 +417,7 @@ class FileDictionary:
         for filepath in filepath_list:
             count = 0
             search_dir = directory
-            while count <= flags.flag("limit_search_dir_up"):
+            while count <= flags.flag("limit_search_up"):
                 video_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['video'], filepath.stem)
                 for video in video_list:
                     #не выполняем если видео совпадает с файлом
@@ -488,7 +488,7 @@ class FileDictionary:
     def collect_files_from_found_directories(cls, audio_dir, subtitles_dir, font_dir):
         audio_list = []
         subtitles_list = []
-        font_set = set()
+        font_list = []
 
         recursive_search=False
         if audio_dir:
@@ -496,16 +496,16 @@ class FileDictionary:
         if subtitles_dir:
             subtitles_list = cls.find_files_with_extensions(subtitles_dir, EXTENSIONS['subtitles'], "", recursive_search)
         if font_dir:
-            font_set = set(cls.find_files_with_extensions(font_dir, EXTENSIONS['font'], "", recursive_search))
-        return audio_list, subtitles_list, font_set
+            font_list = cls.find_files_with_extensions(font_dir, EXTENSIONS['font'], "", recursive_search)
+        return audio_list, subtitles_list, font_list
 
     @classmethod
     def collect_files_from_start_dir(cls, search_dir):
         recursive_search = True
         audio_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['audio'], "", recursive_search)
         subtitles_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['subtitles'], "", recursive_search)
-        font_set = set(cls.find_files_with_extensions(search_dir, EXTENSIONS['font'], "", recursive_search))
-        return audio_list, subtitles_list, font_set
+        font_list = cls.find_files_with_extensions(search_dir, EXTENSIONS['font'], "", recursive_search)
+        return audio_list, subtitles_list, font_list
 
     @classmethod
     def get_trackname(cls, tail, dir_name):
@@ -612,17 +612,17 @@ class FileDictionary:
             sys.exit(0)
 
         if self.flags.flag("audio_dir_found") or self.flags.flag("subtitles_dir_found"):
-            audio_list, subtitles_list, self.font_set = FileDictionary.collect_files_from_found_directories(self.audio_dir, self.subtitles_dir, self.font_dir)
+            audio_list, subtitles_list, self.font_list = FileDictionary.collect_files_from_found_directories(self.audio_dir, self.subtitles_dir, self.font_dir)
 
         else:
-            audio_list, subtitles_list, font_set = FileDictionary.collect_files_from_start_dir(self.flags.flag("start_dir"))
-            if font_set:
-                self.font_set = FileDictionary.remove_repeat_fonts(font_set)
+            audio_list, subtitles_list, font_list = FileDictionary.collect_files_from_start_dir(self.flags.flag("start_dir"))
+            if font_list:
+                self.font_list = FileDictionary.remove_repeat_sort_fonts(font_list)
 
         self.video_list, self.audio_dictionary, self.audio_trackname_dictionary, self.subtitles_dictionary, self.sub_trackname_dictionary = FileDictionary.create_dictionaries(video_list, audio_list, subtitles_list)
 
         if not self.video_list: #пробуем найти mkv для обработки линковки
-            self.audio_dictionary = self.audio_trackname_dictionary = self.subtitles_dictionary = self.sub_trackname_dictionary = self.font_set = {}
+            self.audio_dictionary = self.audio_trackname_dictionary = self.subtitles_dictionary = self.sub_trackname_dictionary = self.font_list = {}
             self.video_list = FileDictionary.find_files_with_extensions(self.flags.flag("start_dir"), ".mkv")
             if not self.video_list:
                 print(Messages.msg["notfound"])
@@ -643,7 +643,7 @@ class Merge(FileDictionary):
             else:
                 partname = partname + "_replaced_subs"
 
-        if self.font_set and self.flags.flag("save_fonts"):
+        if self.font_list and self.flags.flag("save_fonts"):
             if self.flags.flag("save_original_fonts"):
                 partname = partname + "_added_fonts"
             else:
@@ -653,6 +653,11 @@ class Merge(FileDictionary):
 
     def execute_merge(self, coding_cp1251=False, opt_sub={}):
         command = [str(Tools.mkvmerge), "-o", str(self.output)]
+
+        empty_no_attachments_arg = self.flags.flag("save_original_fonts") and not self.flags.flag("sort_original_fonts")
+
+        if not empty_no_attachments_arg:
+            command.append("--no-attachments")
         if not self.flags.flag("save_global_tags"):
             command.append("--no-global-tags")
         if not self.flags.flag("save_chapters"):
@@ -661,12 +666,12 @@ class Merge(FileDictionary):
             command.append("--no-audio")
         if not self.flags.flag("save_original_subtitles"):
             command.append("--no-subtitles")
-        if not self.flags.flag("save_original_fonts"):
-            command.append("--no-attachments")
 
         #добавляем видеофайлы
         command.append(str(self.merge_video_list[0]))
         for video in self.merge_video_list[1:]:
+            if not empty_no_attachments_arg:
+                command.append("--no-attachments")
             command.append(f"+{str(video)}")
 
         if self.flags.flag("save_audio"): #add audio
@@ -698,7 +703,7 @@ class Merge(FileDictionary):
                 count += 1
 
         if self.flags.flag("save_fonts"):
-            for font in self.font_set:
+            for font in self.merge_font_list:
                 command.extend(["--attach-file", str(font)])
 
         print(f"\nGenerating a merged video file using mkvmerge. Executing the command: \n{command}")
@@ -773,8 +778,35 @@ class Merge(FileDictionary):
         save_fonts = True if self.subtitles_list else False
         self.flags.set_flag("save_fonts", save_fonts)
 
+    def extract_original_fonts(self):
+        if self.orig_font_dir.exists():
+            shutil.rmtree(self.orig_font_dir)
+        self.orig_font_dir.mkdir(parents=True)
+        self.orig_font_list = []
+
+        for video in self.merge_video_list:
+            name_list = []
+            command = [str(Tools.mkvmerge), "-i", str(video)]
+            stdout = get_stdout(command)
+            for line in stdout.splitlines():
+                match = re.search(r"file name '(.+?)'", line)
+                if match:
+                    name = match.group(1)
+                    name_list.append(name)
+
+            count = 1
+            command = [str(Tools.mkvextract), str(video), "attachments"]
+            for name in name_list:
+                filepath = Path(self.orig_font_dir) / name
+                command.append(f"{count}:{filepath}")
+                count += 1
+            execute_command(command)
+
+        self.orig_font_list = FileDictionary.find_files_with_extensions(self.orig_font_dir, EXTENSIONS["font"])
+
     def merge_all_files(self):
         self.linked_uid_info_dict = {}
+        self.orig_font_dir = Path(self.flags.flag("save_dir")) / "_temp_orig_fonts"
         count_generated = 0
         count_gen_before = 0
 
@@ -784,13 +816,14 @@ class Merge(FileDictionary):
             self.audio_trackname_list = self.audio_trackname_dictionary.get(str(self.video), [])
             self.subtitles_list = self.subtitles_dictionary.get(str(self.video), [])
             self.sub_trackname_list = self.sub_trackname_dictionary.get(str(self.video), [])
+            self.merge_font_list = self.font_list
 
             if not self.flags.flag("pro_mode"):
                 self.set_merge_flags()
 
             if self.video.suffix == ".mkv":
                 if not self.processing_linked_video():
-                    if not self.audio_list and not self.subtitles_list and not self.font_set:
+                    if not self.audio_list and not self.subtitles_list and not self.font_list:
                         continue #пропускаем если нет ни линковки ни аудио ни сабов ни шрифтов
                     self.set_output_path()
 
@@ -801,6 +834,11 @@ class Merge(FileDictionary):
                 count_gen_before += 1
                 continue
 
+            if self.flags.flag("sort_original_fonts") and self.flags.flag("save_original_fonts"):
+                self.extract_original_fonts()
+                if self.orig_font_list:
+                    self.merge_font_list = FileDictionary.remove_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
+
             self.execute_merge()
             count_generated += 1
 
@@ -809,6 +847,8 @@ class Merge(FileDictionary):
 
         self.flags.set_flag("count_generated", count_generated)
         self.flags.set_flag("count_gen_before", count_gen_before)
+        if self.orig_font_dir.exists():
+            shutil.rmtree(self.orig_font_dir)
 
 class Video(Merge):
     @staticmethod
@@ -1345,6 +1385,9 @@ class Video(Merge):
 def main():
     flags = Flags()
     flags.processing_sys_argv()
+    if flags.flag("limit_generate") == 0:
+        print("Set the limit-generate 0. No new video files will be generated.")
+        sys.exit(0)
 
     Tools.set_mkvtools_paths()
     Messages.create_dictionary(flags)
