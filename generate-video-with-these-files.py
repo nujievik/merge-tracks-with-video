@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.8
+generate-video-with-these-files-v0.4.9
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -407,7 +407,7 @@ class FileDictionary:
             if any(key in filename for key in KEYS['skip_file']):
                 continue
 
-            if (search_name in filename or filename in search_name) and filepath.is_file() and filepath.suffix in extensions:
+            if (search_name in filename or filename in search_name) and filepath.is_file() and filepath.suffix.lower() in extensions:
                 found_files_list.append(filepath)
         return found_files_list
 
