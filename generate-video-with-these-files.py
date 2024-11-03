@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.4.10
+generate-video-with-these-files-v0.4.11
 This program is part of the generate-video-with-these-files-script repository
 Licensed under GPL-3.0. See LICENSE file for details.
 Author: nujievik Email: nujievik@gmail.com
@@ -53,14 +53,6 @@ def get_stdout(command):
     except subprocess.CalledProcessError as e:
         print(f"Error executing the command:\n{command}\n{e.output.decode()}\nExiting the script.")
         sys.exit(1)
-
-def delete_temp_files(directory):
-    try:
-        for filepath in directory.iterdir():
-            if filepath.name.startswith("_temp_") and filepath.is_file():
-                filepath.unlink()
-    except Exception as e:
-        print(f"Error: {e}")
 
 class TypeConverter:
     @staticmethod
@@ -202,12 +194,11 @@ class Flags():
         self.__flags = {
             "start_dir": None,
             "save_dir": None,
-            "pro_mode": False,
             "output_partname": "",
             "limit_search_up": 3,
             "limit_generate": 99999,
-            "count_generated": 0,
-            "count_gen_before": 0,
+            "range_generate": [0, 99999],
+            "pro_mode": False,
             "video_dir_found": False,
             "audio_dir_found": False,
             "subtitles_dir_found": False,
@@ -222,6 +213,13 @@ class Flags():
             "save_original_fonts": True,
             "sort_original_fonts": True
         }
+
+    types = {
+        "path": {"start_dir", "save_dir"},
+        "str": {"output_partname"},
+        "num": {"limit_search_up", "limit_generate"},
+        "range": {"range_generate"}
+    }
 
     def set_flag(self, key, value):
         if key in self.__flags:
@@ -246,17 +244,21 @@ class Flags():
 
         for arg in args:
             if not arg.startswith("--"):
-                found_dir = TypeConverter.str_to_path(arg)
+                clean_arg = arg.strip("'\"")
+                found_dir = TypeConverter.str_to_path(clean_arg)
                 if not found_dir:
                     print(f"Incorrect directory arg {arg}!")
                     sys.exit(1)
 
                 if not start_dir:
                     start_dir = found_dir
+                    self.set_flag("start_dir", start_dir)
                     continue
                 elif not save_dir:
                     save_dir = found_dir
+                    self.set_flag("save_dir", save_dir)
                     continue
+            pro_mode = True
 
             if arg.startswith("--no"):
                 state = False
@@ -269,11 +271,9 @@ class Flags():
 
             if clean_arg in self.__flags:
                 self.set_flag(clean_arg, state)
-                pro_mode = True
                 continue
             if clean_arg_alt in self.__flags:
                 self.set_flag(clean_arg_alt, state)
-                pro_mode = True
                 continue
 
             clean_arg = arg.replace("--", "")
@@ -282,27 +282,57 @@ class Flags():
                 key = clean_arg[:index].replace("-", "_")
                 value = clean_arg[index + 1:]
                 number = TypeConverter.str_to_number(value)
-                if (number or number == 0) and key in self.__flags:
-                    self.set_flag(key, number)
-                    pro_mode = True
-                    continue
 
-                if key == "output_partname":
+                if key in Flags.types["path"]:
+                    str_value = value.strip("'\"")
+                    value = TypeConverter.str_to_path(str_value)
+                    if value:
+                        self.set_flag(key, value)
+                        continue
+
+                elif key in Flags.types["str"]:
                     value = value.strip("'\"")
                     self.set_flag(key, value)
-                    pro_mode = True
                     continue
+
+                elif (number or number == 0) and key in Flags.types["num"]:
+                    self.set_flag(key, number)
+                    continue
+
+                elif (number or number == 0) and key in Flags.types["range"]:
+                    num2 = self.__flags[key][1]
+                    self.set_flag(key, [number, num2])
+                    continue
+
+                elif key in Flags.types["range"]:
+                    match = re.search(r'[-:,]', value)
+                    if match:
+                        index2 = match.start()
+
+                        str_num1 = value[:index2]
+                        str_num2 = value[index2 + 1:]
+                        num1 = TypeConverter.str_to_number(str_num1)
+                        num2 = TypeConverter.str_to_number(str_num2)
+
+                        if (num1 or num1 == 0) and (num2 or num2 == 0) and num2 >= num1:
+                            pass
+                        elif num1 or num1 == 0:
+                            num2 = self.__flags[key][1]
+                        elif num2 or num2 == 0:
+                            num1 = self.__flags[key][0]
+
+                        if num1 or num1 == 0:
+                            self.set_flag(key, [num1, num2])
+                            continue
 
             print(f"Unrecognized arg '{arg}', skip this.")
 
-        if not start_dir:
+        if not self.flag("start_dir"):
             start_dir = Path(__file__).resolve().parent
-            save_dir = start_dir
-        elif not save_dir:
-            save_dir = start_dir
-
-        self.set_flag("start_dir", start_dir)
-        self.set_flag("save_dir", save_dir)
+            self.set_flag("start_dir", start_dir)
+        if not self.flag("save_dir"):
+            save_dir = self.flag("start_dir")
+            self.set_flag("save_dir", save_dir)
         self.set_flag("pro_mode", pro_mode)
 
 class FileDictionary:
@@ -638,7 +668,7 @@ class FileDictionary:
 class Merge(FileDictionary):
     def set_output_path(self, tail=""):
         if self.output_partname:
-            name = f"{self.output_partname}{self.count_output_name:0{len(str(self.video_list_length))}d}"
+            name = f"{self.output_partname}{self.current_index+1:0{len(str(self.video_list_length))}d}"
             self.output = Path(self.flags.flag("save_dir")) / f"{name}.mkv"
 
         else:
@@ -686,37 +716,34 @@ class Merge(FileDictionary):
                 command.append("--no-attachments")
             command.append(f"+{str(video)}")
 
-        if self.flags.flag("save_audio"): #add audio
-            count = 0
-            for audio in self.audio_list:
-                track_name = self.audio_trackname_list[count]
-                if track_name and not (audio.suffix in (".mka", ".mkv") and FileInfo.get_file_info(audio, "Name:")):
-                    track_id_list = FileInfo.get_track_type_id(audio, "audio") #получаем инфу об аудиотреках
-                    for track_id in track_id_list:
-                        command.extend(["--track-name", f"{track_id}:{track_name}", str(audio)])
-                else:
-                    command.append(str(audio))
-                count += 1
+        count = 0
+        for audio in self.audio_list:
+            track_name = self.audio_trackname_list[count]
+            if track_name and not (audio.suffix in (".mka", ".mkv") and FileInfo.get_file_info(audio, "Name:")):
+                track_id_list = FileInfo.get_track_type_id(audio, "audio") #получаем инфу об аудиотреках
+                for track_id in track_id_list:
+                    command.extend(["--track-name", f"{track_id}:{track_name}", str(audio)])
+            else:
+                command.append(str(audio))
+            count += 1
 
-        if self.flags.flag("save_subtitles"): #add subtitles
-            count = 0
-            for sub in self.subtitles_list:
-                opt_id = opt_sub.get(str(sub), None)
-                if opt_id:
-                    command.extend(["--sub-charset", f"{opt_id}:windows-1251"])
+        count = 0
+        for sub in self.subtitles_list:
+            opt_id = opt_sub.get(str(sub), None)
+            if opt_id:
+                command.extend(["--sub-charset", f"{opt_id}:windows-1251"])
 
-                track_name = self.sub_trackname_list[count]
-                if track_name and not (sub.suffix in (".mks", ".mkv") and FileInfo.get_file_info(sub, "Name:")):
-                    track_id_list = FileInfo.get_track_type_id(sub, "subtitles")
-                    for track_id in track_id_list:
-                        command.extend(["--track-name", f"{track_id}:{track_name}", str(sub)])
-                else:
-                    command.append(str(sub))
-                count += 1
+            track_name = self.sub_trackname_list[count]
+            if track_name and not (sub.suffix in (".mks", ".mkv") and FileInfo.get_file_info(sub, "Name:")):
+                track_id_list = FileInfo.get_track_type_id(sub, "subtitles")
+                for track_id in track_id_list:
+                    command.extend(["--track-name", f"{track_id}:{track_name}", str(sub)])
+            else:
+                command.append(str(sub))
+            count += 1
 
-        if self.flags.flag("save_fonts"):
-            for font in self.merge_font_list:
-                command.extend(["--attach-file", str(font)])
+        for font in self.merge_font_list:
+            command.extend(["--attach-file", str(font)])
 
         print(f"\nGenerating a merged video file using mkvmerge. Executing the command: \n{command}")
 
@@ -769,14 +796,14 @@ class Merge(FileDictionary):
                 elif "nospaceleft" in cleaned_lline_out:
                     if self.output.exists():
                         self.output.unlink()
-                    delete_temp_files(self.flags.flag("save_dir"))
+                    self.delete_temp_files()
                     print(f"Error writing file!\nPlease re-run the script with a different save directory.\nExiting the script.")
                     sys.exit(1)
 
                 else:
                     if self.output.exists():
                         self.output.unlink()
-                    delete_temp_files(self.flags.flag("save_dir"))
+                    self.delete_temp_files()
                     print(f"Error executing the command!\n{last_line_out}\nExiting the script.")
                     sys.exit(1)
 
@@ -812,29 +839,55 @@ class Merge(FileDictionary):
                 filepath = Path(self.orig_font_dir) / name
                 command.append(f"{count}:{filepath}")
                 count += 1
-            try:
-                subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            except Exception:
-                pass
+            if count > 1:
+                execute_command(command)
 
         self.orig_font_list = FileDictionary.find_files_with_extensions(self.orig_font_dir, EXTENSIONS["font"])
+
+    def delete_temp_files(self):
+        try:
+            for filepath in self.flags.flag("save_dir").iterdir():
+                if filepath.name.startswith("_temp_") and filepath.is_file():
+                    filepath.unlink()
+        except Exception as e:
+            print(f"Error: {e}")
+
+        if self.orig_font_dir.exists():
+            shutil.rmtree(self.orig_font_dir)
 
     def merge_all_files(self):
         self.video_list_length = len(self.video_list)
         self.output_partname = self.flags.flag("output_partname")
         self.linked_uid_info_dict = {}
+        self.orig_font_list = []
         self.orig_font_dir = Path(self.flags.flag("save_dir")) / "_temp_orig_fonts"
-        self.count_output_name = 1
-        count_generated = 0
-        count_gen_before = 0
+        self.count_generated = 0
+        self.count_gen_before = 0
 
-        for self.video in self.video_list:
+        start_range = self.flags.flag("range_generate")[0]
+        start_range = start_range - 1 if start_range > 0 else 0
+        end_range = self.flags.flag("range_generate")[1]
+        end_range = end_range - 1 if end_range > 0 else 0
+
+        self.current_index = start_range
+        for self.video in self.video_list[start_range:]:
+            if self.count_generated >= self.flags.flag("limit_generate") or self.current_index > end_range:
+                break
+
             self.merge_video_list = [self.video]
-            self.audio_list = self.audio_dictionary.get(str(self.video), [])
-            self.audio_trackname_list = self.audio_trackname_dictionary.get(str(self.video), [])
-            self.subtitles_list = self.subtitles_dictionary.get(str(self.video), [])
-            self.sub_trackname_list = self.sub_trackname_dictionary.get(str(self.video), [])
-            self.merge_font_list = self.font_list
+            if self.flags.flag("save_audio"):
+                self.audio_list = self.audio_dictionary.get(str(self.video), [])
+                self.audio_trackname_list = self.audio_trackname_dictionary.get(str(self.video), [])
+            else:
+                self.audio_list = []
+                self.audio_trackname_list = []
+            if self.flags.flag("save_subtitles"):
+                self.subtitles_list = self.subtitles_dictionary.get(str(self.video), [])
+                self.sub_trackname_list = self.sub_trackname_dictionary.get(str(self.video), [])
+            else:
+                self.subtitles_list = []
+                self.sub_trackname_list = []
+            self.merge_font_list = self.font_list if self.flags.flag("save_fonts") else []
 
             if not self.flags.flag("pro_mode"):
                 self.set_merge_flags()
@@ -842,6 +895,7 @@ class Merge(FileDictionary):
             if self.video.suffix == ".mkv":
                 if not self.processing_linked_video():
                     if not self.audio_list and not self.subtitles_list and not self.font_list:
+                        self.current_index += 1
                         continue #пропускаем если нет ни линковки ни аудио ни сабов ни шрифтов
                     self.set_output_path()
 
@@ -849,27 +903,22 @@ class Merge(FileDictionary):
                 self.set_output_path()
 
             if self.output.exists():
-                count_gen_before += 1
-                self.count_output_name += 1
+                self.count_gen_before += 1
+                self.current_index += 1
                 continue
 
             if self.flags.flag("sort_original_fonts") and self.flags.flag("save_original_fonts"):
                 self.extract_original_fonts()
-                if self.orig_font_list:
+                if self.orig_font_list and self.merge_font_list:
                     self.merge_font_list = FileDictionary.remove_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
+                elif self.orig_font_list:
+                    self.merge_font_list = self.orig_font_list
 
             self.execute_merge()
-            count_generated += 1
+            self.count_generated += 1
+            self.current_index += 1
 
-            if count_generated >= self.flags.flag("limit_generate"):
-                break
-
-            self.count_output_name += 1
-
-        self.flags.set_flag("count_generated", count_generated)
-        self.flags.set_flag("count_gen_before", count_gen_before)
-        if self.orig_font_dir.exists():
-            shutil.rmtree(self.orig_font_dir)
+        self.delete_temp_files()
 
 class Video(Merge):
     @staticmethod
@@ -1407,7 +1456,7 @@ def main():
     flags = Flags()
     flags.processing_sys_argv()
     if flags.flag("limit_generate") == 0:
-        print("Set the limit-generate 0. No new video files will be generated.")
+        print("A new video can't be generated because the limit-generate set to 0. \nExiting the script.")
         sys.exit(0)
 
     Tools.set_mkvtools_paths()
@@ -1415,16 +1464,18 @@ def main():
 
     print(f"\nTrying to generate a new video in the save directory '{str(flags.flag("save_dir"))}' using files from the start directory '{str(flags.flag("start_dir"))}'.")
     vid = Video(flags)
+    if vid.flags.flag("range_generate")[0] > len(vid.video_list):
+        print(f"A new video can't be generated because the start range-generate exceeds the number of video files. \nExiting the script.")
+        sys.exit(0)
     vid.merge_all_files()
-    delete_temp_files(flags.flag("save_dir"))
 
-    if flags.flag("count_generated"):
-        print(f"\nThe script was executed successfully. {flags.flag("count_generated")} video files were generated in the directory '{str(flags.flag("save_dir"))}'")
+    if vid.count_generated:
+        print(f"\nThe script was executed successfully. {vid.count_generated} video files were generated in the directory '{str(flags.flag("save_dir"))}'")
     else:
         print(Messages.msg["notfound"])
 
-    if flags.flag("count_gen_before"):
-        print(f"{flags.flag("count_gen_before")} video files in the save directory '{str(flags.flag("save_dir"))}' had generated names before the current run of the script. Generation for these files has been skipped.")
+    if vid.count_gen_before:
+        print(f"{vid.count_gen_before} video files in the save directory '{str(flags.flag("save_dir"))}' had generated names before the current run of the script. Generation for these files has been skipped.")
 
 if __name__ == "__main__":
     main()
