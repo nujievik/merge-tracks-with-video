@@ -1,5 +1,7 @@
 # generate-video-with-these-files
 
+## Cкрипт для добавления внешних дорожек в видео, объединения и ретайминга дорожек линкованного .mkv видео.
+
 ## Лицензия
 
 - Собственный код: GNU General Public License v3.0
@@ -23,8 +25,6 @@
 - **MKVToolNix**: Включено в исполняемый файл, лицензировано под [GNU GPL v2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 - **Python**: Включено в исполняемый файл, лицензировано под [PSF License](https://www.python.org/psf/license/).
 
-
-## Cкрипт для добавления внешних дорожек в видео.
 
 ## Функциональность
 
@@ -95,45 +95,47 @@
 
 ## Полный список аргументов и примеры синтаксиса:
 
-`стартдир | 'стартовая директория с пробелом' | --start-dir=стартдир | --start-dir="стартдир с пробелом в пути"`
-`сейвдир | --save-dir='директория сохранения с пробелом'`
-`--output-partname=началоимени | --output-partname="начало имени выходных файлов с пробелом. В конце автоматически добавляется номер файла"`
-`--output-partname-tale=конецимени | --output-partname-tale='конец имени с пробелом. Перед ним идет номер файла. После - расширение .mkv'`
-`--limit-search-up=3`
-`--limit-generate=99999`
-`--range-generate=1-8 | --range-generate=2:9 | --range-generate=3,6 | --range-generate=11 | --range-generate=:4`
-`--extended-log`
-`--no-extended-log`
-`--pro-mode`
-`--no-pro-mode`
-`--save-global-tags`
-`--no-global-tags`
-`--save-chapters`
-`--no-chapters`
-`--save-audio`
-`--no-audio`
-`--save-original-audio`
-`--no-original-audio`
-`--save-subtitles`
-`--no-subtitles`
-`--save-original-subtitles`
-`--no-original-subtitles`
-`--save-fonts | --save-attachments`
-`--no-fonts | --no-attachments`
-`--save-original-fonts | --save-original-attachments`
-`--no-original-fonts | --no-original-attachments`
-`--sort-original-fonts | --sort-original-attachments`
-`--no-sort-original-fonts | --no-sort-original-attachments`
-`--add-tracknames`
-`--no-add-tracknames`
-`--for-priority=file_first`
-`--for-priority=dir_first`
-`--for-priority=mix`
-`--for=группафайловилипуть | --for="группа файлов или путь с пробелом. Устанавливает следующие за этим аргументы для указанного пути или группы."`
-`--for=путь --save-files`
-`--for="путь или группа" --no-files`
-`--for="путь или группа" --trackname="имя дорожки"`
-`--for="путь или группа" любые аргументы поддерживаемые mkvmerge. В каком виде написаны в таком виде и подставятся в команду mkvmerge`
+```
+стартдир | 'стартовая директория с пробелом' | --start-dir=стартдир | --start-dir="стартдир с пробелом в пути"
+сейвдир | --save-dir='директория сохранения с пробелом'
+--output-partname=началоимени | --output-partname="начало имени выходных файлов с пробелом. В конце автоматически добавляется номер файла"
+--output-partname-tale=конецимени | --output-partname-tale='конец имени с пробелом. Перед ним идет номер файла. После - расширение .mkv'
+--limit-search-up=3
+--limit-generate=99999
+--range-generate=1-8 | --range-generate=2:9 | --range-generate=3,6 | --range-generate=11 | --range-generate=:4
+--extended-log
+--no-extended-log
+--pro-mode
+--no-pro-mode
+--save-global-tags
+--no-global-tags
+--save-chapters
+--no-chapters
+--save-audio
+--no-audio
+--save-original-audio
+--no-original-audio
+--save-subtitles
+--no-subtitles
+--save-original-subtitles
+--no-original-subtitles
+--save-fonts | --save-attachments
+--no-fonts | --no-attachments
+--save-original-fonts | --save-original-attachments
+--no-original-fonts | --no-original-attachments
+--sort-original-fonts | --sort-original-attachments
+--no-sort-original-fonts | --no-sort-original-attachments
+--add-tracknames
+--no-add-tracknames
+--for-priority=file_first
+--for-priority=dir_first
+--for-priority=mix
+--for=группафайловилипуть | --for="группа файлов или путь с пробелом. Устанавливает следующие за этим аргументы для указанного пути или группы."
+--for=путь --save-files
+--for="путь или группа" --no-files
+--for="путь или группа" --trackname="имя дорожки"
+--for="путь или группа" любые аргументы поддерживаемые mkvmerge. В каком виде написаны в таком виде и подставятся в команду mkvmerge
+```
 
 
 ## Примеры изменения поведения по умолчанию
@@ -147,21 +149,31 @@
 `python generate-video-with-these-files.py --save-dir="путь к директории"`
 
 ### Изменить имя выходных файлов
-`python generate-video-with-these-files.py --output-partname="prefix "`
-В конце имени будет добавлен номер файла и расширение .mkv.
-`python generate-video-with-these-files.py --output-partname-tale=" suffix"`
-Перед ним стоит номер. После - ставится расширение .mkv.
+Установить начало имени. В конце будет добавлен номер файла и расширение .mkv.:
+```
+python generate-video-with-these-files.py --output-partname="prefix "
+```
+Установить хвост имени после номера файла. В конце автоматически добавится .mkv:
+```
+python generate-video-with-these-files.py --output-partname-tale=" suffix"
+```
 
 #### Пример установить имя 'Death Note - номерсерии (BDRip 1920x1080 x264 VFR 10bit FLAC).mkv'
 `python generate-video-with-these-files.py --output-partname="Death Note - " --output-partname-tale=" (BDRip 1920x1080 x264 VFR 10bit FLAC)"`
 
 ### Добавить только внешние аудио / субтитры / шрифты
 Аудио:
-`python generate-video-with-these-files.py --save-audio --no-subtitles --no-fonts`
+```
+python generate-video-with-these-files.py --save-audio --no-subtitles --no-fonts
+```
 Субтитры:
-`python generate-video-with-these-files.py --save-subtitles --no-audio --no-fonts`
+```
+python generate-video-with-these-files.py --save-subtitles --no-audio --no-fonts
+```
 Шрифты:
-`python generate-video-with-these-files.py --save-fonts --no-audio --no-subtitles`
+```
+python generate-video-with-these-files.py --save-fonts --no-audio --no-subtitles
+```
 
 ### Добавить дорожки к оригинальным, а не заменить оригинальные
 `python generate-video-with-these-files.py --save-original-audio --save-original-subtitles`
@@ -171,20 +183,30 @@
 
 ### Удалить все дорожки аудио / субтитров / все шрифты
 Аудио:
-`python generate-video-with-these-files.py --no-audio --no-original-audio`
+```
+python generate-video-with-these-files.py --no-audio --no-original-audio
+```
 Субтитры:
-`python generate-video-with-these-files.py --no-subtitles --no-original-subtitles`
+```
+python generate-video-with-these-files.py --no-subtitles --no-original-subtitles
+```
 Шрифты:
-`python generate-video-with-these-files.py --no-fonts --no-original-fonts`
+```
+python generate-video-with-these-files.py --no-fonts --no-original-fonts
+```
 
 ### Обработать только часть файлов
 Через диапазон генерации.
 В этом случае создаются файлы только для указанного диапазона.
-`python generate-video-with-these-files.py --range-generate=8-10`
+```
+python generate-video-with-these-files.py --range-generate=8-10
+```
 
 Через лимит генерации.
 В этом случае создастся заданное количество файлов. Файлы перебираются с начала. Если выходной файл существует, счетчик генерации не увеличивается, берется следующий файл.
-`python generate-video-with-these-files.py --limit-generate=4`
+```
+python generate-video-with-these-files.py --limit-generate=4
+```
 
 ### Удалить главы и теги из видео
 `python generate-video-with-these-files.py --no-chapters --no-global-tags`
@@ -210,6 +232,8 @@
 
 # generate-video-with-these-files
 
+## The script for adding external tracks to a video, merging, and retiming tracks of .mkv segment linking video.
+
 ## License
 
 - Custom Code: GNU General Public License v3.0
@@ -232,8 +256,6 @@ All components (script, Python, and MKVToolNix) are bundled into a single execut
 
 - **MKVToolNix**: Included in the executable files, licensed under [GNU GPL v2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 - **Python**: Included in the executable file, licensed under the [PSF License](https://www.python.org/psf/license/).
-
-# Script for Adding External Tracks to a Video
 
 ## Functionality
 
@@ -301,45 +323,47 @@ By default, `--for-priority=file_first` prioritizes file > file group > file dir
 
 ## Full List of Arguments and Syntax Examples:
 
-`startdir | 'starting directory with spaces' | --start-dir=startdir | --start-dir="startdir with spaces"`
-`savedir | --save-dir='save directory with spaces'`
-`--output-partname=filenameprefix | --output-partname="output filename prefix with spaces. A file number is automatically added at the end"`
-`--output-partname-tale=filenamepostfix | --output-partname-tale='filename suffix with spaces. The file number is added before it. Extension .mkv follows'`
-`--limit-search-up=3`
-`--limit-generate=99999`
-`--range-generate=1-8 | --range-generate=2:9 | --range-generate=3,6 | --range-generate=11 | --range-generate=:4`
-`--extended-log`
-`--no-extended-log`
-`--pro-mode`
-`--no-pro-mode`
-`--save-global-tags`
-`--no-global-tags`
-`--save-chapters`
-`--no-chapters`
-`--save-audio`
-`--no-audio`
-`--save-original-audio`
-`--no-original-audio`
-`--save-subtitles`
-`--no-subtitles`
-`--save-original-subtitles`
-`--no-original-subtitles`
-`--save-fonts | --save-attachments`
-`--no-fonts | --no-attachments`
-`--save-original-fonts | --save-original-attachments`
-`--no-original-fonts | --no-original-attachments`
-`--sort-original-fonts | --sort-original-attachments`
-`--no-sort-original-fonts | --no-sort-original-attachments`
-`--add-tracknames`
-`--no-add-tracknames`
-`--for-priority=file_first`
-`--for-priority=dir_first`
-`--for-priority=mix`
-`--for=filegrouporpath | --for="filepath or file directory with spaces. Sets following arguments for the specified path or group."`
-`--for=path --save-files`
-`--for="path or group" --no-files`
-`--for="path or group" --trackname="track name"`
-`--for="path or group" any arguments supported by mkvmerge. They will be passed to the mkvmerge command as is.`
+```
+startdir | 'starting directory with spaces' | --start-dir=startdir | --start-dir="startdir with spaces"
+savedir | --save-dir='save directory with spaces'
+--output-partname=filenameprefix | --output-partname="output filename prefix with spaces. A file number is automatically added at the end"
+--output-partname-tale=filenamepostfix | --output-partname-tale='filename suffix with spaces. The file number is added before it. Extension .mkv follows'
+--limit-search-up=3
+--limit-generate=99999
+--range-generate=1-8 | --range-generate=2:9 | --range-generate=3,6 | --range-generate=11 | --range-generate=:4
+--extended-log
+--no-extended-log
+--pro-mode
+--no-pro-mode
+--save-global-tags
+--no-global-tags
+--save-chapters
+--no-chapters
+--save-audio
+--no-audio
+--save-original-audio
+--no-original-audio
+--save-subtitles
+--no-subtitles
+--save-original-subtitles
+--no-original-subtitles
+--save-fonts | --save-attachments
+--no-fonts | --no-attachments
+--save-original-fonts | --save-original-attachments
+--no-original-fonts | --no-original-attachments
+--sort-original-fonts | --sort-original-attachments
+--no-sort-original-fonts | --no-sort-original-attachments
+--add-tracknames
+--no-add-tracknames
+--for-priority=file_first
+--for-priority=dir_first
+--for-priority=mix
+--for=filegrouporpath | --for="filepath or file directory with spaces. Sets following arguments for the specified path or group."
+--for=path --save-files
+--for="path or group" --no-files
+--for="path or group" --trackname="track name"
+--for="path or group" any arguments supported by mkvmerge. They will be passed to the mkvmerge command as is.
+```
 
 
 ## Examples of Changing Default Behavior
@@ -353,21 +377,31 @@ All examples are written for the Python script. If you're using the `.exe`, simp
 `python generate-video-with-these-files.py --save-dir="path to the directory"`
 
 ### Change the Output Filenames
-`python generate-video-with-these-files.py --output-partname="prefix "`
-The filename will have the file number and `.mkv` extension automatically added.
-`python generate-video-with-these-files.py --output-partname-tale=" suffix"`
-A file number will be added before the suffix, and the `.mkv` extension will be appended.
+Set the prefix of the name. A file number and the .mkv extension will be added at the end:
+```
+python generate-video-with-these-files.py --output-partname="prefix "
+```
+Set the suffix of the name after the file number. The .mkv extension will be automatically added at the end:
+```
+python generate-video-with-these-files.py --output-partname-tale=" suffix"
+```
 
 #### Example to set the name 'Death Note - episodeNumber (BDRip 1920x1080 x264 VFR 10bit FLAC).mkv'
 `python generate-video-with-these-files.py --output-partname="Death Note - " --output-partname-tale=" (BDRip 1920x1080 x264 VFR 10bit FLAC)"`
 
 ### Add Only External Audio / Subtitles / Fonts
 Audio:
-`python generate-video-with-these-files.py --save-audio --no-subtitles --no-fonts`
+```
+python generate-video-with-these-files.py --save-audio --no-subtitles --no-fonts
+```
 Subtitles:
-`python generate-video-with-these-files.py --save-subtitles --no-audio --no-fonts`
+```
+python generate-video-with-these-files.py --save-subtitles --no-audio --no-fonts
+```
 Fonts:
-`python generate-video-with-these-files.py --save-fonts --no-audio --no-subtitles`
+```
+python generate-video-with-these-files.py --save-fonts --no-audio --no-subtitles
+```
 
 ### Add Tracks to Originals Instead of Replacing Originals
 `python generate-video-with-these-files.py --save-original-audio --save-original-subtitles`
@@ -377,20 +411,30 @@ Fonts:
 
 ### Remove All Audio / Subtitle Tracks / Fonts
 Audio:
-`python generate-video-with-these-files.py --no-audio --no-original-audio`
+```
+python generate-video-with-these-files.py --no-audio --no-original-audio
+```
 Subtitles:
-`python generate-video-with-these-files.py --no-subtitles --no-original-subtitles`
+```
+python generate-video-with-these-files.py --no-subtitles --no-original-subtitles
+```
 Fonts:
-`python generate-video-with-these-files.py --no-fonts --no-original-fonts`
+```
+python generate-video-with-these-files.py --no-fonts --no-original-fonts
+```
 
 ### Process Only Part of the Files
 Through the generation range.
 In this case, files will be created only for the specified range.
-`python generate-video-with-these-files.py --range-generate=8-10`
+```
+python generate-video-with-these-files.py --range-generate=8-10
+```
 
 Through the generation limit.
 This will create the specified number of files. Files are iterated from the start. If an output file exists, the generation counter does not increase, and the next file is used.
-`python generate-video-with-these-files.py --limit-generate=4`
+```
+python generate-video-with-these-files.py --limit-generate=4
+```
 
 ### Remove Chapters and Tags from the Video
 `python generate-video-with-these-files.py --no-chapters --no-global-tags`
