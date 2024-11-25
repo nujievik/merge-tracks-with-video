@@ -1,8 +1,11 @@
 """
-generate-video-with-these-files-v0.5.0
+generate-video-with-these-files-v0.5.1
 This program is part of the generate-video-with-these-files-script repository
-Licensed under GPL-3.0. See LICENSE file for details.
-Author: nujievik Email: nujievik@gmail.com
+
+Licensed under GPL-3.0.
+This script requires third-party tools: Python and MKVToolNix.
+These tools are licensed under Python PSF and GPL-2, respectively.
+See LICENSE file for details.
 """
 import sys
 import os
@@ -11,6 +14,7 @@ import shutil
 import re
 import subprocess
 import shlex
+import uuid
 from pathlib import Path
 from datetime import timedelta
 
@@ -408,7 +412,7 @@ class FileDictionary:
             else:
                 execute = False
 
-        for ext in FileDictionary.EXTENSIONS['video'] | FileDictionary.EXTENSIONS['audio'] | FileDictionary.EXTENSIONS['subtitles']:
+        for ext in FileDictionary.EXTENSIONS['video'].union(FileDictionary.EXTENSIONS['audio'], FileDictionary.EXTENSIONS['subtitles']):
             if tail.lower().startswith(ext):
                 tail = tail[len(ext):]
             if tail.lower().endswith(ext):
@@ -764,14 +768,21 @@ class Merge(FileDictionary):
 
     def get_part_command_for_file(self, filepath, filegroup, tracknames={}, add_trackname=True):
         part_command = []
-        keys2 = [str(filepath), filegroup, str(filepath.parent)]
+        keys2 = []
+
+        if self.mkv_has_segment_linking:
+            keys2.append(self.matching_keys.get(str(filepath), str(filepath)))
+            keys2.append(filegroup)
+            keys2.append(self.matching_keys.get(str(filepath.parent), str(filepath.parent)))
+        else:
+            keys2 = [str(filepath), filegroup, str(filepath.parent)]
 
         if self.get_for_merge_flag(keys2, "save_files") is False:
             return []
 
         options = self.get_for_merge_flag(keys2, "options")
         if options:
-            part_command = options
+            part_command.extend(options)
 
         if add_trackname:
             forced_trackname = self.get_for_merge_flag(keys2, "trackname")
@@ -798,7 +809,7 @@ class Merge(FileDictionary):
                 command.extend(part_command)
 
         for sub in self.subtitles_list:
-            part_command = self.get_part_command_for_file(sub, "subtitles", self.sub_tracknames)
+            part_command = self.get_part_command_for_file(sub, "subtitles", self.subs_tracknames)
             if part_command:
                 for_id = self.set_cp1251_for_subs.get(str(sub), None)
                 if for_id:
@@ -808,7 +819,7 @@ class Merge(FileDictionary):
         for font in self.merge_font_list:
             part_command = self.get_part_command_for_file(font, "fonts", add_trackname=False)
             if part_command:
-                command.append("--attach-file")
+                part_command.insert(len(part_command) - 1, "--attach-file")
                 command.extend(part_command)
 
         return command
@@ -920,15 +931,8 @@ class Merge(FileDictionary):
         self.orig_font_list = FileDictionary.find_files_with_extensions(self.orig_font_dir, FileDictionary.EXTENSIONS["font"])
 
     def delete_temp_files(self):
-        try:
-            for filepath in self.flags.flag("save_dir").iterdir():
-                if filepath.name.startswith("_temp_") and filepath.is_file():
-                    filepath.unlink()
-        except Exception as e:
-            print(f"Error: {e}")
-
-        if self.orig_font_dir.exists():
-            shutil.rmtree(self.orig_font_dir)
+        if self.temp_dir.exists():
+            shutil.rmtree(self.temp_dir)
 
     def get_for_merge_flag(self, keys2, key3):
         flag = None
@@ -974,8 +978,9 @@ class Merge(FileDictionary):
         self.output_partname = self.flags.flag("output_partname")
         self.output_partname_tale = self.flags.flag("output_partname_tale")
         self.linked_uid_info_dict = {}
+        self.temp_dir = Path(self.flags.flag("save_dir")) / f"__temp_files__{str(uuid.uuid4())[:8]}"
         self.orig_font_list = []
-        self.orig_font_dir = Path(self.flags.flag("save_dir")) / "_temp_orig_fonts"
+        self.orig_font_dir = Path(self.temp_dir) / "orig_fonts"
         self.for_priority = self.flags.flag("for_priority")
         self.has_coding_cp1251 = False
         self.set_cp1251_for_subs = {}
@@ -996,7 +1001,7 @@ class Merge(FileDictionary):
         self.set_merge_vars()
 
         for self.video in self.video_list[self.start_range:]:
-            mkv_has_segment_linking = False
+            self.mkv_has_segment_linking = False
 
             if self.count_generated >= self.limit_generate or self.current_index > self.end_range:
                 break
@@ -1018,10 +1023,10 @@ class Merge(FileDictionary):
 
             if self.flags.flag("save_subtitles"):
                 self.subtitles_list = self.subtitles_dictionary.get(str(self.video), [])
-                self.sub_tracknames = self.sub_trackname_dictionary.get(str(self.video), {}) if self.add_tracknames else {}
+                self.subs_tracknames = self.sub_trackname_dictionary.get(str(self.video), {}) if self.add_tracknames else {}
             else:
                 self.subtitles_list = []
-                self.sub_tracknames = {}
+                self.subs_tracknames = {}
 
             self.merge_font_list = self.font_list if self.flags.flag("save_fonts") else []
 
@@ -1033,7 +1038,7 @@ class Merge(FileDictionary):
                 linked = LinkedMKV(self)
 
                 if linked.mkv_has_segment_linking():
-                    mkv_has_segment_linking = True
+                    self.mkv_has_segment_linking = True
                     self.set_output_path("_merged_video")
 
                 else:
@@ -1046,8 +1051,9 @@ class Merge(FileDictionary):
                 self.current_index += 1
                 continue
 
-            if mkv_has_segment_linking:
+            if self.mkv_has_segment_linking:
                 linked.processing_linked_mkv()
+                self.matching_keys = linked.matching_keys
 
             if self.flags.flag("sort_original_fonts") and self.flags.flag("save_original_fonts"):
                 self.extract_original_fonts()
@@ -1228,7 +1234,7 @@ class LinkedMKV:
             #если время предыдущего сплита этого uid совпадает
             if info_list[1] == self.start and (info_list[2] == self.end or info_list[3] <= self.end):
                 #и нужный сплит существует не сплитуем
-                self.segment = Path(self.merge.flags.flag("save_dir")) / f"_temp_{self.uid}.mkv"
+                self.segment = Path(self.merge.temp_dir) / f"segment_video_{self.uid}.mkv"
                 if self.segment.exists():
                     self.length = info_list[3]
                     self.offset_start = info_list[4]
@@ -1256,7 +1262,7 @@ class LinkedMKV:
             self.lengths = self.lengths + length
 
             if self.uid: # сплит по внешнему файлу переименовываем чтоб использовать дальше
-                new_path = Path(self.merge.flags.flag("save_dir")) / f"_temp_{self.uid}.mkv"
+                new_path = Path(self.merge.temp_dir) / f"segment_video_{self.uid}.mkv"
                 if new_path.exists():
                     new_path.unlink()
                 self.segment.rename(new_path)
@@ -1292,7 +1298,7 @@ class LinkedMKV:
         for self.uid in self.uid_list:
             self.start = self.start_list[count]
             self.end = self.end_list[count]
-            self.partname = Path(self.merge.flags.flag("save_dir")) / f"_temp_{count}.mkv"
+            self.partname = Path(self.merge.temp_dir) / f"segment_video_{count}.mkv"
             self.get_segment_linked_video()
 
             self.source_list.append(self.to_split)
@@ -1321,7 +1327,7 @@ class LinkedMKV:
                 end = start + length - offset_lengths if start != timedelta(0) else length
                 uid_lengths = uid_lengths + length
 
-            partname = Path(self.merge.flags.flag("save_dir")) / f"_temp_{count}.mka"
+            partname = Path(self.temp_orig_audio_dir) / f"{count}.mka"
             a_segment, a_length, offset_start, offset_end = LinkedMKV.split_file(source, partname, start, end, file_type="audio", track_id=self.track_id)
             if offset_start > timedelta(milliseconds=200) or offset_end > timedelta(milliseconds=200):
                 new_start = start - offset_start if start - offset_start > timedelta(0) else start
@@ -1361,7 +1367,7 @@ class LinkedMKV:
                 start = prev_lengths - offset_start + offset_audio_to_video
                 end = start + length
 
-            partname = Path(self.merge.flags.flag("save_dir")) / f"_temp_{count}.mka"
+            partname = Path(self.retimed_audio.parent) / f"{count}.mka"
             a_segment, a_length, split_offset_start, split_offset_end = LinkedMKV.split_file(self.audio, partname, start, end, file_type="audio")
 
             if split_offset_start > timedelta(milliseconds=200) or split_offset_end > timedelta(milliseconds=200):
@@ -1372,7 +1378,7 @@ class LinkedMKV:
             if add_compensation:
                 compensation_length = length - a_length
                 if compensation_length > timedelta(milliseconds=500):
-                    partname = Path(self.merge.flags.flag("save_dir")) / f"_temp_compensation_{count}.mka"
+                    partname = Path(self.retimed_audio.parent) / f"compensation_{count}.mka"
                     compensation_end = compensation_start + compensation_length
                     compensation_segment, compensation_length, *_ = LinkedMKV.split_file(self.audio, partname, compensation_start, compensation_end, file_type="audio")
                 add_compensation = True if compensation_length > timedelta(milliseconds=500) else False
@@ -1394,20 +1400,20 @@ class LinkedMKV:
             audio_track_id_list = FileInfo.get_track_type_id(self.merge.video, "audio")
             for self.track_id in audio_track_id_list:
                 self.get_retimed_segments_orig_audio()
-                orig_audio = Path(self.merge.flags.flag("save_dir")) / f"_temp_audio_{count}.mka"
+                orig_audio = Path(self.temp_orig_audio_dir) / f"{count}.mka"
                 LinkedMKV.merge_file_segments(self.a_segment_list, orig_audio)
 
                 self.retimed_audio_list.append(orig_audio)
                 count += 1
 
         for self.audio in self.merge.audio_list:
-            retimed_audio = Path(self.merge.flags.flag("save_dir")) / f"_temp_audio_{count}.mka"
+            self.retimed_audio = Path(self.temp_ext_audio_dir) / self.audio.parent.name / f"{count}.mka"
             self.get_retimed_segments_ext_audio()
-            LinkedMKV.merge_file_segments(self.a_segment_list, retimed_audio)
-            self.retimed_audio_list.append(retimed_audio)
-            trackname = self.merge.audio_tracknames.get(str(self.audio), "")
-            if trackname:
-                self.merge.audio_tracknames[str(retimed_audio)] = trackname
+            LinkedMKV.merge_file_segments(self.a_segment_list, self.retimed_audio)
+
+            self.retimed_audio_list.append(self.retimed_audio)
+            self.set_matching_keys(self.audio, self.retimed_audio)
+
             count += 1
 
     def retime_original_sub(self):
@@ -1551,7 +1557,7 @@ class LinkedMKV:
             for self.track_id in sub_track_id_list:
                 count_temp = 0
                 for source in self.source_list:
-                    split_original_sub = Path(self.merge.flags.flag("save_dir")) / f"_temp_subtitles_{count + count_temp}.ass"
+                    split_original_sub = Path(self.temp_orig_subs_dir) / f"{count + count_temp}.ass"
                     LinkedMKV.extract_track(source, split_original_sub, self.track_id)
                     self.segment_orig_sub_list.append(split_original_sub)
                     count_temp += 1
@@ -1560,23 +1566,57 @@ class LinkedMKV:
                 self.retimed_sub_list.append(self.retimed_original_sub)
                 count += 1
 
-        for subtitles in self.merge.subtitles_list:
-            self.sub_for_retime = Path(self.merge.flags.flag("save_dir")) / f"_temp_subtitles_{count}.ass"
-            if subtitles.suffix != ".ass":
-                print(f"\nSkip subtitles! {str(subtitles)} \nThese subtitles need to be retimed because the video file has segment linking. Retime is only possible for .ass subtitles.")
+        for subs in self.merge.subtitles_list:
+            self.sub_for_retime = Path(self.temp_ext_subs_dir) / subs.parent.name / f"{count}.ass"
+            if subs.suffix != ".ass":
+                print(f"\nSkip subtitles! {str(subs)} \nThese subtitles need to be retimed because the video file has segment linking. Retime is only possible for .ass subtitles.")
                 continue
             else:
-                shutil.copy(subtitles, self.sub_for_retime)
+                self.sub_for_retime.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(subs, self.sub_for_retime)
 
             self.retime_external_sub()
             self.retimed_sub_list.append(self.retimed_external_sub)
-            trackname = self.merge.sub_tracknames.get(str(subtitles), "")
-            if trackname:
-                self.merge.sub_tracknames[str(self.retimed_external_sub)] = trackname
+            self.set_matching_keys(subs, self.retimed_external_sub)
+
+            count += 1
+
+    def set_linked_temp_dirs(self):
+        self.temp_orig_audio_dir = Path(self.merge.temp_dir) / "orig_audio"
+        self.temp_orig_audio_dir.mkdir(parents=True, exist_ok=True)
+        self.temp_ext_audio_dir = Path(self.merge.temp_dir) / "ext_audio"
+        self.temp_ext_audio_dir.mkdir(parents=True, exist_ok=True)
+
+        self.temp_orig_subs_dir = Path(self.merge.temp_dir) / "orig_subs"
+        self.temp_orig_subs_dir.mkdir(parents=True, exist_ok=True)
+        self.temp_ext_subs_dir = Path(self.merge.temp_dir) / "ext_subs"
+        self.temp_ext_subs_dir.mkdir(parents=True, exist_ok=True)
+
+    def set_matching_keys(self, old_filepath, new_filepath):
+        old_keys2 = [str(old_filepath), str(old_filepath.parent)]
+        new_keys2 = [str(new_filepath), str(new_filepath.parent)]
+        keys3 = Flags.for_separate_flags.union({"options"})
+
+        count = 0
+        for old_key2 in old_keys2:
+            if old_key2 in self.merge.audio_tracknames or self.merge.subs_tracknames:
+                self.matching_keys[new_keys2[count]] = old_key2
+                count += 1
+                continue
+
+            for key3 in keys3:
+                value = self.merge.for_flag(old_key2, key3)
+                if value is not None:
+                    self.matching_keys[new_keys2[count]] = old_key2
+                    break
 
             count += 1
 
     def processing_linked_mkv(self):
+        self.matching_keys = {}
+        if not hasattr(self, 'temp_orig_audio_dir'):
+            self.set_linked_temp_dirs()
+
         self.get_all_segments_linked_video()
         self.merge.merge_video_list = self.segment_list
 
@@ -1587,7 +1627,7 @@ class LinkedMKV:
         self.merge.subtitles_list = self.retimed_sub_list
 
     def mkv_has_segment_linking(self):
-        self.chapters = Path(self.merge.flags.flag("save_dir")) / "_temp_chapters.xml"
+        self.chapters = Path(self.merge.temp_dir) / "chapters.xml"
         if self.chapters.exists():
             self.chapters.unlink()
         self.extract_chapters()
