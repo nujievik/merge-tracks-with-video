@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.5.2
+generate-video-with-these-files-v0.5.3
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -188,6 +188,7 @@ class Flags():
         "lim_search_up": 3,
         "lim_gen": 99999,
         "range_gen": [0, 99999],
+        "pro": False,
         "extended_log": False,
         "global_tags": True,
         "chapters": True,
@@ -207,6 +208,7 @@ class Flags():
     }
 
     MATCHINGS_PART = {
+        'pro_mode': 'pro',
         'directory': 'dir',
         'output': 'out',
         'partname': 'pname',
@@ -224,17 +226,16 @@ class Flags():
 
     TYPES = {
         "path": {"start_dir", "save_dir"},
-        "str": {"out_pname", "out_pname_tail", "trackname", "for_priority"},
+        "str": {"out_pname", "out_pname_tail", "trackname", "for_priority", "lang"},
         "num": {"lim_search_up", "lim_gen"},
         "range": {"range_gen"},
-        "truefalse": {"extended_log", "global_tags", "chapters", "video",
-                      "audio", "orig_audio", "subs", "orig_subs", "fonts",
+        "truefalse": {"pro", "extended_log", "global_tags", "chapters", "video",
+                      "audio", "orig_audio", "subs", "orig_subs", "fonts", "langs",
                       "orig_fonts", "sort_orig_fonts", "tracknames", "files"
                       }
     }
 
-    FOR_SEPARATE_FLAGS = (TYPES['truefalse']).union({'trackname'}) - {'extended_log', 'orig_audio', 'orig_subs',
-                                                                      'orig_fonts', 'sort_orig_fonts'}
+    FOR_SEPARATE_FLAGS = (TYPES['truefalse']).union({'trackname', 'lang'}) - {'extended_log'}
 
     def set_flag(self, key, value, check_exists=False):
         if not check_exists or key in self.__flags:
@@ -729,7 +730,7 @@ class FileDictionary:
 class Merge(FileDictionary):
     def set_output_path(self, tail=""):
         if self.out_pname or self.out_pname_tail:
-            name = f"{self.out_pname}{self.current_index+1:0{len(str(self.video_list_length))}d}{self.out_pname_tail}"
+            name = f"{self.out_pname}{self.current_index+1:0{len(str(self.video_list_len))}d}{self.out_pname_tail}"
             self.output = Path(self.flags.flag("save_dir")) / f"{name}.mkv"
 
         else:
@@ -819,8 +820,15 @@ class Merge(FileDictionary):
 
     def merge_truefalse_flag(self, filepath, filegroup, key):
         flg1 = self.merge_flag(filepath, filegroup, key)
-        flg2 = self.flags.flag(key)
-        return False if flg1 is False or (flg1 is None and not flg2) else True
+        default_if_missing = not self.strict_true and not self.strict_false
+        flg2 = self.flags.flag(key, default_if_missing)
+
+        if self.strict_true:
+            return True if flg1 is True or (flg1 is None and flg2 is True) else False
+        elif self.strict_false:
+            return False if flg1 is False or (flg1 is None and flg2 is False) else True
+        else:
+            return False if flg1 is False or (flg1 is None and not flg2) else True
 
     def get_common_part_command(self, filepath, filegroup):
         part = []
@@ -894,10 +902,14 @@ class Merge(FileDictionary):
             part.append("--no-attachments")
 
         if not self.mkv_linking or self.mkv_linking and not filepath.parent.name.startswith("orig_"):
+            if self.pro:
+                self.strict_true = True
             if self.merge_truefalse_flag(*k, "tracknames"):
                 part.extend(self.get_trackname_pcommand(*k))
             if self.merge_truefalse_flag(*k, "langs"):
                 part.extend(self.get_lang_pcommand(*k))
+            if self.pro:
+                self.strict_true = False
 
         part.extend(self.get_common_part_command(*k))
         return part
@@ -905,6 +917,8 @@ class Merge(FileDictionary):
     def get_merge_command(self):
         command = [str(Tools.mkvmerge), "-o", str(self.output)]
 
+        if self.pro:
+            self.strict_false = True
         part = self.get_part_command_for_video()
         command.extend(part + [str(self.merge_video_list[0])])
         for video in self.merge_video_list[1:]:
@@ -991,7 +1005,7 @@ class Merge(FileDictionary):
             command_out = command_out[0]
             self.processing_error_warning_merge(command_out, lmsg)
 
-    def extract_original_fonts(self):
+    def extract_orig_fonts(self):
         if self.orig_font_dir.exists():
             shutil.rmtree(self.orig_font_dir)
         self.orig_font_dir.mkdir(parents=True)
@@ -1021,6 +1035,8 @@ class Merge(FileDictionary):
     def set_common_merge_vars(self):
         self.mkv_linking = False
         self.video_list_len = len(self.video_list)
+        self.out_pname = self.flags.flag("out_pname")
+        self.out_pname_tail = self.flags.flag("out_pname_tail")
         self.linked_uid_info_dict = {}
         self.matching_keys = {}
         self.temp_dir = Path(self.flags.flag("save_dir")) / f"__temp_files__{str(uuid.uuid4())[:8]}"
@@ -1028,8 +1044,6 @@ class Merge(FileDictionary):
         self.for_priority = self.flags.flag("for_priority")
         self.lim_gen = self.flags.flag("lim_gen")
         self.add_tracknames = self.flags.flag("add_tracknames")
-        self.out_pname = self.flags.flag("out_pname")
-        self.out_pname_tail = self.flags.flag("out_pname_tail")
         self.count_gen = 0
         self.count_gen_before = 0
 
@@ -1048,14 +1062,28 @@ class Merge(FileDictionary):
                     filepath_list.append(filepath)
         return filepath_list
 
-    def set_files_merge_vars(self):
+    def set_files_merge_vars(self, k):
         self.mkv_linking = False
+        self.strict_true = False
+        self.strict_false = False
+        self.pro = self.merge_flag(*k, "pro")
         self.orig_font_list = []
         self.cp1251_for_subs = {}
 
         self.audio_list = self.get_merge_file_list("audio", self.audio_dict.get(str(self.video), []))
         self.subs_list = self.get_merge_file_list("subs", self.subs_dict.get(str(self.video), []))
         self.merge_font_list = self.get_merge_file_list("fonts", self.font_list)
+
+    def sort_orig_fonts(self, k):
+        if self.pro and self.merge_flag(*k, "sort_orig_fonts") is not True:
+            return
+
+        if self.merge_truefalse_flag(*k, "sort_orig_fonts") and self.merge_truefalse_flag(*k, "orig_fonts"):
+            self.extract_orig_fonts()
+            if self.orig_font_list and self.merge_font_list:
+                self.merge_font_list = super().rm_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
+            elif self.orig_font_list:
+                self.merge_font_list = self.orig_font_list
 
     def delete_temp_files(self):
         if self.temp_dir.exists():
@@ -1073,7 +1101,7 @@ class Merge(FileDictionary):
                 continue
 
             self.merge_video_list = [self.video]
-            self.set_files_merge_vars()
+            self.set_files_merge_vars(k)
 
             self.set_output_path()
             if self.video.suffix == ".mkv":
@@ -1097,13 +1125,7 @@ class Merge(FileDictionary):
                 linked.processing_linked_mkv()
                 self.matching_keys.update(linked.matching_keys)
 
-            if self.merge_truefalse_flag(*k, "sort_orig_fonts") and self.merge_truefalse_flag(*k, "orig_fonts"):
-                self.extract_original_fonts()
-                if self.orig_font_list and self.merge_font_list:
-                    self.merge_font_list = super().rm_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
-                elif self.orig_font_list:
-                    self.merge_font_list = self.orig_font_list
-
+            self.sort_orig_fonts(k)
             self.execute_merge()
             self.count_gen += 1
             self.current_index += 1
