@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.5.3
+generate-video-with-these-files-v0.5.4
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -418,7 +418,7 @@ class FileDictionary:
     KEYS = {
         'search_subsdir': ['надписи', 'sign', 'russiansub', 'russub', 'субтит', 'sub'],
 
-        'skipdir_long': {"bonus", "бонус", "special", "bdmenu", "commentary", "creditless"},
+        'skipdir_long': {"bonus", "бонус", "special", "bdmenu", "commentary", "creditless", "__temp_files__"},
 
         'skipdir_short': {"nc", "nd", "op", "pv"},
 
@@ -1138,12 +1138,10 @@ class LinkedMKV:
 
     @staticmethod
     def find_video_with_uid(search_dir, target_uid):
-        video_list = FileDictionary.find_ext_files(search_dir, ".mkv")
-        for video in video_list:
-            video_uid = FileInfo.get_file_info(video, "Segment UID:")
-            if video_uid.lower() == target_uid.lower():
+        video_list = FileDictionary.find_ext_files(search_dir, ".mkv", recursive=True)
+        for video in reversed(video_list):
+            if FileInfo.get_file_info(video, "Segment UID:").lower() == target_uid.lower():
                 return video
-        return None
 
     @staticmethod
     def get_segment_info(mkvmerge_stdout, partname, split_start, split_end):
@@ -1216,6 +1214,11 @@ class LinkedMKV:
         command = [str(Tools.mkvextract), str(self.merge.video), "chapters", str(self.chapters)]
         CommandExecutor.execute(command)
 
+    def not_found_uid_video(self, uid):
+        print(f"Error!\nVideo file with uid {uid} not found in the video directory '{str(self.merge.video.parent)}'\nThis file is part of the linked video '{str(self.merge.video)}' and is required for merging. Please move this file to the video directory and re-run the script.")
+        self.merge.delete_temp_files()
+        sys.exit(1)
+
     def get_chapters_info(self):
         try:
             tree = ET.parse(self.chapters)
@@ -1272,8 +1275,8 @@ class LinkedMKV:
                         if uid:
                             temp_video = __class__.find_video_with_uid(self.merge.video.parent, uid)
                             if not temp_video:
-                                print(f"Video file with uid {uid} not found in the video directory '{str(self.merge.video.parent)}'\nThis file is part of the linked video '{str(self.merge.video)}' and is required for merging. Please move this file to the video directory and re-run the script.")
-                                sys.exit(1)
+                                self.not_found_uid_video(uid)
+
                         else:
                             temp_video = self.merge.video
                         temp_end = FileInfo.get_file_info(temp_video, "Duration:")
@@ -1321,6 +1324,9 @@ class LinkedMKV:
             self.start = self.prev_nonuid_end
 
         if self.execute_split:
+            if not self.to_split:
+                self.not_found_uid_video(self.uid)
+
             self.prev_lengths = self.lengths
             self.segment, length, self.offset_start, self.offset_end = __class__.split_file(self.to_split, self.partname, self.start, self.end, orig_fonts=self.merge.merge_truefalse_flag(self.merge.video, "video", "orig_fonts"))
             self.lengths = self.lengths + length
