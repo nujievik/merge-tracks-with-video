@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.5.4
+generate-video-with-these-files-v0.5.5
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -90,7 +90,7 @@ class FileInfo:
         return True if "video" in CommandExecutor.get_stdout(command) else False
 
     @staticmethod
-    def get_track_type_id(filepath, track_type):
+    def get_track_type_tids(filepath, track_type):
         id_list = []
         track_type = track_type if track_type != "subs" else "subtitles"
         pattern = r"Track ID (\d+):"
@@ -104,6 +104,8 @@ class FileInfo:
 
     @staticmethod
     def get_file_info(filepath, query):
+        if filepath.suffix not in FileDictionary.EXTENSIONS['mkvinfo_supported']:
+            return
         mkvinfo_stdout = CommandExecutor.get_stdout([str(Tools.mkvinfo), str(filepath)])
         for line in mkvinfo_stdout.splitlines():
             if query in line:
@@ -128,7 +130,6 @@ class FileInfo:
                     if match:
                         lang = match.group(1).strip()
                         return lang if lang != "und" else None
-        return None
 
 class Tools():
     mkvextract = None
@@ -183,10 +184,12 @@ class Flags():
     DEFAULT = {
         "start_dir": Path.cwd(),
         "save_dir": Path.cwd(),
+        'locale': 'rus',
         "out_pname": "",
         "out_pname_tail": "",
         "lim_search_up": 3,
         "lim_gen": 99999,
+        'lim_default_ttype': 1,
         "range_gen": [0, 99999],
         "pro": False,
         "extended_log": False,
@@ -201,10 +204,13 @@ class Flags():
         "orig_fonts": True,
         "sort_orig_fonts": True,
         "tracknames": True,
-        "orig_tracknames": True,
         "langs": True,
-        "for_priority": "file_first", #dir_first, mix
-        "for": {}
+        'enableds': True, 'enabled': True,
+        'defaults': True, 'default': True,
+        'forceds': True, 'forced': False,
+        't_orders': True,
+        'for_priority': 'file_first', #dir_first, mix
+        'for': {}
     }
 
     MATCHINGS_PART = {
@@ -222,16 +228,21 @@ class Flags():
         'subtitles': 'subs',
         'attachments': 'fonts',
         'language': 'lang',
+        'track_enabled_flag': 'enabled',
+        'default_track_flag': 'default',
+        'forced_display_flag': 'forced',
+        'track_orders': 't_orders',
     }
 
     TYPES = {
         "path": {"start_dir", "save_dir"},
-        "str": {"out_pname", "out_pname_tail", "trackname", "for_priority", "lang"},
+        "str": {"out_pname", "out_pname_tail", "trackname", "for_priority", "lang", "locale"},
         "num": {"lim_search_up", "lim_gen"},
         "range": {"range_gen"},
         "truefalse": {"pro", "extended_log", "global_tags", "chapters", "video",
                       "audio", "orig_audio", "subs", "orig_subs", "fonts", "langs",
-                      "orig_fonts", "sort_orig_fonts", "tracknames", "files"
+                      "orig_fonts", "sort_orig_fonts", "tracknames", "files", "enableds",
+                      'enabled', 'defaults', 'default',
                       }
     }
 
@@ -418,9 +429,8 @@ class FileDictionary:
     KEYS = {
         'search_subsdir': ['надписи', 'sign', 'russiansub', 'russub', 'субтит', 'sub'],
 
-        'skipdir_long': {"bonus", "бонус", "special", "bdmenu", "commentary", "creditless", "__temp_files__"},
-
-        'skipdir_short': {"nc", "nd", "op", "pv"},
+        'skipdir': {'bonus', 'бонус', 'special', 'bdmenu', 'commentary', 'creditless', '__temp_files__',
+                    'nc', 'nd', 'op', 'pv'},
 
         'skip_file': {"_replaced_", "_merged_", "_added_", "_temp_"},
 
@@ -428,6 +438,15 @@ class FileDictionary:
                  'eng': {'eng', 'english'}
                  }
     }
+    KEYS['signs'] = {'надписи', 'signs'}
+
+    @staticmethod
+    def path_has_keyword(videopath, filepath, keywords):
+        search_str = str(filepath.parent).replace(str(videopath.parent), '').lower()
+        search_str = search_str + '/' + filepath.stem.replace(videopath.stem, '').lower()
+        words = set(re.findall(r'\b\w+\b', search_str))
+        if keywords & words:
+            return True
 
     @staticmethod
     def clean_dirname(dir_name):
@@ -513,21 +532,6 @@ class FileDictionary:
         return found_dir_list
 
     @classmethod
-    def path_has_keyword(cls, base_dir, filepath):
-        tail_path_str = str(filepath).replace(str(base_dir), "")
-        tail_path = Path(tail_path_str)
-        search_str = str(tail_path.parent).lower().replace(" ", "")
-
-        if any(key in search_str for key in cls.KEYS['skipdir_long']):
-            return True
-
-        while tail_path != tail_path.parent:
-            tail_path = tail_path.parent
-            search_str = tail_path.name.lower().replace(" ", "")
-            if any(key == search_str for key in cls.KEYS['skipdir_short']):
-                return True
-
-    @classmethod
     def find_ext_files(cls, search_dir, extensions, search_name="", recursive=False):
         if not search_dir.exists():
             return []
@@ -535,7 +539,7 @@ class FileDictionary:
         found_files_list = []
 
         for filepath in sorted(search_method):
-            if recursive and cls.path_has_keyword(search_dir, filepath):
+            if recursive and cls.path_has_keyword(search_dir, filepath.parent, cls.KEYS['skipdir']):
                 continue
 
             filename = filepath.stem
@@ -830,9 +834,41 @@ class Merge(FileDictionary):
         else:
             return False if flg1 is False or (flg1 is None and not flg2) else True
 
+    def switch_stricts(self, strict):
+        if self.pro:
+            self.strict_true = strict
+            self.strict_false = not strict
+
+    def get_forceds_pcommand(self,  filepath, filegroup):
+        part = []
+        self.switch_stricts(True)
+        for group in ['video', 'audio', 'subs']:
+            k = [filepath, group]
+            val = '' if self.merge_truefalse_flag(*k, 'forced') else ':0'
+            for tid in FileInfo.get_track_type_tids(*k):
+                part.extend(["--forced-display-flag", f"{tid}{val}"])
+        self.switch_stricts(False)
+        return part
+
+    def get_enableds_pcommand(self, filepath, filegroup):
+        part = []
+        self.switch_stricts(False)
+        for group in ['video', 'audio', 'subs']:
+            k = [filepath, group]
+            val = '' if self.merge_truefalse_flag(*k, 'enabled') else ':0'
+            for tid in FileInfo.get_track_type_tids(*k):
+                part.extend(["--track-enabled-flag", f"{tid}{val}"])
+        self.switch_stricts(True)
+        return part
+
     def get_common_part_command(self, filepath, filegroup):
         part = []
         k = [filepath, filegroup]
+
+        group = filegroup
+        if filegroup == 'subs' and super().path_has_keyword(self.video, filepath, super().KEYS['signs']):
+            group = 'signs'
+        self.cmd.setdefault(group, {})[f'{self.fid}'] = filepath
 
         if not self.merge_truefalse_flag(*k, "video"):
             part.append("--no-video")
@@ -840,6 +876,13 @@ class Merge(FileDictionary):
             part.append("--no-global-tags")
         if not self.merge_truefalse_flag(*k, "chapters"):
             part.append("--no-chapters")
+
+        self.switch_stricts(True)
+        if self.merge_truefalse_flag(*k, "enableds"):
+            part.extend(self.get_enableds_pcommand(*k))
+        if self.merge_truefalse_flag(*k, "forceds"):
+            part.extend(self.get_forceds_pcommand(*k))
+        self.switch_stricts(False)
         part.extend(self.for_merge_flag(*k, "options"))
         return part
 
@@ -861,14 +904,14 @@ class Merge(FileDictionary):
         k = [filepath, filegroup]
 
         forced = self.merge_flag(*k, "trackname")
-        if not forced and filepath.suffix in __class__.EXTENSIONS['mkvinfo_supported'] and FileInfo.get_file_info(filepath, "Name:"):
+        if not forced and FileInfo.get_file_info(filepath, "Name:"):
             return []
 
         trackname = forced if forced else super().get_trackname(self.video, filepath)
         if not trackname:
             return []
 
-        track_id_list = FileInfo.get_track_type_id(filepath, filegroup)
+        track_id_list = FileInfo.get_track_type_tids(filepath, filegroup)
         for track_id in track_id_list:
             part.extend(["--track-name", f"{track_id}:{trackname}"])
         return part
@@ -878,14 +921,14 @@ class Merge(FileDictionary):
         k = [filepath, filegroup]
 
         forced = self.merge_flag(*k, "lang")
-        if not forced and filepath.suffix in __class__.EXTENSIONS['mkvinfo_supported'] and FileInfo.get_file_info(filepath, "Language:"):
+        if not forced and FileInfo.get_file_info(filepath, "Language:"):
             return []
 
         lang = forced if forced else super().get_lang(self.video, filepath)
         if not lang:
             return []
 
-        track_id_list = FileInfo.get_track_type_id(filepath, filegroup)
+        track_id_list = FileInfo.get_track_type_tids(filepath, filegroup)
         for track_id in track_id_list:
             part.extend(["--language", f"{track_id}:{lang}"])
         return part
@@ -896,42 +939,131 @@ class Merge(FileDictionary):
 
         if not self.merge_truefalse_flag(*k, "audio"):
             part.append("--no-audio")
-        if self.subs_dir and self.subs_list or not self.merge_truefalse_flag(*k, "subs"):
+        if not self.merge_truefalse_flag(*k, "subs"):
             part.append("--no-subtitles")
-        if self.orig_font_list or not self.merge_truefalse_flag(*k, "fonts"):
+        if not self.merge_truefalse_flag(*k, "fonts"):
             part.append("--no-attachments")
 
         if not self.mkv_linking or self.mkv_linking and not filepath.parent.name.startswith("orig_"):
-            if self.pro:
-                self.strict_true = True
+            self.switch_stricts(True)
             if self.merge_truefalse_flag(*k, "tracknames"):
                 part.extend(self.get_trackname_pcommand(*k))
             if self.merge_truefalse_flag(*k, "langs"):
                 part.extend(self.get_lang_pcommand(*k))
-            if self.pro:
-                self.strict_true = False
+            self.switch_stricts(False)
 
         part.extend(self.get_common_part_command(*k))
         return part
 
+    def set_delay_if_need(self, filepath):
+        paths = [self.video, filepath]
+        if super().path_has_keyword(*paths, {'orig_audio', 'orig_subs'}):
+            self.delayeds.setdefault('orig', []).append(filepath)
+            return True
+
+        unlocales = set()
+        for lang, keys in super().KEYS['lang'].items():
+            if lang != self.flags.flag('locale'):
+                unlocales.update(keys)
+
+        if super().path_has_keyword(*paths, unlocales):
+            self.delayeds.setdefault('nonlocale', []).append(filepath)
+            return True
+
+    def set_defaults_pcommand(self):
+        lim = self.flags.flag('lim_default_ttype')
+
+        for group in ['signs', 'subs', 'audio', 'video']:
+            for fid, filepath in self.cmd.get(group, {}).items():
+                s_group = group if group != 'signs' else 'subs'
+                k = [filepath, s_group]
+                self.switch_stricts(True)
+                if self.merge_truefalse_flag(*k, 'defaults'):
+
+                    for group2 in ['subs', 'audio', 'video']:
+                        k = [filepath, group2]
+
+                        for tid in FileInfo.get_track_type_tids(*k):
+                            self.switch_stricts(False)
+                            var = self.merge_truefalse_flag(*k, 'default')
+                            cnt = self.cmd.setdefault('cnt', {}).setdefault('default', {}).setdefault(f'{group2}', 0)
+
+                            if var and self.pro:
+                                value = ''
+                            elif var and cnt < lim and (group2 != 'subs' or (group2 == 'subs' and group == 'signs') or not self.cmd.get('audio')):
+                                value = ''
+                            else:
+                                value = ':0'
+
+                            self.cmd['cmd'][f'{fid}'][:0] = ['--default-track-flag', f'{tid}{value}']
+                            self.cmd['cnt']['default'][group2] += 1
+
+    def get_track_orders(self):
+        self.switch_stricts(True)
+        if not self.flags.flag('t_orders'):
+            return
+
+        orders = ''
+        for group in ['video', 'audio', 'signs', 'subs']:
+            for fid, filepath in self.cmd.get(group, {}).items():
+                s_group = group if group != 'signs' else 'subs'
+                for tid in FileInfo.get_track_type_tids(filepath, s_group):
+                    orders = orders + f'{fid}:{tid},'
+
+            if group in {'audio', 'subs'}:
+                for fid, filepath in self.cmd.get('video', {}).items():
+                    for tid in FileInfo.get_track_type_tids(filepath, group):
+                        orders = orders + f'{fid}:{tid},'
+
+        return ['--track-order', orders[:-1]] if orders else []
+
     def get_merge_command(self):
         command = [str(Tools.mkvmerge), "-o", str(self.output)]
+        self.cmd = {}
 
-        if self.pro:
-            self.strict_false = True
+        self.fid = 0
+        cmd = self.cmd.setdefault('cmd', {}).setdefault(f'{self.fid}', [])
+        self.switch_stricts(False)
         part = self.get_part_command_for_video()
-        command.extend(part + [str(self.merge_video_list[0])])
+        cmd.extend(part + [str(self.merge_video_list[0])])
         for video in self.merge_video_list[1:]:
-            command.extend(part + [f"+{str(video)}"])
+            cmd.extend(part + [f"+{str(video)}"])
 
+        self.delayeds = {}
         for audio in self.audio_list:
-            command.extend(self.get_part_command_for_file(audio, "audio") + [str(audio)])
+            if self.set_delay_if_need(audio):
+                continue
+            self.fid += 1
+            cmd = self.cmd.setdefault('cmd', {}).setdefault(f'{self.fid}', [])
+            cmd.extend(self.get_part_command_for_file(audio, "audio") + [str(audio)])
+        for key in reversed(list(self.delayeds.keys())):
+            for audio in self.delayeds[key]:
+                self.fid += 1
+                cmd = self.cmd.setdefault('cmd', {}).setdefault(f'{self.fid}', [])
+                cmd.extend(self.get_part_command_for_file(audio, "audio") + [str(audio)])
 
+        self.delayeds = {}
         for subs in self.subs_list:
-            for_id = self.cp1251_for_subs.get(str(subs), None)
-            if for_id is not None:
-                command.extend(["--sub-charset", f"{for_id}:windows-1251"])
-            command.extend(self.get_part_command_for_file(subs, "subs") + [str(subs)])
+            if self.set_delay_if_need(subs):
+                continue
+            self.fid += 1
+            cmd = self.cmd.setdefault('cmd', {}).setdefault(f'{self.fid}', [])
+
+            tid = self.cp1251_for_subs.get(str(subs), None)
+            if tid:
+                cmd.extend(["--sub-charset", f"{tid}:windows-1251"])
+            cmd.extend(self.get_part_command_for_file(subs, "subs") + [str(subs)])
+        for key in reversed(list(self.delayeds.keys())):
+            for subs in self.delayeds[key]:
+                self.fid += 1
+                cmd = self.cmd.setdefault('cmd', {}).setdefault(f'{self.fid}', [])
+                cmd.extend(self.get_part_command_for_file(subs, "subs") + [str(subs)])
+
+        self.set_defaults_pcommand()
+
+        command.extend(self.get_track_orders())
+        for fid, cmd in self.cmd['cmd'].items():
+            command.extend(cmd)
 
         for font in self.merge_font_list:
             command.extend(self.for_merge_flag(font, "fonts", "options") + ["--attach-file", str(font)])
@@ -1039,7 +1171,7 @@ class Merge(FileDictionary):
         self.out_pname_tail = self.flags.flag("out_pname_tail")
         self.linked_uid_info_dict = {}
         self.matching_keys = {}
-        self.temp_dir = Path(self.flags.flag("save_dir")) / f"__temp_files__{str(uuid.uuid4())[:8]}"
+        self.temp_dir = Path(self.flags.flag("save_dir")) / f'__temp_files__.{str(uuid.uuid4())[:8]}'
         self.orig_font_dir = Path(self.temp_dir) / "orig_fonts"
         self.for_priority = self.flags.flag("for_priority")
         self.lim_gen = self.flags.flag("lim_gen")
@@ -1066,6 +1198,7 @@ class Merge(FileDictionary):
         self.mkv_linking = False
         self.strict_true = False
         self.strict_false = False
+        self.cmd = {}
         self.pro = self.merge_flag(*k, "pro")
         self.orig_font_list = []
         self.cp1251_for_subs = {}
@@ -1467,7 +1600,7 @@ class LinkedMKV:
         self.retimed_audio_list = []
         count = 0
         if self.merge.merge_truefalse_flag(self.merge.video, "video", "orig_audio"):
-            audio_track_id_list = FileInfo.get_track_type_id(self.merge.video, "audio")
+            audio_track_id_list = FileInfo.get_track_type_tids(self.merge.video, "audio")
             for self.track_id in audio_track_id_list:
                 self.get_retimed_segments_orig_audio()
                 orig_audio = Path(self.temp_orig_audio_dir) / f"{count}.mka"
@@ -1623,7 +1756,7 @@ class LinkedMKV:
             self.segment_orig_sub_list = []
 
             #проверяем сколько дорожек субтитров в исходном видео
-            sub_track_id_list = FileInfo.get_track_type_id(self.merge.video, "subs")
+            sub_track_id_list = FileInfo.get_track_type_tids(self.merge.video, "subs")
             for self.track_id in sub_track_id_list:
                 count_temp = 0
                 for source in self.source_list:
