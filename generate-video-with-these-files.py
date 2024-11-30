@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.5.5
+generate-video-with-these-files-v0.5.6
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -190,6 +190,7 @@ class Flags():
         "lim_search_up": 3,
         "lim_gen": 99999,
         'lim_default_ttype': 1,
+        'lim_forced_signs': 1,
         "range_gen": [0, 99999],
         "pro": False,
         "extended_log": False,
@@ -207,7 +208,7 @@ class Flags():
         "langs": True,
         'enableds': True, 'enabled': True,
         'defaults': True, 'default': True,
-        'forceds': True, 'forced': False,
+        'forceds': True, 'forced': False, 'forced_signs': False,
         't_orders': True,
         'for_priority': 'file_first', #dir_first, mix
         'for': {}
@@ -237,12 +238,12 @@ class Flags():
     TYPES = {
         "path": {"start_dir", "save_dir"},
         "str": {"out_pname", "out_pname_tail", "trackname", "for_priority", "lang", "locale"},
-        "num": {"lim_search_up", "lim_gen"},
+        'num': {'lim_search_up', 'lim_gen', 'lim_forced_signs'},
         "range": {"range_gen"},
         "truefalse": {"pro", "extended_log", "global_tags", "chapters", "video",
                       "audio", "orig_audio", "subs", "orig_subs", "fonts", "langs",
                       "orig_fonts", "sort_orig_fonts", "tracknames", "files", "enableds",
-                      'enabled', 'defaults', 'default',
+                      'enabled', 'defaults', 'default', 'forced', 'forced_signs',
                       }
     }
 
@@ -839,17 +840,6 @@ class Merge(FileDictionary):
             self.strict_true = strict
             self.strict_false = not strict
 
-    def get_forceds_pcommand(self,  filepath, filegroup):
-        part = []
-        self.switch_stricts(True)
-        for group in ['video', 'audio', 'subs']:
-            k = [filepath, group]
-            val = '' if self.merge_truefalse_flag(*k, 'forced') else ':0'
-            for tid in FileInfo.get_track_type_tids(*k):
-                part.extend(["--forced-display-flag", f"{tid}{val}"])
-        self.switch_stricts(False)
-        return part
-
     def get_enableds_pcommand(self, filepath, filegroup):
         part = []
         self.switch_stricts(False)
@@ -880,8 +870,6 @@ class Merge(FileDictionary):
         self.switch_stricts(True)
         if self.merge_truefalse_flag(*k, "enableds"):
             part.extend(self.get_enableds_pcommand(*k))
-        if self.merge_truefalse_flag(*k, "forceds"):
-            part.extend(self.get_forceds_pcommand(*k))
         self.switch_stricts(False)
         part.extend(self.for_merge_flag(*k, "options"))
         return part
@@ -970,8 +958,9 @@ class Merge(FileDictionary):
             self.delayeds.setdefault('nonlocale', []).append(filepath)
             return True
 
-    def set_defaults_pcommand(self):
+    def set_def_force_pcommand(self):
         lim = self.flags.flag('lim_default_ttype')
+        lim_f = self.flags.flag('lim_forced_signs')
 
         for group in ['signs', 'subs', 'audio', 'video']:
             for fid, filepath in self.cmd.get(group, {}).items():
@@ -990,13 +979,26 @@ class Merge(FileDictionary):
 
                             if var and self.pro:
                                 value = ''
-                            elif var and cnt < lim and (group2 != 'subs' or (group2 == 'subs' and group == 'signs') or not self.cmd.get('audio')):
+                            elif var and cnt < lim and (group2 != 'subs' or (group2 == 'subs' and (group == 'signs' or not self.cmd.get('audio', {})))):
                                 value = ''
                             else:
                                 value = ':0'
 
-                            self.cmd['cmd'][f'{fid}'][:0] = ['--default-track-flag', f'{tid}{value}']
-                            self.cmd['cnt']['default'][group2] += 1
+                            part = ['--default-track-flag', f'{tid}{value}']
+
+                            self.switch_stricts(True)
+                            var = self.merge_truefalse_flag(*k, 'forced')
+                            cnt = self.cmd.setdefault('cnt', {}).setdefault('forced', {}).setdefault(f'{group2}', 0)
+                            forced_signs = self.merge_truefalse_flag(*k, 'forced_signs')
+
+                            value2 = '' if var or group == 'signs' and group2 == 'subs' and forced_signs and cnt < lim_f else ':0'
+
+                            part.extend(['--forced-display-flag', f'{tid}{value2}'])
+                            self.cmd['cmd'][f'{fid}'][:0] = part
+                            if not value:
+                                self.cmd['cnt']['default'][group2] += 1
+                            if not value2:
+                                self.cmd['cnt']['forced'][group2] += 1
 
     def get_track_orders(self):
         self.switch_stricts(True)
@@ -1059,7 +1061,7 @@ class Merge(FileDictionary):
                 cmd = self.cmd.setdefault('cmd', {}).setdefault(f'{self.fid}', [])
                 cmd.extend(self.get_part_command_for_file(subs, "subs") + [str(subs)])
 
-        self.set_defaults_pcommand()
+        self.set_def_force_pcommand()
 
         command.extend(self.get_track_orders())
         for fid, cmd in self.cmd['cmd'].items():
