@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.5.6
+generate-video-with-these-files-v0.5.7
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -240,10 +240,10 @@ class Flags():
         "str": {"out_pname", "out_pname_tail", "trackname", "for_priority", "lang", "locale"},
         'num': {'lim_search_up', 'lim_gen', 'lim_forced_signs'},
         "range": {"range_gen"},
-        "truefalse": {"pro", "extended_log", "global_tags", "chapters", "video",
-                      "audio", "orig_audio", "subs", "orig_subs", "fonts", "langs",
-                      "orig_fonts", "sort_orig_fonts", "tracknames", "files", "enableds",
-                      'enabled', 'defaults', 'default', 'forced', 'forced_signs',
+        'truefalse': {'pro', 'extended_log', 'global_tags', 'chapters', 'video', 'audio',
+                      'orig_audio', 'subs', 'orig_subs', 'fonts', 'orig_fonts', 'sort_orig_fonts',
+                      'langs', 'tracknames', 'files', 'enableds', 'enabled', 'defaults', 'default',
+                      'forceds', 'forced', 'forced_signs', 't_orders',
                       }
     }
 
@@ -876,7 +876,7 @@ class Merge(FileDictionary):
 
     def get_part_command_for_video(self):
         part = []
-        k = [self.video, "video"]
+        k = [self.merge_video_list[0], "video"]
 
         if not self.merge_truefalse_flag(*k, "orig_audio"):
             part.append("--no-audio")
@@ -966,44 +966,52 @@ class Merge(FileDictionary):
             for fid, filepath in self.cmd.get(group, {}).items():
                 s_group = group if group != 'signs' else 'subs'
                 k = [filepath, s_group]
+
                 self.switch_stricts(True)
-                if self.merge_truefalse_flag(*k, 'defaults'):
+                add_defaults = self.merge_truefalse_flag(*k, 'defaults')
+                add_forceds = self.merge_truefalse_flag(*k, 'forceds')
+                if add_defaults or add_forceds:
 
                     for group2 in ['subs', 'audio', 'video']:
                         k = [filepath, group2]
 
                         for tid in FileInfo.get_track_type_tids(*k):
-                            self.switch_stricts(False)
-                            var = self.merge_truefalse_flag(*k, 'default')
-                            cnt = self.cmd.setdefault('cnt', {}).setdefault('default', {}).setdefault(f'{group2}', 0)
+                            part = []
 
-                            if var and self.pro:
-                                value = ''
-                            elif var and cnt < lim and (group2 != 'subs' or (group2 == 'subs' and (group == 'signs' or not self.cmd.get('audio', {})))):
-                                value = ''
-                            else:
-                                value = ':0'
+                            if add_defaults:
+                                self.switch_stricts(False)
+                                var = self.merge_truefalse_flag(*k, 'default')
+                                cnt = self.cmd.setdefault('cnt', {}).setdefault('default', {}).setdefault(f'{group2}', 0)
 
-                            part = ['--default-track-flag', f'{tid}{value}']
+                                if var and self.pro:
+                                    value = ''
+                                elif var and cnt < lim and (group2 != 'subs' or (group2 == 'subs' and (group == 'signs' or not self.cmd.get('audio', {})))):
+                                    value = ''
+                                else:
+                                    value = ':0'
 
-                            self.switch_stricts(True)
-                            var = self.merge_truefalse_flag(*k, 'forced')
-                            cnt = self.cmd.setdefault('cnt', {}).setdefault('forced', {}).setdefault(f'{group2}', 0)
-                            forced_signs = self.merge_truefalse_flag(*k, 'forced_signs')
+                                part.extend(['--default-track-flag', f'{tid}{value}'])
+                                if not value:
+                                    self.cmd['cnt']['default'][group2] += 1
 
-                            value2 = '' if var or group == 'signs' and group2 == 'subs' and forced_signs and cnt < lim_f else ':0'
+                            if add_forceds:
+                                self.switch_stricts(True)
+                                var = self.merge_truefalse_flag(*k, 'forced')
+                                cnt = self.cmd.setdefault('cnt', {}).setdefault('forced', {}).setdefault(f'{group2}', 0)
+                                forced_signs = self.merge_truefalse_flag(*k, 'forced_signs')
 
-                            part.extend(['--forced-display-flag', f'{tid}{value2}'])
+                                value2 = '' if var or group == 'signs' and group2 == 'subs' and forced_signs and cnt < lim_f else ':0'
+
+                                part.extend(['--forced-display-flag', f'{tid}{value2}'])
+                                if not value2:
+                                    self.cmd['cnt']['forced'][group2] += 1
+
                             self.cmd['cmd'][f'{fid}'][:0] = part
-                            if not value:
-                                self.cmd['cnt']['default'][group2] += 1
-                            if not value2:
-                                self.cmd['cnt']['forced'][group2] += 1
 
     def get_track_orders(self):
         self.switch_stricts(True)
-        if not self.flags.flag('t_orders'):
-            return
+        if not self.merge_truefalse_flag(self.merge_video_list[0], 'video', 't_orders'):
+            return []
 
         orders = ''
         for group in ['video', 'audio', 'signs', 'subs']:
@@ -1029,7 +1037,7 @@ class Merge(FileDictionary):
         part = self.get_part_command_for_video()
         cmd.extend(part + [str(self.merge_video_list[0])])
         for video in self.merge_video_list[1:]:
-            cmd.extend(part + [f"+{str(video)}"])
+            cmd.extend([f"+{str(video)}"])
 
         self.delayeds = {}
         for audio in self.audio_list:
@@ -1774,7 +1782,7 @@ class LinkedMKV:
         for subs in self.merge.subs_list:
             self.sub_for_retime = Path(self.temp_ext_subs_dir) / subs.parent.name / f"{subs.stem}.{count:03}..ass"
             if subs.suffix != ".ass":
-                print(f"\nSkip subs! {str(subs)} \nThese subs need to be retimed because the video file has segment linking. Retime is only possible for .ass subs.")
+                print(f"\nSkip subtitles! {str(subs)} \nThese subtitles need to be retimed because the video file has segment linking. Retime is only possible for .ass subs.")
                 continue
             else:
                 self.sub_for_retime.parent.mkdir(parents=True, exist_ok=True)
