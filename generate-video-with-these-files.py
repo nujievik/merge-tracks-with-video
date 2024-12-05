@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.5.8
+generate-video-with-these-files-v0.6.0
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -15,6 +15,7 @@ import re
 import subprocess
 import shlex
 import uuid
+import locale
 from pathlib import Path
 from datetime import timedelta
 
@@ -198,6 +199,7 @@ class Tools():
 class Flags():
     def __init__(self):
         self.__flags = {}
+        self.set_locale()
 
     DEFAULT = {
         "start_dir": Path.cwd(),
@@ -249,9 +251,6 @@ class Flags():
         'subtitles': 'subs',
         'attachments': 'fonts',
         'language': 'lang',
-        'track_enabled_flag': 'enabled',
-        'default_track_flag': 'default',
-        'forced_display_flag': 'forced',
         'track_orders': 't_orders',
         'track_type': 'ttype',
         'trackname': 'tname',
@@ -430,6 +429,16 @@ class Flags():
             self.set_flag("start_dir", Path.cwd())
         if str(self.flag("save_dir")) == str(Path.cwd()):
             self.set_flag("save_dir", self.flag("start_dir"))
+
+    def set_locale(self):
+        current_locale = locale.getlocale()
+        locale_words = set()
+        for element in current_locale:
+            locale_words.update(element.split('_'))
+        for lang, keys in FileDictionary.KEYS['lang'].items():
+            if keys & locale_words:
+                self.set_flag('locale', lang)
+                break
 
 class FileDictionary:
     def __init__(self, flags):
@@ -1053,7 +1062,7 @@ class Merge(FileDictionary):
         self.set_tracks_order()
 
     def get_value_force_def_en(self, key):
-        if self.trackgroup == 'signs' and key == 'forced' and self.flags.flag('lim_forced_signs'):
+        if self.trackgroup == 'signs' and key == 'forced' and self.flags.flag('forced_signs'):
             lim = self.flags.flag('lim_forced_signs')
         else:
             lim = self.flags.flag(f'lim_{key}_ttype')
@@ -1065,6 +1074,8 @@ class Merge(FileDictionary):
         if cnt >= lim:
             value = 0
         elif force:
+            value = 1
+        elif key == 'forced' and self.trackgroup == 'signs':
             value = 1
         elif key == 'default' and self.trackgroup == 'subs' and self.info.get('exists_locale_audio', False):
             value = 0
