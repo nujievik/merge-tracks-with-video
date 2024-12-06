@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.6.0
+generate-video-with-these-files-v0.6.1
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -896,7 +896,9 @@ class Merge(FileDictionary):
         return ['--track-order', orders[:-1]] if orders else []
 
     def set_track_name(self, filepath, filegroup, tid):
-        self.track_name = self.merge_flag(filepath, filegroup, 'tname')
+        self.track_name = None
+        if filegroup != 'video':
+            self.track_name = self.merge_flag(filepath, filegroup, 'tname')
         if not self.track_name:
             self.track_name = FileInfo.get_file_info(filepath, 'Name:', tid)
         if not self.track_name:
@@ -904,7 +906,9 @@ class Merge(FileDictionary):
         return self.track_name
 
     def set_track_lang(self, filepath, filegroup, tid):
-        self.track_lang = self.merge_flag(filepath, filegroup, 'lang')
+        self.track_lang = None
+        if filegroup != 'video':
+            self.track_lang = self.merge_flag(filepath, filegroup, 'lang')
         if not self.track_lang:
             self.track_lang = FileInfo.get_file_info(filepath, 'Language:', tid)
         if not self.track_lang and self.mkv_linking and filepath.parent.name.startswith('orig_'):
