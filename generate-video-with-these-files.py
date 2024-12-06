@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.6.1
+generate-video-with-these-files-v0.6.2
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -1311,7 +1311,7 @@ class Merge(FileDictionary):
         self.switch_stricts(True)
         if self.merge_truefalse_flag(*k, "sort_orig_fonts") and self.merge_truefalse_flag(*k, "orig_fonts"):
             self.extract_orig_fonts()
-            super().rm_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
+            self.merge_font_list = super().rm_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
 
     def delete_temp_files(self):
         if self.temp_dir.exists():
