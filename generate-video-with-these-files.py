@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.6.2
+generate-video-with-these-files-v0.6.3
 This program is part of the generate-video-with-these-files-script repository
 
 Licensed under GPL-3.0.
@@ -1079,7 +1079,7 @@ class Merge(FileDictionary):
             value = 0
         elif force:
             value = 1
-        elif key == 'forced' and self.trackgroup == 'signs':
+        elif key == 'forced' and self.trackgroup == 'signs' and self.flags.flag('forced_signs'):
             value = 1
         elif key == 'default' and self.trackgroup == 'subs' and self.info.get('exists_locale_audio', False):
             value = 0
