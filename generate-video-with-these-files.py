@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.7.1
+generate-video-with-these-files-v0.7.2
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python and MKVToolNix.
@@ -1362,7 +1362,7 @@ class SplittedMKV:
         lengths = {}
         ind = 0
         for self.uid in self.uids:
-            start = self.chap_starts[ind] if self.chap_starts[ind] else lengths.get(self.uid, timedelta(0))
+            start = self.chap_starts[ind] if self.chap_starts[ind] is not None else lengths.get(self.uid, timedelta(0))
             end = self.chap_ends[ind]
 
             if not end and len(self.chap_starts) > ind+1:
