@@ -1,6 +1,5 @@
 """
-generate-video-with-these-files-v0.7.0
-This program is part of the generate-video-with-these-files-script repository
+generate-video-with-these-files-v0.7.1
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python and MKVToolNix.
@@ -9,13 +8,14 @@ See LICENSE file for details.
 """
 import sys
 import os
-import xml.etree.ElementTree as ET
 import shutil
 import re
 import subprocess
 import shlex
 import uuid
 import locale
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
 from pathlib import Path
 from datetime import timedelta
 
@@ -67,12 +67,13 @@ class TypeConverter:
         return number
 
     @staticmethod
-    def timedelta_to_str(td):
+    def timedelta_to_str(td, hours_place=1, decimal_place=2):
         total_seconds = int(td.total_seconds())
         hours, remainder = divmod(total_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
-        milliseconds = int(td.microseconds / 1000)
-        return f"{hours}:{minutes:02}:{seconds:02}.{milliseconds // 10:02}"  # Два знака после точки
+        d, dp = td.microseconds, decimal_place
+        decimal = int(d / (10 ** (6 - dp))) if dp <= 6 else d * 10 ** (dp - 6)
+        return f'{hours:0{hours_place}}:{minutes:02}:{seconds:02}.{decimal:0{decimal_place}}'
 
     @staticmethod
     def str_to_timedelta(time_str):
@@ -1138,6 +1139,8 @@ class Merge(FileDictionary):
         for font in self.merge_font_list:
             command.extend(self.for_flag('options', font, 'fonts') + ['--attach-file', str(font)])
 
+        command.extend(['--chapters', str(self.chapters)]) if self.chapters else None
+
         return command
 
     def processing_error_warning_merge(self, command_out, lmsg):
@@ -1246,6 +1249,7 @@ class Merge(FileDictionary):
         self.orig_fonts = self.bool_flag('orig_fonts')
         self.orig_font_list = []
         self.matching_keys = {}
+        self.chapters = ''
 
         self.audio_list = self.get_merge_file_list("audio", self.audio_dict.get(str(self.video), []))
         self.subs_list = self.get_merge_file_list("subs", self.subs_dict.get(str(self.video), []))
@@ -1338,7 +1342,7 @@ class SplittedMKV:
         self.add_skips(linking=True)
         self.indexes[:] = [x for x in self.indexes if x not in self.skip]
         self.segments_vid[:] = [x for x in self.segments_vid if self.segments_inds[str(x)]['start'] not in self.skip]
-        self.fill_retimed_audio(), self.fill_retimed_subs()
+        self.fill_retimed_audio(), self.fill_retimed_subs(), self.create_new_chapters()
 
     def find_video_with_uid(self, exit_if_none=False):
         video_list = self.merge.__class__.find_ext_files(self.merge.video.parent, '.mkv')
@@ -1501,7 +1505,7 @@ class SplittedMKV:
         else:
             split = False
             self.segment = self.to_split
-            self.merge.flags.set_for_flag('options', ['--no-chapters'], str(self.merge.video))
+            self.merge.flags.set_for_flag('chapters', False, str(self.merge.video))
 
         if split:
             self.split_file()
@@ -1702,7 +1706,7 @@ class SplittedMKV:
             with open(self.segment, 'r', encoding='utf-8') as file:
                 lines[self.uids[ind]] = file.readlines()
 
-        self.retimed = Path(segment.parent) / f'subs_{self.subs_cnt}.ass'
+        self.retimed = Path(self.segment.parent) / f'subs_{self.subs_cnt}.ass'
         with open(self.retimed, 'w', encoding='utf-8') as file:
             for line in lines[self.uids[self.indexes[0]]]:
                 if line.startswith('Dialogue:'): break
@@ -1710,7 +1714,7 @@ class SplittedMKV:
 
             for self.ind in self.indexes:
                 lengths = self.get_uid_lengths()
-                self.offset = lengths['nonuid']['defacto'] + lengths['uid']['offset']
+                self.offset = lengths['nonuid']['defacto'] + lengths['uid']['offset'] - self.offsets_start[self.ind]
                 uid, self.start, self.end = self.uids[self.ind], self.starts[self.ind], self.ends[self.ind]
                 self.write_subs_segment_lines(file, lines[uid])
 
@@ -1729,7 +1733,7 @@ class SplittedMKV:
 
             for self.ind in self.indexes:
                 lengths = self.get_uid_lengths()
-                self.offset = lengths['nonuid']['offset'] + lengths['uid']['offset']
+                self.offset = lengths['nonuid']['offset'] + lengths['uid']['offset'] - self.offsets_start[self.ind]
                 self.start, self.end = self.starts[self.ind] + lengths['nonuid']['chapters'], self.ends[self.ind] + lengths['nonuid']['chapters']
                 self.write_subs_segment_lines(file, lines)
 
@@ -1765,10 +1769,35 @@ class SplittedMKV:
             else:
                 print(f"Skip subtitles file '{str(self.to_split)}'! \nThese subtitles need to be retimed because the video file has segment linking. Retime is only possible for SubStationAlpha tracks (.ass).")
 
+    def create_new_chapters(self):
+        self.chapters = Path(self.merge.temp_dir) / 'new_chapters.xml'
+
+        root = ET.Element('Chapters')
+        edition = ET.SubElement(root, 'EditionEntry')
+        ET.SubElement(edition, 'EditionFlagOrdered').text = '1'
+        ET.SubElement(edition, 'EditionFlagDefault').text = '1'
+        ET.SubElement(edition, 'EditionFlagHidden').text = '0'
+        length = timedelta(0)
+        for ind in self.indexes:
+            start, end, name = length, self.lengths[ind] + length, self.names[ind]
+            chapter = ET.SubElement(edition, 'ChapterAtom')
+            ET.SubElement(chapter, 'ChapterTimeStart').text = TypeConverter.timedelta_to_str(start, hours_place=2, decimal_place=9)
+            ET.SubElement(chapter, 'ChapterTimeEnd').text = TypeConverter.timedelta_to_str(end, 2, 9)
+            chapter_display = ET.SubElement(chapter, 'ChapterDisplay')
+            ET.SubElement(chapter_display, 'ChapterString').text = name
+            length += end - start
+
+        xml_str = ET.tostring(root, encoding='utf-8', method='xml')
+        parsed_xml = minidom.parseString(xml_str)
+        pretty_xml_str = parsed_xml.toprettyxml(indent='  ')
+        with open(str(self.chapters), 'w', encoding='utf-8') as file:
+            file.write(pretty_xml_str)
+
     def processing_segments(self):
         self.replace_none_time_to_td()
-        self.fill_video_segments(), self.fill_retimed_audio(), self.fill_retimed_subs()
+        self.fill_video_segments(), self.fill_retimed_audio(), self.fill_retimed_subs(), self.create_new_chapters()
         self.merge.merge_video_list, self.merge.audio_list, self.merge.subs_list = self.segments_vid, self.retimed_audio, self.retimed_subs
+        self.merge.chapters = self.chapters
 
     def add_skips(self, linking=False):
         names = set()
