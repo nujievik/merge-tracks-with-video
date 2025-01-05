@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.7.2
+generate-video-with-these-files-v0.7.3
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python and MKVToolNix.
@@ -24,8 +24,8 @@ class CommandExecutor:
     def execute(command, exit_after_error=True):
         try:
             subprocess.run(command, check=True, stdout=subprocess.PIPE)
-
-        except subprocess.CalledProcessError as e:
+ 
+        except (subprocess.CalledProcessError, FileNotFoundError) as e:
             if not exit_after_error:
                 return False
             print(f"Error executing the command:\n{command}\n{e.output.decode()}\nExiting the script.")
