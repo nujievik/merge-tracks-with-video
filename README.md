@@ -4,9 +4,10 @@
 
 ## How to Use
 
-1. Download the [archive](https://github.com/nujievik/generate-video-with-these-files-script/releases) with the executable file or the Python [script](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
-2. Extract the archive or install the required [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies) (for the Python script). 
-3. Run it in the directory containing the video or external files.
+
+1. Download [the executable file](https://github.com/nujievik/generate-video-with-these-files-script/releases) (.exe) or [the Python script](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
+2. If you use the Python script, install [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies).
+3. Run it in the directory containing the videos or external files.
 
 The default behavior can be modified by passing [call arguments](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#call-arguments). For example, you can avoid copying the script to the target directory and instead pass it as an argument:
 ```
@@ -445,9 +446,9 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 
 ## Как этим пользоваться
 
-1. Скачать [архив](https://github.com/nujievik/generate-video-with-these-files-script/releases) с исполняемым файлом или Python [скрипт](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
-2. Распаковать архив или установить [зависимости](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8) (для Python скрипта).
-3. Запустить в директории видео или внешних файлов.
+1. Скачайте [исполняемый файл](https://github.com/nujievik/generate-video-with-these-files-script/releases) (.exe) или Python [скрипт](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
+2. Если используете Python скрипт, установите [зависимости](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8).
+3. Запустите в директории, содержащей видео или внешние файлы.
 
 Поведение по умолчанию можно изменить передачей [аргументов вызова](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B0%D1%80%D0%B3%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B-%D0%B2%D1%8B%D0%B7%D0%BE%D0%B2%D0%B0). В частности, можно не копировать скрипт в директорию с файлами, а просто передать ее в качестве аргумента:
 ```
