@@ -2,16 +2,27 @@
 
 ## Script for adding external tracks to a video, merging, and retiming tracks of linked mkv (mkv segment linking) video
 
-## License
+## How to Use
 
-- **Own Code**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
-- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
-- **Python**: [PSF License](https://www.python.org/psf/license/)
+1. Download the [archive](https://github.com/nujievik/generate-video-with-these-files-script/releases) with the executable file or the Python [script](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
+2. Extract the archive or install the required [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies) (for the Python script). 
+3. Run it in the directory containing the video or external files.
+
+The default behavior can be modified by passing [call arguments](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#call-arguments). For example, you can avoid copying the script to the target directory and instead pass it as an argument:
+```
+generate-video-with-these-files.exe "directory with files"
+```
 
 ## Dependencies
 
 - [MKVToolNix](https://mkvtoolnix.download/)
 - [Python](https://www.python.org/downloads/)
+
+## License
+
+- **Own Code**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
+- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+- **Python**: [PSF License](https://www.python.org/psf/license/)
 
 ## Description
 
@@ -32,7 +43,8 @@ All components (the script, Python, and MKVToolNix) are packaged into a single e
 - Finds files for merging by partial filename match with the video name.
 - Finds files in subdirectories of the video directory.
 - Merges linked (mkv segment linking) video.
-- Retimes audio and subtitles for merged linked video to avoid synchronization issues.
+- Allows you to trim a portion of an MKV video (for MKVs with chapters).
+- Retimes audio and subtitles for linked or trimmed videos to prevent desynchronization.
 - Names audio and subtitle tracks based on their file name tail OR the directory name. The original name, if present, is preserved.
 - Sets the language of audio and subtitle tracks based on keywords in the file paths.
 - Sets the system locale language as the priority for track sorting.
@@ -56,18 +68,6 @@ All components (the script, Python, and MKVToolNix) are packaged into a single e
 - Supports any arguments supported by `mkvmerge`.
 - Allows setting merge arguments for all files in the directory, for file groups (video, audio, titles, subtitles), and for individual files.
 
-## How to Use
-
-1. Download the archive and unpack it.
-2. Place the executable file in the folder with the video, external audio, or external subtitle files.
-3. Run the script.
-
-You don't need to copy files into the directory but can instead pass the directory as an argument:
-```
-generate-video-with-these-files.exe "directory with files"
-```
-The behavior of the script depends on the starting directory and any passed arguments (optional).
-
 ## Default Mode
 
 - The starting directory and saving directory are the current working directory.
@@ -79,6 +79,16 @@ The behavior of the script depends on the starting directory and any passed argu
 - Track-order, Forced, Default, Enabled, Track-name, and Language flags are set.
 - Tracks are sorted with local tracks given priority.
 - The output file is named after the video, with a suffix indicating what was done (_added_audio, _replaced_subs, etc.)
+- Linked video is split into parts, written to disk, and then the parts are combined into a single video.
+
+## Working with Linked Video
+
+By default, linked video is written to disk in parts first and then merged into a complete video. This process effectively uses twice the disk space of the final video size.
+
+To reduce disk resource usage, you can exclude linked video segments (typically openings and endings). In this case, intermediate parts will not be written, and the final video will be generated directly. This can be done using the flag:
+```
+python generate-video-with-these-files.py -linking
+```
 
 ## Argument Remapping Mode
 
@@ -138,6 +148,10 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 
 - `-range-gen=` sets the generation range for video files. Only videos with corresponding external tracks are considered (if they exist). Videos are taken in alphabetical order.
 
+### Removing Chapters
+
+- `-rm-chapters=op,ed,prologue,preview` removes the specified video segments listed in the argument (for MKVs with chapters).
+
 ### TrueFalse Arguments
 
 - TrueFalse arguments are set to True or False depending on the symbol before the argument: `+` for True and `-` for False. Also, if the argument starts with `--no`, the value is False, in all other cases, it is True. Specifically, True is set if the argument is called with a double dash `--` without `no`.
@@ -145,6 +159,12 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 - `+pro` activates Pro mode (generates a clean mkvmerge command without flags).
 
 - `+extended-log` activates extended logging.
+
+- `-linking` removes external parts of linked video.
+
+- `-opening` removes the video segment containing the opening (for MKVs with chapters).
+
+- `-ending` removes the video segment containing the ending (for MKVs with chapters).
 
 - `-global-tags` disables copying of global tags.
 
@@ -423,16 +443,27 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 
 ## Cкрипт для добавления внешних дорожек в видео, объединения и ретайминга дорожек линкованного mkv видео
 
-## Лицензия
+## Как этим пользоваться
 
-- **Собственный код**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
-- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
-- **Python**: [PSF License](https://www.python.org/psf/license/)
+1. Скачать [архив](https://github.com/nujievik/generate-video-with-these-files-script/releases) с исполняемым файлом или Python [скрипт](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
+2. Распаковать архив или установить [зависимости](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8) (для Python скрипта).
+3. Запустить в директории видео или внешних файлов.
+
+Поведение по умолчанию можно изменить передачей [аргументов вызова](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B0%D1%80%D0%B3%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B-%D0%B2%D1%8B%D0%B7%D0%BE%D0%B2%D0%B0). В частности, можно не копировать скрипт в директорию с файлами, а просто передать ее в качестве аргумента:
+```
+generate-video-with-these-files.exe "директория с файлами"
+```
 
 ## Зависимости
 
 - [MKVToolNix](https://mkvtoolnix.download/)
 - [Python](https://www.python.org/downloads/)
+
+## Лицензия
+
+- **Собственный код**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
+- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+- **Python**: [PSF License](https://www.python.org/psf/license/)
 
 ## Описание
 
@@ -446,7 +477,6 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 
 Все компоненты (скрипт, Python и MKVToolNix) включены в один исполняемый файл. Это позволяет использовать скрипт без необходимости устанавливать Python и MKVToolNix.
 
-
 ## Функциональность
 
 - Работает в Windows, GNU/Linux. Должен работать в macOS и BSD.
@@ -454,7 +484,8 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 - Находит файлы для объединения по частичному совпадению имени файла с именем видео.
 - Находит файлы в поддиректориях директории видео.
 - Объединяет линкованное (mkv segment linking) видео.
-- Ретаймит аудио и субтитры для объединенного линкованного видео, чтобы не было рассинхрона.
+- Позволяет обрезать часть mkv видео (для mkv с chapters).
+- Ретаймит аудио и субтитры для объединенного линкованного или обрезанного видео, чтобы не было рассинхрона.
 - Называет дорожки аудио и субтитров по хвосту их имени ИЛИ по имени директории. Исходное название, если оно есть, копируется без изменений.
 - Устанавливает язык дорожек аудио и субтитров по ключевым словам в пути к файлам.
 - Устанавливает язык системной локали приоритетным для сортировки дорожек.
@@ -478,21 +509,6 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 - Поддерживает любые аргументы, поддерживаемые mkvmerge.
 - Позволяет задать аргументы объединения для всех файлов в директории, для групп файлов (видео, аудио, надписи, субтитры) и для отдельных файлов.
 
-
-## Как этим пользоваться
-
-1. Скачать архив, распаковать.
-2. Закинуть исполняемый файл в папку с видео, внешними аудио или внешними субтитрами.
-3. Запустить.
-
-Можно не копировать в директорию с файлами, а просто передать ее в качестве аргумента:
-```
-generate-video-with-these-files.exe "директория с файлами"
-```
-
-Поведение скрипта зависит от стартовой директории и переданных аргументов (опционально).
-
-
 ## Режим по умолчанию
 
 - Стартовая директория и директория сохранения - текущая рабочая директория.
@@ -504,6 +520,16 @@ generate-video-with-these-files.exe "директория с файлами"
 - Проставляются track-order, forced, default, enabled, track-name, language флаги.
 - Сортируются дорожки с приоритетом локальных
 - Имя выходного файла ставится имя видео + суффикс что сделано (_added_audio, _replaced_subs и т.п.)
+- Линкованное видео разделяется на части, записываются на диск и потом части объединяются.
+
+## Работа с линкованным видео
+
+По умолчанию линкованное видео записывается на диск сначала по частям, потом из этих частей собирается целое видео. Фактически перезаписывается в 2 раза больший объем диска, чем весит итоговое видео. 
+
+Чтобы снизить трату дискового ресурса, можно отрезать прилинкованные видео части (обычно это опенинг и эндинг). Тогда промежуточные части записываться не будут, будет сразу писаться итоговое видео. Сделать это можно с помощью флага:
+```
+python generate-video-with-these-files.py -linking
+```
 
 ## Режим переназначения аргументов
 
@@ -565,6 +591,10 @@ generate-video-with-these-files.exe "директория с файлами"
 
 - `-range-gen=` устанавливает диапазон генерации для видеофайлов. Берутся только видео, имеющие соответствующие внешние дорожки (если те существуют). Видео берутся в алфавитном порядке.
 
+### Удаление глав
+
+- `-rm-chapters=op,ed,prologue,preview` удаляет перечисленные через запятую части видео (для mkv с chapters).
+
 ### TrueFalse
 
 - TrueFalse аргументы устанавливаются в True либо False в зависимости от символа перед аргументом `+` и `-` соответственно. Значение отрицательно также если аргумент начинается с `--no`, во всех остальных случаях оно положительно. В частности положительное значение устанавливается если аргумент вызывается с двойным дефисом `--`, за которым нет `no`.
@@ -572,6 +602,12 @@ generate-video-with-these-files.exe "директория с файлами"
 - `+pro` активирует Pro режим (дает чистую команду mkvmerge без флагов).
 
 - `+extended-log` активирует расширенный лог.
+
+- `-linking` удаляет внешние части линкованного видео.
+
+- `-opening` удаляет часть видео с опенингом (для mkv с chapters).
+
+-  `-ending` удаляет часть видео с эндингом (для mkv с chapters).
 
 - `-global-tags` отключает копирование глобальных тегов.
 
