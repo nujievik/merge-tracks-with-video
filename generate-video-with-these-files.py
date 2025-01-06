@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.7.3
+generate-video-with-these-files-v0.7.4
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python and MKVToolNix.
@@ -1446,7 +1446,6 @@ class SplittedMKV:
                     if uid == self.uid:
                         self.skip.add(ind)
                     ind += 1
-                self.ind += 1
 
         else:
             self.to_split = self.merge.video
