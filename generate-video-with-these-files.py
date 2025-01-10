@@ -1,9 +1,9 @@
 """
-generate-video-with-these-files-v0.7.4
+generate-video-with-these-files-v0.8.0
 
 Licensed under GPL-3.0.
-This script requires third-party tools: Python and MKVToolNix.
-These tools are licensed under Python PSF and GPL-2, respectively.
+This script requires third-party tools: Python, MKVToolNix and FFprobe (part of FFmpeg).
+These tools are licensed under Python PSF, GPL-2.0, and LGPL-2.1, respectively.
 See LICENSE file for details.
 """
 import sys
@@ -21,7 +21,7 @@ from datetime import timedelta
 
 class CommandExecutor:
     @staticmethod
-    def execute(command, exit_after_error=True):
+    def execute(command, exit_after_error=True, rm=None):
         try:
             subprocess.run(command, check=True, stdout=subprocess.PIPE)
  
@@ -29,10 +29,11 @@ class CommandExecutor:
             if not exit_after_error:
                 return False
             print(f"Error executing the command:\n{command}\n{e.output.decode()}\nExiting the script.")
+            if rm: rm()
             sys.exit(1)
 
     @staticmethod
-    def get_stdout(command, exit_after_error=True):
+    def get_stdout(command, exit_after_error=True, rm=None):
         try:
             return subprocess.run(command, check=True, stdout=subprocess.PIPE).stdout.decode()
 
@@ -40,6 +41,7 @@ class CommandExecutor:
             if not exit_after_error:
                 return e.output.decode(), 1
             print(f"Error executing the command:\n{command}\n{e.output.decode()}\nExiting the script.")
+            if rm: rm()
             sys.exit(1)
 
 class TypeConverter:
@@ -151,29 +153,26 @@ class FileInfo:
                     return value if value != 'und' else None
 
 class Tools():
-    mkvextract = None
-    mkvinfo = None
-    mkvmerge = None
+    mkvextract = mkvinfo = mkvmerge = None
+    ffprobe = None
 
     @staticmethod
     def available_tool(tool):
-        return True if CommandExecutor.execute([str(tool), "-h"], exit_after_error=False) is None else False
+        command = [str(tool), '-v', 'quiet', '-h'] if tool.stem == 'ffprobe' else [str(tool), '-h']
+        return False if CommandExecutor.execute(command, exit_after_error=False) is False else True
 
     @classmethod
     def find_tool(cls, tool):
-        potential_paths = [Path(tool)]
+        tail = '.exe' if os.name == 'nt' else ''
+        potential_paths = [Path.cwd() / f'{tool}{tail}', Path(tool)]
 
         if getattr(sys, 'frozen', False):
-            tool_path_tail = f"tools/{tool}"
-            if os.name == 'nt':
-                tool_path_tail += '.exe'
-            bundled_tool_path = Path(sys._MEIPASS) / tool_path_tail
-            if bundled_tool_path.exists():
-                potential_paths.insert(0, bundled_tool_path)
+            bundled = Path(sys._MEIPASS) / f'tools/{tool}{tail}'
+            if bundled.exists():
+                potential_paths.insert(0, bundled)
 
-        if os.name == 'nt':  # Windows
+        if os.name == 'nt' and tool != 'ffprobe':  # Windows
             potential_paths.extend([
-                Path.cwd() / f"{tool}.exe",
                 Path(os.environ.get("PROGRAMFILES", "")) / "MkvToolNix" / f"{tool}.exe",
                 Path(os.environ.get("PROGRAMFILES(X86)", "")) / "MkvToolNix" / f"{tool}.exe",
                 Path.home() / 'Downloads' / 'mkvtoolnix' / f"{tool}.exe"
@@ -182,11 +181,10 @@ class Tools():
         for path in potential_paths:
             if cls.available_tool(path):
                 return path
-        return None
 
     @classmethod
-    def set_mkvtools_paths(cls):
-        tools = {"mkvextract", "mkvinfo", "mkvmerge"}
+    def set_tools_paths(cls):
+        tools = ['mkvextract', 'mkvinfo', 'mkvmerge', 'ffprobe']
 
         for tool in tools:
             setattr(cls, tool, cls.find_tool(tool))
@@ -195,6 +193,16 @@ class Tools():
             print("Error! MKVToolNix is not installed. Please install MKVToolNix "
                 "and re-run the script:\nhttps://mkvtoolnix.download/downloads.html")
             sys.exit(1)
+
+    @classmethod
+    def ffprobe_installed(cls, exit_if_none=True):
+        if not cls.ffprobe:
+            print('Error! FFprobe (part of FFmpeg) is not installed. This tool is required for splitted MKV. '
+                'Please install this tool, add to the OS Path and re-run the script:\nhttps://ffmpeg.org/download.html')
+            if exit_if_none:
+                sys.exit(1)
+            return False
+        return True
 
 class Flags():
     def __init__(self):
@@ -236,6 +244,7 @@ class Flags():
         'forceds': True, 'forced': False, 'forced_signs': False,
         't_orders': True,
         'linking': True, 'opening': True, 'ending': True,
+        'force_retiming': True,
         'for_priority': 'file_first', #dir_first, mix
         'for': {}
     }
@@ -915,18 +924,23 @@ class Merge(FileDictionary):
 
     def set_files_info(self):
         tmp_info = {}
-        filepaths = [self.merge_video_list[0]] + self.audio_list + self.subs_list
+        filepaths = [self.video] + self.audio_list + self.subs_list
         self.matches = self.splitted.matching_keys if self.mkv_split else {}
 
-        for filepath in filepaths:
-            if filepath == self.merge_video_list[0]:
+        for ind, filepath in enumerate(filepaths):
+            if ind < 1:
                 filegroup = 'video'
-            elif filepath in self.audio_list:
+            elif ind < 1 + len(self.audio_list):
                 filegroup = 'audio'
             else:
                 filegroup = 'subs'
 
-            for trackgroup in ['video', 'audio', 'subs']:
+            if filegroup == 'video' and self.mkv_split and self.splitted.extracted_orig:
+                trackgroups = ['video']
+            else:
+                trackgroups = ['video', 'audio', 'subs']
+
+            for trackgroup in trackgroups:
                 for tid in FileInfo.get_track_type_tids(filepath, trackgroup):
                     self.filepath, self.filegroup, self.tid = self.matches.get(str(filepath), [filepath, filegroup, tid])
 
@@ -958,7 +972,8 @@ class Merge(FileDictionary):
 
         langs = set()
         for tid in tids:
-            langs.add(self.info.get(str(filepath), {}).get(tid, {}).get('tlang', None))
+            if self.info.get(str(filepath), {}).get(tid, {}).get('tlang', ''):
+                langs.add(self.info[str(filepath)][tid]['tlang'])
 
         if self.locale in langs:
             lang_sort = 0  # self.locale first
@@ -967,9 +982,9 @@ class Merge(FileDictionary):
         elif langs and not langs - {'jpn'}:
             lang_sort = 3  # 'jpn' latest
         elif langs:
-            lang_sort = 1  # other lang
+            lang_sort = 2  # other lang
         else:
-            lang_sort = 2  # undefined lang
+            lang_sort = 1  # undefined lang
 
         signs_sort = 0 if self.info.get(str(filepath), {}).get('signs', []) else 1
 
@@ -1041,9 +1056,9 @@ class Merge(FileDictionary):
         if self.mkv_split and str(self.filepath) in self.splitted.matching_keys:
             self.filepath, self.filegroup, self.tid = self.splitted.matching_keys[str(self.filepath)]
 
-        if not self.bool_flag('audio'):
+        if self.filegroup != 'video' and not self.bool_flag('audio'):
             part.append('--no-audio')
-        if not self.bool_flag('subs'):
+        if self.filegroup != 'video' and not self.bool_flag('subs'):
             part.append('--no-subtitles')
         if not self.bool_flag('fonts'):
             part.append('--no-attachments')
@@ -1099,7 +1114,7 @@ class Merge(FileDictionary):
                     val = self.get_value_force_def_en('enabled')
                     part.extend(['--track-enabled-flag', f'{tid}{val}'])
 
-                if self.trackgroup != 'video' and filegroup != 'video':
+                if self.filegroup != 'video' or self.filegroup == 'video' and self.mkv_split and self.splitted.extracted_orig:
                     if self.bool_flag('tnames'):
                         val = self.info.get(str(filepath), {}).get(tid, {}).get('tname', '')
                         if val:
@@ -1158,7 +1173,7 @@ class Merge(FileDictionary):
 
                     tid_match = re.search(r"track (\d+)", line)
                     tid = tid_match.group(1) if tid_match else None
-                    if filepath and tid:
+                    if filepath and tid is not None:
                         self.flags.set_for_flag('options', ['--sub-charset', f'{tid}:windows-1251'], str(filepath))
                         self.setted_cp1251 = True
 
@@ -1174,10 +1189,10 @@ class Merge(FileDictionary):
                 print('Attention! The generated video file maybe corrupted because video parts have mismatched codec parameters.')
                 if not self.rm_linking:
                     print('Trying to generate another cutted version of the video without external video parts.')
-                    self.mkv_cutted = self.rm_linking = True
-                    self.set_output_path()
                     self.splitted.processing_codec_error()
-                    self.execute_merge()
+                    self.mkv_cutted = self.rm_linking = True
+                    self.output = Path(str(self.output).replace('_merged_', '_cutted_'))
+                    self.sort_orig_fonts(), self.execute_merge()
 
         else:
             if "containschapterswhoseformatwasnotrecognized" in cleaned_lline_out:
@@ -1188,16 +1203,14 @@ class Merge(FileDictionary):
             elif "nospaceleft" in cleaned_lline_out:
                 if self.output.exists():
                     self.output.unlink()
-                self.delete_temp_files()
                 print(f"Error writing file!\nPlease re-run the script with other save directory.")
-                sys.exit(1)
+                self.delete_temp_files()
 
             else:
                 if self.output.exists():
                     self.output.unlink()
-                self.delete_temp_files()
                 print(f"Error executing the command!\n{last_line_out}\nExiting the script.")
-                sys.exit(1)
+                self.delete_temp_files()
 
     def execute_merge(self):
         command = self.get_merge_command()
@@ -1206,8 +1219,8 @@ class Merge(FileDictionary):
         lmsg = f"The command was executed successfully. The generated video file was saved to:\n{str(self.output)}"
 
         command_out = CommandExecutor.get_stdout(command, exit_after_error=False)
-        if self.flags.flag("extended_log"):
-            print(command_out)
+        if self.bool_flag('extended_log'):
+            print(command_out) if not isinstance(command_out, tuple) else print(command_out[0])
 
         if not isinstance(command_out, tuple):
             print(lmsg)
@@ -1220,7 +1233,7 @@ class Merge(FileDictionary):
         self.video_list_len = len(self.video_list)
         self.out_pname = self.flags.flag("out_pname")
         self.out_pname_tail = self.flags.flag("out_pname_tail")
-        self.linked_uids_info = {}
+        self.splitted_info = {}
         self.temp_dir = Path(self.flags.flag("save_dir")) / f'__temp_files__.{str(uuid.uuid4())[:8]}'
         self.orig_font_dir = Path(self.temp_dir) / "orig_fonts"
         self.for_priority = self.flags.flag("for_priority")
@@ -1233,7 +1246,6 @@ class Merge(FileDictionary):
         if self.start_range > 0:
             self.start_range = self.start_range - 1
             self.end_range = self.end_range - 1
-        self.ind = self.start_range - 1
 
     def get_merge_file_list(self, filegroup, filelist):
         filepath_list = []
@@ -1249,7 +1261,7 @@ class Merge(FileDictionary):
         self.orig_fonts = self.bool_flag('orig_fonts')
         self.orig_font_list = []
         self.matching_keys = {}
-        self.chapters = ''
+        self.add_video_cmd = self.chapters = ''
 
         self.audio_list = self.get_merge_file_list("audio", self.audio_dict.get(str(self.video), []))
         self.subs_list = self.get_merge_file_list("subs", self.subs_dict.get(str(self.video), []))
@@ -1266,34 +1278,34 @@ class Merge(FileDictionary):
             if filepath.suffix in self.__class__.EXTENSIONS['mkvtools_supported']:
                 names = []
                 command = [str(Tools.mkvmerge), '-i', str(filepath)]
-                for line in CommandExecutor.get_stdout(command).splitlines():
+                for line in CommandExecutor.get_stdout(command, rm=self.delete_temp_files).splitlines():
                     match = re.search(r"file name '(.+?)'", line)
                     if match:
                         name = match.group(1)
                         names.append(name)
 
-                count = 1
                 command = [str(Tools.mkvextract), str(filepath), 'attachments']
-                for name in names:
+                for ind, name in enumerate(names, start=1):
                     font = Path(self.orig_font_dir) / name
-                    command.append(f"{count}:{font}")
-                    count += 1
-                if count > 1:
-                    CommandExecutor.execute(command)
+                    command.append(f'{ind}:{str(font)}')
+                if len(command) > 3:
+                    CommandExecutor.execute(command, rm=self.delete_temp_files)
 
         self.orig_font_list = self.__class__.find_ext_files(self.orig_font_dir, self.__class__.EXTENSIONS['font'])
         if self.orig_font_list:
-            self.merge_font_list = self.__class__.rm_repeat_sort_fonts(self.merge_font_list + self.orig_font_list)
+            ext = self.get_merge_file_list('fonts', self.font_list)
+            self.merge_font_list = self.__class__.rm_repeat_sort_fonts(ext + self.orig_font_list)
 
-    def delete_temp_files(self):
+    def delete_temp_files(self, exit=True):
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
+        if exit:
+            sys.exit(1)
 
     def merge_all_files(self):
         self.set_common_merge_vars()
 
-        for self.video in self.video_list[self.start_range:]:
-            self.ind += 1
+        for self.ind, self.video in enumerate(self.video_list[self.start_range:], start=self.start_range):
             self.filepath, self.filegroup = self.video, 'video'
             if self.count_gen >= self.lim_gen or self.ind > self.end_range:
                 break
@@ -1324,7 +1336,7 @@ class Merge(FileDictionary):
             self.execute_merge()
             self.count_gen += 1
 
-        self.delete_temp_files()
+        self.delete_temp_files(exit=False)
 
 class SplittedMKV:
     def __init__(self, merge_instance):
@@ -1341,49 +1353,137 @@ class SplittedMKV:
     def processing_codec_error(self):
         self.add_skips(linking=True)
         self.indexes[:] = [x for x in self.indexes if x not in self.skip]
-        self.segments_vid[:] = [x for x in self.segments_vid if self.segments_inds[str(x)]['start'] not in self.skip]
-        self.fill_retimed_audio(), self.fill_retimed_subs(), self.create_new_chapters()
+        self.segments_vid[:] = [x for x in self.segments_vid if not (self.segments_inds[str(x)] & self.skip)]
+        self.fill_retimed_audio(), self.fill_retimed_subs()
+        self.generate_new_chapters() if self.merge.chapters else None
 
-    def find_video_with_uid(self, exit_if_none=False):
-        video_list = self.merge.__class__.find_ext_files(self.merge.video.parent, '.mkv')
-        for video in reversed(video_list):
-            if FileInfo.get_file_info(video, 'Segment UID:').lower() == self.uid:
-                return video
+    def set_video_source(self, exit_if_none=False):
+        self.info = self.merge.splitted_info.setdefault(self.uid, {})
 
-        lmsg = f"Video file with UID '{self.uid}' not found in the video directory '{str(self.merge.video.parent)}'.\nThis file is a segment of the linked video '{str(self.merge.video)}'"
-        if exit_if_none:
-            print(f'{lmsg}. Please move this file to the video directory and re-run the script.')
-            self.merge.delete_temp_files()
-            sys.exit(1)
+        if not self.uid:
+            self.source = self.merge.video
         else:
-            print(f'{lmsg} and has been skipped.')
-
-    def replace_none_time_to_td(self):
-        lengths = {}
-        ind = 0
-        for self.uid in self.uids:
-            start = self.chap_starts[ind] if self.chap_starts[ind] is not None else lengths.get(self.uid, timedelta(0))
-            end = self.chap_ends[ind]
-
-            if not end and len(self.chap_starts) > ind+1:
-                temp_ind = ind + 1
-                for time in self.chap_starts[ind+1:]:
-                    temp_uid = self.uids[temp_ind]
-                    if time and self.uid == temp_uid:
-                        end = time
+            self.source = self.info.get('source', None)
+            if not self.source:
+                for video in reversed(self.merge.__class__.find_ext_files(self.merge.video.parent, '.mkv')):
+                    if FileInfo.get_file_info(video, 'Segment UID:').lower() == self.uid:
+                        self.source = self.info['source'] = video
                         break
-                    temp_ind += 1
-            if not end:
-                info = self.merge.linked_uids_info.setdefault(self.uid, {}) if self.uid else {}
-                video = info['src'] if info.get('src', None) else self.find_video_with_uid(exit_if_none=True) if self.uid else self.merge.video
-                end = FileInfo.get_file_info(video, 'Duration:')
-                info['duration'] = end
 
-            self.chap_starts[ind] = start
-            self.chap_ends[ind] = end
-            if end:
+        if self.source:
+            return self.source
+
+        msg_tail = '. Please move this file to the video directory and re-run the script.' if exit_if_none else ' and has been skipped.'
+        print(f"Video file with UID '{self.uid}' not found in the video directory '{str(self.merge.video.parent)}'."
+              f"\nThis file is a segment of the linked video '{str(self.merge.video)}'{msg_tail}")
+
+        if exit_if_none:
+            self.merge.delete_temp_files()
+
+        else: #add all uid segments in self.skip
+            for ind, uid in enumerate(self.uids[self.ind:], start=self.ind):
+                if uid == self.uid:
+                    self.skip.add(ind)
+            self.merge.splitted_info.setdefault('skip', set()).add(self.uid)
+
+    def duration(self, key='max'):
+        if self.info.setdefault('duration', {}).get(key, None):
+            return self.info['duration'][key]
+
+        durations = []
+        for ttype in ['v', 'a']: #If audio > video, non-video audio is playback. If subs > video, non-video subs is not playback
+            command = [Tools.ffprobe, '-v', 'quiet', '-select_streams', f'{ttype}', '-read_intervals', '99999999999']
+            command += ['-show_entries', 'frame=pts_time', '-of', 'csv', str(self.source)] #time will decrease to last I frame
+            for line in reversed(CommandExecutor.get_stdout(command, rm=self.merge.delete_temp_files).splitlines()):
+                k = 'video' if ttype == 'v' else 'audio'
+                td = self.info['duration'][k] = timedelta(seconds=float(line.split(',')[1]))
+                durations.append(td)
+                break
+        self.info['duration']['max'] = max(durations)
+        return self.info['duration'][key]
+
+    def correct_chapters_times(self):
+        if any(td is None for td in self.chap_starts + self.chap_ends):
+            lengths = {}
+            for ind, self.uid in enumerate(self.uids):
+                start = self.chap_starts[ind] if self.chap_starts[ind] is not None else lengths.get(self.uid, timedelta(0))
+                end = self.chap_ends[ind]
+
+                if not end:
+                    for temp_ind, time in enumerate(self.chap_starts[ind+1:], start=ind+1):
+                        if time and self.uid == self.uids[temp_ind]:
+                            end = time
+                            break
+
+                if not end:
+                    self.set_video_source(exit_if_none=True)
+                    end = self.duration()
+
+                self.chap_starts[ind] = start
+                self.chap_ends[ind] = end
                 lengths[self.uid] = lengths.get(self.uid, timedelta(0)) + end
-            ind += 1
+
+        for ind, self.uid in enumerate(self.uids):
+            if self.set_video_source() and self.chap_ends[ind] > self.duration():
+                self.chap_ends[ind] = self.duration() #real playback <= video or audio track duration
+
+    def get_times_i_frames(self, td, offset_search):
+        times = []
+        command = [Tools.ffprobe, '-v', 'quiet', '-select_streams', f'v:{self.tid}', '-read_intervals', f'{td.total_seconds()}%+{str(offset_search)}']
+        command += ['-show_entries', 'frame=pict_type,pts_time', '-of', 'csv', str(self.source)]
+        for line in CommandExecutor.get_stdout(command, rm=self.merge.delete_temp_files).splitlines():
+            if not 'I' in line: continue
+            times.append(timedelta(seconds=float(line.split(',')[1])))
+        return times
+
+    def set_video_ind_end(self):
+        for ind, uid in enumerate(self.uids[self.ind:], start=self.ind):
+            if uid == self.uid and ind not in self.skip:
+                self.ind_end = ind
+
+            elif uid == self.uid:
+                self.splitted = True
+                break
+
+            elif uid != self.uid and ind not in self.skip:
+                if not self.splitted:
+                    for uid in self.uids[ind:]:
+                        if uid == self.uid:
+                            self.splitted = True
+                            break
+                break
+
+    def set_video_split_times(self):
+        self.start = self.end = None
+        self.set_video_ind_end()
+        start, end = self.chap_starts[self.ind], self.chap_ends[self.ind_end]
+
+        if start + abs(end - self.duration('video')) < self.strict:
+            return True
+
+        elif not self.uid and self.info.get('end', None) and abs(start - self.info['end']) < self.strict:
+            self.start = self.info['end']
+
+        temp = []
+        for td in [start, end]:
+            if td == start and self.start:
+                temp.append(self.start)
+                continue
+            elif td == end and self.end:
+                temp.append(self.end)
+                continue
+
+            times = self.get_times_i_frames(td, '0.000001')
+            times += self.get_times_i_frames(td, 2*(td - times[0]))
+
+            offset = timedelta(seconds=99999)
+            for t in times:
+                if abs(td - t) < offset:
+                    time, offset = t, abs(td - t)
+            temp.append(time)
+        self.start, self.end = temp
+        if not self.uid:
+            self.info['end'] = self.end
 
     def set_segment_info(self, mkvmerge_stdout):
         duration = None
@@ -1414,13 +1514,13 @@ class SplittedMKV:
         command = [str(Tools.mkvmerge), '-o', str(self.segment), '--split', f'parts:{self.start}-{self.end}', '--no-global-tags', '--no-chapters', '--no-subtitles']
         command.append('--no-attachments') if not self.merge.orig_fonts else None
         command.append('--no-audio') if self.file_type == 'video' else command.append('--no-video')
-        command.extend([f'--{self.file_type}-tracks', f'{self.tid}']) if self.tid else None
-        command.append(str(self.to_split))
+        command.extend([f'--{self.file_type}-tracks', f'{self.tid}']) if self.tid is not None else None
+        command.append(str(self.source))
 
         if self.merge.bool_flag('extended_log'):
-            print(f"Extracting a segment of the {self.file_type} track from the file '{str(self.to_split)}'. Executing the following command:")
+            print(f"Extracting a segment of the {self.file_type} track from the file '{str(self.source)}'. Executing the following command:")
             print(TypeConverter.command_to_print_str(command))
-        self.set_segment_info(CommandExecutor.get_stdout(command))
+        self.set_segment_info(CommandExecutor.get_stdout(command, rm=self.merge.delete_temp_files))
 
         if repeat and any(td > self.__class__.ACCEPT_OFFSETS[self.file_type] for td in [self.offset_start, self.offset_end]):
             old_start, old_end = self.start, self.defacto_end - self.offset_end
@@ -1431,161 +1531,94 @@ class SplittedMKV:
             self.offset_start = self.defacto_start - old_start
             self.offset_end = self.defacto_end - old_end
 
-    def set_video_to_split(self):
-        info = self.merge.linked_uids_info.setdefault(self.uid, {})
-        if self.uid:
-            self.to_split = info.get('src', None)
-            if not self.to_split:
-                self.to_split = self.find_video_with_uid()
-                if self.to_split:
-                    info['src'] = self.to_split
-
-            if not self.to_split: #add all uid segments in self.skip
-                ind = self.ind
-                for uid in self.uids[self.ind:]:
-                    if uid == self.uid:
-                        self.skip.add(ind)
-                    ind += 1
-
-        else:
-            self.to_split = self.merge.video
-        return self.to_split
-
-    def vid_duration(self):
-        duration = self.info.get('duration', None)
-        if not duration:
-            duration = FileInfo.get_file_info(self.to_split, 'Duration:')
-            self.info['duration'] = duration
-        return duration
-
-    def set_video_split_times(self):
-        ind = self.ind
-        while ind < len(self.uids):
-            if self.uid == self.uids[ind] and ind not in self.skip:
-                self.ind_end = ind
-                self.end = self.chap_ends[ind]
-            elif self.uid != self.uids[ind] and ind in self.skip:
-                pass
-            else:
-                break
-            ind += 1
-
-        start = self.chap_starts[self.ind]
-        if start > timedelta(0):
-            self.start = None
-            ind = self.ind - 1
-            while ind >= 0:
-                if self.uid == self.uids[ind]:
-                    self.start = self.ends[ind]
-                    break
-                ind -= 1
-
-            if not self.start:
-                self.start = start + self.offset if start + self.offset > timedelta(0) else start
-        else:
-            self.start = timedelta(0)
-
-        if self.uid and self.segment.exists():
-            strict = self.__class__.ACCEPT_OFFSETS['video']
-            start, end, duration = self.info['split_start'], self.info['split_end'], self.info['duration']
-            end_offset = timedelta(0) if self.end > duration else self.end - end
-            if abs(self.start - start + end_offset) < strict:
-                return True
-
     def set_video_segment_td(self):
+        self.segment = Path(self.merge.temp_dir) / f'video_segment_{self.ind}_{self.uid}.mkv'
+        info = self.merge.splitted_info.setdefault(self.segment, {}) if self.uid else {}
+
         if self.set_video_split_times():
-            split = False
-        elif self.uid:
-            split = True
-        elif len(self.uids) > self.ind_end+1 and any(uid == self.uid for uid in self.uids[self.ind_end+1:]):
-            split = True
-        elif self.ind-1 >= 0 and any(uid == self.uid for uid in self.uids[self.ind-1::-1]):
-            split = True
-        else:
-            split = False
-            self.segment = self.to_split
-            self.merge.flags.set_for_flag('chapters', False, str(self.merge.video))
+            self.defacto_start, self.defacto_end = timedelta(0), self.duration('video')
+            self.segment = self.source
 
-        if split:
-            self.split_file()
-            self.offset_start = self.defacto_start - self.chap_starts[self.ind]
+        elif info.get('end', None) and abs(info['start'] - self.start) + abs(info['end'] - self.end) < self.strict:
+            self.defacto_start, self.defacto_end = info['start'], info['end']
+
+        elif all(not self.uids[ind] or self.uids[ind] in self.skip for ind in range(0, len(self.uids))):
+            self.defacto_start, self.defacto_end = self.start, self.end
+            self.segment = self.source
+
+        else:
+            self.split_file(repeat=False)
             if self.uid:
-                self.info.update({'split_start': self.start, 'split_end': self.end, 'start': self.defacto_start, 'end': self.defacto_end,
-                                  'duration': self.defacto_end - self.defacto_start,
-                                  'offset_start': self.offset_start, 'offset_end': self.offset_end})
-            if not self.splitted:
-                self.splitted = True
-
-        elif self.uid:
-            self.defacto_start, self.defacto_end = self.info['start'], self.info['end']
-            self.offset_start, self.offset_end = self.info['offset_start'], self.info['offset_end']
-        else:
-            self.defacto_start = self.offset_start = timedelta(0)
-            self.defacto_end = self.vid_duration()
-            self.offset_end = self.vid_duration() - self.end if self.vid_duration() > self.end else timedelta(0)
-
-        self.segments_vid.append(self.segment)
-        segment = self.segments_inds.setdefault(str(self.segment), {})
-        segment['start'], segment['end'] = self.ind, self.ind_end
+                info['start'], info['end'] = self.defacto_start, self.defacto_end
 
     def set_video_segment_info(self):
-        self.uid = self.uids[self.ind]
-        if self.ind in self.skip or not self.set_video_to_split():
-            self.ind += 1
-            return
-
-        self.segment = Path(self.merge.temp_dir) / f'video_segment_{self.ind}_{self.uid}.mkv'
-        self.info = self.merge.linked_uids_info.setdefault(str(self.segment), {}) if self.uid else {}
         self.set_video_segment_td()
+        self.segments_vid.append(self.segment)
+        self.segments_times.append([self.defacto_start, self.defacto_end])
+        self.segments_inds.setdefault(str(self.segment), set()).update([self.ind, self.ind_end])
 
-        ind = self.ind
-        while ind <= self.ind_end:
+        for ind in range(self.ind, self.ind_end + 1):
             if ind in self.skip:
-                ind += 1
                 continue
             self.indexes.append(ind)
-            self.sources[ind] = self.to_split
+            self.sources[ind] = self.source
 
             if ind == self.ind:
                 self.starts[ind] = self.defacto_start
-                self.offsets_start[ind] = self.offset_start
+                self.offsets_start[ind] = self.defacto_start - self.chap_starts[ind]
             else:
-                self.starts[ind] = self.chap_starts[ind]
                 self.offsets_start[ind] = timedelta(0)
 
             if ind == self.ind_end:
                 self.ends[ind] = self.defacto_end
-                self.offsets_end[ind] = self.offset_end
+                self.offsets_end[ind] = self.defacto_end - self.chap_ends[ind]
             else:
-                self.ends[ind] = self.chap_ends[ind]
-                temp_ind = ind + 1
-                for uid in self.uids[ind+1:]:
+                for temp_ind, uid in enumerate(self.uids[ind+1:]):
                     if uid == self.uid:
                         next_uid_start = self.chap_starts[temp_ind]
                         break
-                    temp_ind += 1
-                self.offsets_end[ind] = next_uid_start - self.chap_ends[ind]
+                self.offsets_end[ind] = self.chap_ends[ind] - next_uid_start
             self.lengths[ind] = self.ends[ind] - self.starts[ind]
-            ind += 1
-
-        self.ind = self.ind_end + 1
-        self.offset += self.offset_end
 
     def fill_video_segments(self):
-        self.splitted = self.tid = False
-        self.indexes = self.segments['indexes'] = []
+        self.file_type = 'video'
         vid = self.segments['video'] = {}
-        self.segments_vid = vid['segments'] = []
+        self.indexes = vid['indexes'] = []
+        self.segments_vid, self.segments_times = vid['segments'], vid['segments_times'] = [], []
         self.segments_inds = vid['segments_inds'] = {}
         self.sources, self.lengths = vid['sources'], vid['lengths'] = {}, {}
         self.starts, self.ends = vid['starts'], vid['ends'] = self.chap_starts.copy(), self.chap_ends.copy()
         self.offsets_start, self.offsets_end = vid['offsets_start'], vid['offsets_end'] = {}, {}
 
-        self.file_type = 'video'
-        self.offset = timedelta(0)
-        self.ind = 0
-        while self.ind < len(self.uids):
+        self.splitted = self.extracted_orig = False
+        self.strict = self.__class__.ACCEPT_OFFSETS['video']
+        tids = FileInfo.get_track_type_tids(self.merge.video, 'video')
+        self.tid = tids[0]
+        self.ind_end = -1
+        for self.ind, self.uid in enumerate(self.uids):
+            if self.ind <= self.ind_end or self.ind in self.skip or not self.set_video_source():
+                continue
             self.set_video_segment_info()
+
+        if self.splitted:
+            options = ['--video-tracks', f'{self.tid}'] if len(tids) > 1 else []
+            if all(not self.uids[ind] for ind in self.indexes):
+                self.segments_vid[:] = [self.merge.video]
+                str_times = ''
+                for times in self.segments_times:
+                    start = TypeConverter.timedelta_to_str(times[0], hours_place=2, decimal_place=6)
+                    end = TypeConverter.timedelta_to_str(times[1], 2, 6)
+                    str_times += f',+{start}-{end}' if str_times else f'{start}-{end}'
+                options.extend(['--split', f'parts:{str_times}'])
+            else:
+                self.extracted_orig = True
+
+            self.merge.flags.set_for_flag('options', options, str(self.merge.video)) if options else None
+
+        if self.extracted_orig or len(self.segments_vid) > 1 and self.merge.bool_flag('force_retiming'):
+            self.extracted_orig = True
+            for flg in ['audio', 'subs']:
+                self.merge.flags.set_for_flag(flg, False, str(self.merge.video))
 
     def merge_file_segments(self, segments):
         command = [str(Tools.mkvmerge), '-o', str(self.retimed)]
@@ -1593,10 +1626,10 @@ class SplittedMKV:
         for segment in segments[1:]:
             command.append(f'+{str(segment)}')
 
-        if self.merge.flags.flag('extended_log'):
+        if self.merge.bool_flag('extended_log'):
             print(f'Merging retimed {self.file_type} track segments. Executing the following command:')
             print(TypeConverter.command_to_print_str(command))
-        CommandExecutor.execute(command)
+        CommandExecutor.execute(command, rm=self.merge.delete_temp_files)
 
     def set_matching_keys(self, filepath, filegroup):
         self.matching_keys[str(self.retimed)] = [filepath, filegroup, self.tid]
@@ -1609,7 +1642,7 @@ class SplittedMKV:
             self.start = self.start + offset if self.start + offset >= timedelta(0) else self.start
 
             self.segment = Path(self.merge.temp_dir) / 'orig_audio' / f'audio_{self.audio_cnt}_segment_{ind}.mka'
-            self.to_split = self.sources[ind]
+            self.source = self.sources[ind]
             self.split_file()
             segments.append(self.segment)
 
@@ -1620,13 +1653,12 @@ class SplittedMKV:
     def get_uid_lengths(self):
         lengths = {'uid': {'chapters': timedelta(0), 'defacto': timedelta(0)},
                    'nonuid': {'chapters': timedelta(0), 'defacto': timedelta(0)}}
-        ind = 0
-        while ind < self.ind:
+
+        for ind in range(0, self.ind):
             key1 = 'uid' if self.uids[ind] == self.uids[self.ind] else 'nonuid'
             lengths[key1]['chapters'] += self.chap_ends[ind] - self.chap_starts[ind]
             if ind in self.indexes:
                 lengths[key1]['defacto'] += self.ends[ind] - self.starts[ind]
-            ind += 1
         for key1 in ['uid', 'nonuid']:
             lengths[key1]['offset'] = lengths[key1]['defacto'] - lengths[key1]['chapters']
         return lengths
@@ -1640,7 +1672,7 @@ class SplittedMKV:
             self.start = self.starts[self.ind] + nonuid_length + offset if self.starts[self.ind] + nonuid_length + offset >= timedelta(0) else self.starts[self.ind] + nonuid_length
             self.end = self.ends[self.ind] + nonuid_length
 
-            self.segment = Path(self.merge.temp_dir) / 'ext_audio' / self.to_split.parent.name / f'audio_{self.audio_cnt}_segment_{self.ind}.mka'
+            self.segment = Path(self.merge.temp_dir) / 'ext_audio' / self.source.parent.name / f'audio_{self.audio_cnt}_segment_{self.ind}.mka'
             self.split_file()
             segments.append(self.segment)
 
@@ -1653,15 +1685,15 @@ class SplittedMKV:
         temp = []
         self.file_type = 'audio'
         self.audio_cnt = 0
-        if self.merge.bool_flag('orig_audio') and self.splitted:
+        if self.orig_audio and self.extracted_orig:
             for self.tid in FileInfo.get_track_type_tids(self.merge.video, 'audio'):
                 temp.append([self.merge.video, 'video', self.tid])
-        for self.to_split in self.audio_list:
-            for self.tid in FileInfo.get_track_type_tids(self.to_split, 'audio'):
-                temp.append([self.to_split, 'audio', self.tid])
+        for self.source in self.audio_list:
+            for self.tid in FileInfo.get_track_type_tids(self.source, 'audio'):
+                temp.append([self.source, 'audio', self.tid])
 
         for tmp in temp:
-            self.to_split, filepath, filegroup, self.tid = tmp[0], *tmp
+            self.source, filepath, filegroup, self.tid = tmp[0], *tmp
             segments = self.get_segments_orig_audio() if filegroup == 'video' else self.get_segments_ext_audio()
 
             self.retimed = Path(self.segment.parent) / f'audio_{self.audio_cnt}.mka'
@@ -1671,11 +1703,11 @@ class SplittedMKV:
             self.audio_cnt += 1
 
     def extract_track(self):
-        command = [str(Tools.mkvextract), 'tracks', str(self.to_split), f'{self.tid}:{str(self.segment)}']
-        if self.merge.flags.flag('extended_log'):
-            print(f"Extracting subtitles track {self.tid} from the file '{str(self.to_split)}'. Executing the command:")
+        command = [str(Tools.mkvextract), 'tracks', str(self.source), f'{self.tid}:{str(self.segment)}']
+        if self.merge.bool_flag('extended_log'):
+            print(f"Extracting subtitles track {self.tid} from the file '{str(self.source)}'. Executing the command:")
             print(TypeConverter.command_to_print_str(command))
-        CommandExecutor.execute(command)
+        CommandExecutor.execute(command, rm=self.merge.delete_temp_files)
 
     def write_subs_segment_lines(self, file, lines):
         for line in lines:
@@ -1695,11 +1727,10 @@ class SplittedMKV:
 
     def add_retimed_orig_subs(self):
         lines = {}
-        for segment in self.segments_vid:
-            ind = self.segments_inds[str(segment)]['start']
+        for ind in self.indexes:
             if lines.get(self.uids[ind], []):
                 continue
-            self.to_split = self.sources[ind]
+            self.source = self.sources[ind]
             self.segment = Path(self.merge.temp_dir) / 'orig_subs' / f'subs_{self.subs_cnt}_segment_{ind}.ass'
             self.extract_track()
             with open(self.segment, 'r', encoding='utf-8') as file:
@@ -1737,39 +1768,39 @@ class SplittedMKV:
                 self.write_subs_segment_lines(file, lines)
 
         self.retimed_subs.append(self.retimed)
-        self.set_matching_keys(self.to_split, 'subs')
+        self.set_matching_keys(self.source, 'subs')
         self.subs_cnt += 1
 
     def fill_retimed_subs(self):
         self.retimed_subs[:] = []
         self.subs_cnt = 0
 
-        if self.merge.bool_flag('orig_subs') and self.splitted:
+        if self.orig_subs and self.extracted_orig:
             for self.tid in FileInfo.get_track_type_tids(self.merge.video, 'subtitles (SubStationAlpha)'):
                 self.add_retimed_orig_subs()
 
-        for self.to_split in self.subs_list:
+        for self.source in self.subs_list:
             tids = []
-            if self.to_split.suffix in self.merge.__class__.EXTENSIONS['mkvtools_supported']:
-                tids = FileInfo.get_track_type_tids(self.to_split, 'subtitles (SubStationAlpha)')
+            if self.source.suffix in self.merge.__class__.EXTENSIONS['mkvtools_supported']:
+                tids = FileInfo.get_track_type_tids(self.source, 'subtitles (SubStationAlpha)')
 
-            if self.to_split.suffix == '.ass':
-                self.retimed = Path(self.merge.temp_dir) / 'ext_subs' / self.to_split.parent.name / f'subs_{self.subs_cnt}.ass'
+            if self.source.suffix == '.ass':
+                self.retimed = Path(self.merge.temp_dir) / 'ext_subs' / self.source.parent.name / f'subs_{self.subs_cnt}.ass'
                 self.retimed.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy(self.to_split, self.retimed)
+                shutil.copy(self.source, self.retimed)
                 self.add_retimed_ext_subs()
 
             elif tids:
                 for self.tid in tids:
-                    self.retimed = Path(self.merge.temp_dir) / 'ext_subs' / self.to_split.parent.name / f'subs_{self.subs_cnt}.ass'
+                    self.retimed = Path(self.merge.temp_dir) / 'ext_subs' / self.source.parent.name / f'subs_{self.subs_cnt}.ass'
                     self.extract_track(self.retimed)
                     self.add_retimed_ext_subs()
 
             else:
-                print(f"Skip subtitles file '{str(self.to_split)}'! \nThese subtitles need to be retimed because the video file has segment linking. Retime is only possible for SubStationAlpha tracks (.ass).")
+                print(f"Skip subtitles file '{str(self.source)}'! \nThese subtitles need to be retimed because the video file is splitted. Retime is only possible for SubStationAlpha tracks (.ass).")
 
-    def create_new_chapters(self):
-        self.chapters = Path(self.merge.temp_dir) / 'new_chapters.xml'
+    def generate_new_chapters(self):
+        self.merge.chapters = Path(self.merge.temp_dir) / 'new_chapters.xml'
 
         root = ET.Element('Chapters')
         edition = ET.SubElement(root, 'EditionEntry')
@@ -1780,23 +1811,31 @@ class SplittedMKV:
         for ind in self.indexes:
             start, end, name = length, self.lengths[ind] + length, self.names[ind]
             chapter = ET.SubElement(edition, 'ChapterAtom')
-            ET.SubElement(chapter, 'ChapterTimeStart').text = TypeConverter.timedelta_to_str(start, hours_place=2, decimal_place=9)
-            ET.SubElement(chapter, 'ChapterTimeEnd').text = TypeConverter.timedelta_to_str(end, 2, 9)
-            chapter_display = ET.SubElement(chapter, 'ChapterDisplay')
-            ET.SubElement(chapter_display, 'ChapterString').text = name
+            ET.SubElement(chapter, 'ChapterTimeStart').text = TypeConverter.timedelta_to_str(start, hours_place=2, decimal_place=6)
+            ET.SubElement(chapter, 'ChapterTimeEnd').text = TypeConverter.timedelta_to_str(end, 2, 6)
+            if name:
+                chapter_display = ET.SubElement(chapter, 'ChapterDisplay')
+                ET.SubElement(chapter_display, 'ChapterString').text = name
             length += end - start
 
         xml_str = ET.tostring(root, encoding='utf-8', method='xml')
         parsed_xml = minidom.parseString(xml_str)
         pretty_xml_str = parsed_xml.toprettyxml(indent='  ')
-        with open(str(self.chapters), 'w', encoding='utf-8') as file:
+        with open(self.merge.chapters, 'w', encoding='utf-8') as file:
             file.write(pretty_xml_str)
 
     def processing_segments(self):
-        self.replace_none_time_to_td()
-        self.fill_video_segments(), self.fill_retimed_audio(), self.fill_retimed_subs(), self.create_new_chapters()
+        if not Tools.ffprobe_installed(exit_if_none=False):
+            self.merge.delete_temp_files()
+        self.merge.splitted_info[str(self.merge.video)] = {}
+        self.correct_chapters_times()
+        self.orig_audio, self.orig_subs = self.merge.bool_flag('orig_audio'), self.merge.bool_flag('orig_subs')
+
+        self.fill_video_segments(), self.fill_retimed_audio(), self.fill_retimed_subs()
         self.merge.merge_video_list, self.merge.audio_list, self.merge.subs_list = self.segments_vid, self.retimed_audio, self.retimed_subs
-        self.merge.chapters = self.chapters
+        if self.merge.bool_flag('chapters'):
+            self.merge.flags.set_for_flag('chapters', False, str(self.merge.video))
+            self.generate_new_chapters()
 
     def add_skips(self, linking=False):
         names = set()
@@ -1811,7 +1850,7 @@ class SplittedMKV:
         ind = 0
         for name in self.names:
             uid = self.uids[ind]
-            if name.lower() in names or rm_linking and uid:
+            if name.lower() in names or rm_linking and uid or uid and uid in self.merge.splitted_info.setdefault('skip', set()):
                 self.skip.add(ind)
             ind += 1
 
@@ -1841,17 +1880,15 @@ class SplittedMKV:
             self.chap_ends.append(end)
 
             name = atom.find('.//ChapterDisplay/ChapterString')
-            name = name.text if name is not None else None
+            name = name.text if name is not None else ''
             self.names.append(name)
-        self.add_skips()
 
     def mkv_has_segment_linking(self):
         chapters = Path(self.merge.temp_dir) / 'chapters.xml'
-        if chapters.exists():
-            chapters.unlink()
-        CommandExecutor.execute([str(Tools.mkvextract), str(self.merge.video), 'chapters', str(chapters)])
+        if chapters.exists(): chapters.unlink()
+        CommandExecutor.execute([str(Tools.mkvextract), str(self.merge.video), 'chapters', str(chapters)], rm=self.merge.delete_temp_files)
 
-        self.set_chapters_info(chapters)
+        self.set_chapters_info(chapters), self.add_skips()
         return True if any(uid for uid in self.uids) else False
 
 def main():
@@ -1861,7 +1898,9 @@ def main():
         print("A new video can't be generated because the limit-generate set to 0.")
         sys.exit(0)
 
-    Tools.set_mkvtools_paths()
+    Tools.set_tools_paths()
+    if flags.flag('rm_chapters'):
+        Tools.ffprobe_installed()
 
     print(f"Trying to generate a new video in the save directory '{str(flags.flag("save_dir"))}' using files from the start directory '{str(flags.flag("start_dir"))}'.")
 
