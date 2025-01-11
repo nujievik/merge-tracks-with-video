@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.8.0
+generate-video-with-these-files-v0.8.1
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python, MKVToolNix and FFprobe (part of FFmpeg).
@@ -1474,7 +1474,8 @@ class SplittedMKV:
                 continue
 
             times = self.get_times_i_frames(td, '0.000001')
-            times += self.get_times_i_frames(td, 2*(td - times[0]))
+            times.append(self.info['duration']['video'])
+            times.extend(self.get_times_i_frames(td, 2*(td - times[0])))
 
             offset = timedelta(seconds=99999)
             for t in times:
