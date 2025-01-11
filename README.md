@@ -16,26 +16,29 @@ generate-video-with-these-files.exe "directory with files"
 
 ## Dependencies
 
-- [MKVToolNix](https://mkvtoolnix.download/)
 - [Python](https://www.python.org/downloads/)
+- [MKVToolNix](https://mkvtoolnix.download/)
+- [FFprobe](https://ffmpeg.org/download.html) (for splitted MKV)
 
 ## License
 
 - **Own Code**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
-- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 - **Python**: [PSF License](https://www.python.org/psf/license/)
+- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+- **FFprobe** (part of FFmpeg): [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 
 ## Description
 
-This project includes a Python script that utilizes components from **MKVToolNix** and **Python**. The source code is available in the repository.
+This project includes a Python script that uses components **Python**, **MKVToolNix**, and **FFmpeg**. The source code is available in the repository.
 
 For convenience, a compiled executable file for Windows is available in the [Releases](https://github.com/nujievik/generate-video-with-these-files-script/releases) section. This file includes:
 
-- The `generate-video-with-these-files.py` script, compiled using **PyInstaller**.
-- A bundled compiled version of **Python**, required for the script to work.
-- Bundled compiled components of **MKVToolNix**.
+- The **generate-video-with-these-files.py** script, compiled using **PyInstaller**.
+- A built-in compiled version of **Python**, required for the script to work.
+- Precompiled components of **MKVToolNix** (sourced from the official [MKVToolNix website](https://mkvtoolnix.download/downloads.html#windows)).
+- Precompiled version of FFprobe (sourced from GyanD's FFmpeg release on [GitHub](https://github.com/GyanD/codexffmpeg/releases/)).
 
-All components (the script, Python, and MKVToolNix) are packaged into a single executable file. This allows you to use the script without needing to install Python and MKVToolNix.
+All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a single executable file. This allows you to use the script without needing to install Python, MKVToolNix, and FFprobe.
 
 ## Functionality
 
@@ -55,7 +58,7 @@ All components (the script, Python, and MKVToolNix) are packaged into a single e
   - Forced (True > None > False, where True and False are manually set values, and None means not set).
   - Default (True > None > False)
   - Enabled (True > None > False)
-  - Localized track > other languages > undefined languages > Japanese track
+  - Localized track > undefined languages > other languages > Japanese track
   - Track from file with titles > without titles
 - Sets Forced, Default, and Enabled flags based on track sorting. By default:
   - Forced is disabled for all tracks.
@@ -166,6 +169,8 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 - `-opening` removes the video segment containing the opening (for MKVs with chapters).
 
 - `-ending` removes the video segment containing the ending (for MKVs with chapters).
+
+- `-force-retiming` disables the retiming of the original audio and subtitles for the linked video if the main part of the video is not split.
 
 - `-global-tags` disables copying of global tags.
 
@@ -457,26 +462,29 @@ generate-video-with-these-files.exe "директория с файлами"
 
 ## Зависимости
 
-- [MKVToolNix](https://mkvtoolnix.download/)
 - [Python](https://www.python.org/downloads/)
+- [MKVToolNix](https://mkvtoolnix.download/)
+- [FFprobe](https://ffmpeg.org/download.html) (для разделенного MKV)
 
 ## Лицензия
 
 - **Собственный код**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
-- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 - **Python**: [PSF License](https://www.python.org/psf/license/)
+- **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
+- **FFprobe** (часть FFmpeg): [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 
 ## Описание
 
-Этот проект включает Python-скрипт, который использует компоненты **MKVToolNix** и **Python**. Исходный код доступен в репозитории.
+Этот проект включает Python-скрипт, который использует компоненты **Python**, **MKVToolNix** и **FFmpeg**. Исходный код доступен в репозитории.
 
 Для удобства использования для Windows в разделе [Releases](https://github.com/nujievik/generate-video-with-these-files-script/releases) доступен скомпилированный исполняемый файл, который включает:
 
-- generate-video-with-these-files.py скрипт, скомпилированный с помощью **PyInstaller**.
+- **generate-video-with-these-files.py** скрипт, скомпилированный с помощью **PyInstaller**.
 - Встроенную скомпилированную версию **Python**, необходимую для работы скрипта.
-- Встроенные скомпилированные компоненты **MKVToolNix**.
+- Скомпилированные компоненты MKVToolNix (полученные с официального [сайта MKVToolNix](https://mkvtoolnix.download/downloads.html#windows)).
+- Скомпилированную версию **FFprobe** (полученную из релиза FFmpeg от GyanD на [GitHub](https://github.com/GyanD/codexffmpeg/releases/)).
 
-Все компоненты (скрипт, Python и MKVToolNix) включены в один исполняемый файл. Это позволяет использовать скрипт без необходимости устанавливать Python и MKVToolNix.
+Все компоненты (скрипт, Python, MKVToolNix и FFprobe) включены в один исполняемый файл. Это позволяет использовать скрипт без необходимости устанавливать Python, MKVToolNix и FFprobe.
 
 ## Функциональность
 
@@ -496,7 +504,7 @@ generate-video-with-these-files.exe "директория с файлами"
   - forced (True > None > False, где True и False - заданные вручную значения, а None - не задано).
   - default (True > None > False)
   - enabled (True > None > False)
-  - локализованная дорожка > другие языки > неопределенные языки > японская дорожка
+  - локализованная дорожка > неопределенные языки > другие языки > японская дорожка
   - дорожка из файла с надписями > без надписей
 - Проставляет Forced, Default, Enabled флаги на основании сортировки дорожек. По умолчанию:
   - forced для всех отключено
@@ -609,6 +617,8 @@ python generate-video-with-these-files.py -linking
 - `-opening` удаляет часть видео с опенингом (для mkv с chapters).
 
 -  `-ending` удаляет часть видео с эндингом (для mkv с chapters).
+
+- `-force-retiming` отключает ретайминг оригинальных аудио и субтитров для линкованного видео, если основная часть видео не разделена.
 
 - `-global-tags` отключает копирование глобальных тегов.
 

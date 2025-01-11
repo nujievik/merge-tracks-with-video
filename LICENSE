@@ -678,5 +678,6 @@ Public License instead of this License.  But first, please read
 
 This project also uses the following third-party components:
 
-- MKVToolNix: licensed under GNU GPL v2.0
 - Python: licensed under PSF License
+- MKVToolNix: licensed under GNU GPL v2.0
+- FFprobe (part of FFmpeg): licensed under GNU LGPL v2.1 or GNU GPL v2.0
