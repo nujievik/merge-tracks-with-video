@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.9.1
+generate-video-with-these-files-v0.9.2
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python, MKVToolNix and FFprobe (part of FFmpeg).
@@ -1421,7 +1421,7 @@ class SplittedMKV:
 
         durations = []
         for ttype in ['v', 'a']: #If audio > video, non-video audio is playback. If subs > video, non-video subs is not playback
-            command = [Tools.ffprobe, '-v', 'quiet', '-select_streams', f'{ttype}', '-read_intervals', '99999999999']
+            command = [str(Tools.ffprobe), '-v', 'quiet', '-select_streams', f'{ttype}', '-read_intervals', '99999999999']
             command += ['-show_entries', 'frame=pts_time', '-of', 'csv', str(self.source)] #time will decrease to last I frame
             for line in reversed(CommandExecutor.get_stdout(command, rm=self.merge.delete_temp_files).splitlines()):
                 k = 'video' if ttype == 'v' else 'audio'
@@ -1458,7 +1458,7 @@ class SplittedMKV:
 
     def get_times_i_frames(self, td, offset_search):
         times = []
-        command = [Tools.ffprobe, '-v', 'quiet', '-select_streams', f'v:{self.tid}', '-read_intervals', f'{td.total_seconds()}%+{str(offset_search)}']
+        command = [str(Tools.ffprobe), '-v', 'quiet', '-select_streams', f'v:{self.tid}', '-read_intervals', f'{td.total_seconds()}%+{str(offset_search)}']
         command += ['-show_entries', 'frame=pict_type,pts_time', '-of', 'csv', str(self.source)]
         for line in CommandExecutor.get_stdout(command, rm=self.merge.delete_temp_files).splitlines():
             if not 'I' in line: continue
