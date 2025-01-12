@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.8.1
+generate-video-with-these-files-v0.9.0
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python, MKVToolNix and FFprobe (part of FFmpeg).
@@ -14,6 +14,7 @@ import subprocess
 import shlex
 import uuid
 import locale
+import configparser
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 from pathlib import Path
@@ -224,6 +225,7 @@ class Flags():
         'lim_forced_signs': 1,
         "range_gen": [0, 99999],
         'rm_chapters': set(),
+        'options': [],
         "pro": False,
         "extended_log": False,
         "global_tags": True,
@@ -259,8 +261,10 @@ class Flags():
             key = 'str'
         elif isinstance(value, int):
             key = 'num'
-        elif isinstance(value, list):
+        elif isinstance(value, list) and len(value) == 2 and all(isinstance(x, int) for x in value):
             key = 'range'
+        elif isinstance(value, list):
+            key = 'list'
         elif isinstance(value, set):
             key = 'set'
         else:
@@ -271,7 +275,7 @@ class Flags():
                           'defaults', 'forceds', 'forced_signs', 't_orders'}}
     STRICT_BOOL[False] = TYPES['bool'] - STRICT_BOOL[True]
 
-    FOR_SEPARATE_FLAGS = TYPES['bool'].union({'tname', 'tlang'})
+    FOR_SEPARATE_FLAGS = TYPES['bool'].union({'tname', 'tlang', 'options'})
 
     MATCHINGS = {'part': {'pro_mode': 'pro',
                           'directory': 'dir',
@@ -289,8 +293,10 @@ class Flags():
                           'track_orders': 't_orders',
                           'track_type': 'ttype',
                           'trackname': 'tname',
+                          'track_name': 'tname',
                           'language': 'lang',
-                          'track_lang': 'tlang'
+                          'track_lang': 'tlang',
+                          'remove': 'rm',
                     },
 
                 'full': {'lang': 'tlang', 'langs': 'tlangs',
@@ -348,12 +354,13 @@ class Flags():
                 self.key = replace
                 break
 
-    def get_bool_by_arg(self, arg):
-        if self.key in self.__class__.TYPES['bool']:
-            self.value = not (arg.startswith("--no") or (arg.startswith("-") and not arg.startswith("--")))
-        return self.value
+    def set_value_by_arg(self, arg):
+        self.value = None
 
-    def get_valueflag_by_arg(self, arg):
+        if not arg.startswith(("-", "+")) and not self.for_key:
+            self.value = TypeConverter.str_to_path(arg.strip("'\""))
+            return
+
         index = arg.find("=")
         if index != -1:
             value = arg[index + 1:]
@@ -378,11 +385,18 @@ class Flags():
                 if f'save_{self.key}' in self.__class__.TYPES['path']:
                     self.key = f'save_{self.key}'
 
+            elif self.key in self.__class__.TYPES['bool']:
+                clean = value.strip("'\"")
+                self.value = True if clean.lower() == 'true' else False if clean.lower() == 'false' else None
+
             elif self.key in self.__class__.TYPES['str']:
                 self.value = value.strip("'\"")
 
             elif self.key in self.__class__.TYPES['set']:
                 self.value = set(value.strip("'\"").split(','))
+
+            elif self.key in self.__class__.TYPES['list']:
+                self.value = [item.strip() for item in value.strip('[]').split(',')]
 
             elif number is not None and self.key in self.__class__.TYPES['num']:
                 self.value = number
@@ -411,16 +425,8 @@ class Flags():
                     if num1 is not None:
                         self.value = [num1, num2]
 
-        return self.value
-
-    def set_value_by_arg(self, arg):
-        self.value = None
-        if not arg.startswith(("-", "+")) and not self.for_key:
-            self.value = TypeConverter.str_to_path(arg.strip("'\""))
-        elif self.get_bool_by_arg(arg):
-            pass
-        elif self.get_valueflag_by_arg(arg):
-            pass
+        elif self.key in self.__class__.TYPES['bool']:
+            self.value = not (arg.startswith('--no') or (arg.startswith('-') and not arg.startswith('--')))
 
     def processing_for_arg(self, arg):
         if self.key == 'for':
@@ -433,16 +439,12 @@ class Flags():
                 self.for_key_options.append(arg.strip("'\""))
             return True
 
-    def processing_sys_argv(self):
+    def set_flags_by_args(self, args, displays, config=None):
         self.for_key = None
         self.for_key_options = []
+        add_msg = f" in the config file '{config}'" if config else ''
 
-        if len(sys.argv) > 1:
-            args = list(sys.argv[1:])
-        else:
-            args = []
-
-        for arg in args:
+        for ind, arg in enumerate(args):
             self.set_key_by_arg(arg)
             self.set_value_by_arg(arg)
             if self.processing_for_arg(arg):
@@ -451,14 +453,38 @@ class Flags():
             if self.key and self.value is not None:
                 self.set_flag(self.key, self.value)
             else:
-                print(f"Unrecognized arg '{arg}'! \nExiting the script.")
+                print(f"Error: unrecognized argument '{displays[ind]}'{add_msg}. \nPlease fix it and re-run the script.")
                 sys.exit(1)
 
         if self.for_key and self.for_key_options:
             self.set_for_flag("options", self.for_key_options)
 
+    def set_flags_by_sys_argv(self):
+        args = list(sys.argv[1:]) if len(sys.argv) > 1 else []
+        self.set_flags_by_args(args, args)
+
         if str(self.flag("save_dir")) == str(Path.cwd()):
             self.set_flag("save_dir", self.flag("start_dir"))
+
+    def set_flags_by_config(self):
+        config = configparser.ConfigParser()
+        ini = Path.cwd() / f'config-{Path(__file__).stem}.ini'
+
+        try:
+            config.read(ini)
+        except Exception:
+            print(f"Error: Incorrect config in the file '{ini}'.\nPlease fix or remove the config and re-run the script.")
+            sys.exit(1)
+
+        sections = config.sections()
+
+        args, displays = [], []
+        for section in sections:
+            for key, value in config.items(section):
+                args.append(f'-{key}={value}')
+                displays.append(f'{key} = {value}')
+
+        self.set_flags_by_args(args, displays, ini)
 
     def set_locale(self):
         for element in locale.getlocale():
@@ -977,8 +1003,6 @@ class Merge(FileDictionary):
 
         if self.locale in langs:
             lang_sort = 0  # self.locale first
-            if not self.info.get('exists_locale_audio', False) and any(tid in self.info.get(str(filepath), {}).get('audio', []) for tid in tids):
-                self.info['exists_locale_audio'] = True
         elif langs and not langs - {'jpn'}:
             lang_sort = 3  # 'jpn' latest
         elif langs:
@@ -1000,22 +1024,22 @@ class Merge(FileDictionary):
             self.info.setdefault('filepaths', []).extend(sorted_files)
 
     def set_tracks_order(self):
-        tids_with_filepaths = []
         order_str = ''
         for trackgroup in ['video', 'audio', 'signs', 'subs']:
             tids_with_filepaths = []
             for filepath in self.info['filepaths']:
+                filegroup = self.info[str(filepath)]['filegroup']
                 tids_for_file = self.info.get(str(filepath), {}).get(trackgroup, [])
                 for tid in tids_for_file:
-                    tids_with_filepaths.append((tid, filepath))
+                    tids_with_filepaths.append((filepath, filegroup, tid))
 
             sorted_tids_with_filepaths = sorted(
                 tids_with_filepaths,
-                key=lambda item: self.get_sort_key(item[1], trackgroup, tids=[item[0]])
+                key=lambda item: self.get_sort_key(*item[:2], tids=[item[2]])
             )
 
             order = []
-            for tid, filepath in sorted_tids_with_filepaths:
+            for filepath, filegroup, tid in sorted_tids_with_filepaths:
                 fid = self.info['filepaths'].index(filepath)
                 order.append((fid, tid))
                 order_str = order_str + f'{fid}:{tid},'
@@ -1080,7 +1104,7 @@ class Merge(FileDictionary):
             value = 1
         elif key == 'forced' and self.trackgroup == 'signs' and self.flags.flag('forced_signs'):
             value = 1
-        elif key == 'default' and self.trackgroup == 'subs' and self.info.get('exists_locale_audio', False):
+        elif key == 'default' and self.trackgroup == 'subs' and self.t_info.get('tlang', '') in self.info.get('langs_default_audio', set()):
             value = 0
         elif force is None and not strict and self.flags.flag(key):
             value = 1
@@ -1089,6 +1113,8 @@ class Merge(FileDictionary):
 
         if value:
             self.info['cnt'][key][self.trackgroup] += 1
+            if self.trackgroup == 'audio':
+                self.info.setdefault('langs_default_audio', set()).add(self.t_info.get('tlang', ''))
 
         return '' if value else ':0'
 
@@ -1101,6 +1127,7 @@ class Merge(FileDictionary):
                 filepath = self.info['filepaths'][fid]
                 filegroup = self.info[str(filepath)]['filegroup']
                 self.filepath, self.filegroup, *_ = self.matches.get(str(filepath), [filepath, filegroup])
+                self.t_info = self.info.get(str(filepath), {}).get(tid, {})
 
                 if self.bool_flag('forceds'):
                     val = self.get_value_force_def_en('forced')
@@ -1894,7 +1921,8 @@ class SplittedMKV:
 
 def main():
     flags = Flags()
-    flags.processing_sys_argv()
+    flags.set_flags_by_config()
+    flags.set_flags_by_sys_argv()
     if flags.flag("lim_gen") == 0:
         print("A new video can't be generated because the limit-generate set to 0.")
         sys.exit(0)
