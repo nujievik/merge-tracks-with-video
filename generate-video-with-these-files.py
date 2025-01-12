@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.9.0
+generate-video-with-these-files-v0.9.1
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python, MKVToolNix and FFprobe (part of FFmpeg).
@@ -272,7 +272,7 @@ class Flags():
         TYPES.setdefault(key, set()).add(flag)
 
     STRICT_BOOL = {True: {'pro', 'extended_log', 'tlangs', 'tnames', 'enableds', 'sort_orig_fonts',
-                          'defaults', 'forceds', 'forced_signs', 't_orders'}}
+                          'defaults', 'forceds', 'forced', 'forced_signs', 't_orders'}}
     STRICT_BOOL[False] = TYPES['bool'] - STRICT_BOOL[True]
 
     FOR_SEPARATE_FLAGS = TYPES['bool'].union({'tname', 'tlang', 'options'})
@@ -1089,7 +1089,7 @@ class Merge(FileDictionary):
         return part + self.get_common_part_command()
 
     def get_value_force_def_en(self, key):
-        if self.trackgroup == 'signs' and key == 'forced' and self.flags.flag('forced_signs'):
+        if self.trackgroup == 'signs' and key == 'forced' and self.bool_flag('forced_signs'):
             lim = self.flags.flag('lim_forced_signs')
         else:
             lim = self.flags.flag(f'lim_{key}_ttype')
@@ -1102,19 +1102,21 @@ class Merge(FileDictionary):
             value = 0
         elif force:
             value = 1
-        elif key == 'forced' and self.trackgroup == 'signs' and self.flags.flag('forced_signs'):
+        elif key == 'forced' and self.trackgroup == 'signs' and self.bool_flag('forced_signs'):
             value = 1
-        elif key == 'default' and self.trackgroup == 'subs' and self.t_info.get('tlang', '') in self.info.get('langs_default_audio', set()):
+        elif key == 'default' and self.trackgroup == 'subs' and (self.info.get('default_locale_audio', False) or self.t_info.get('tlang', '') in self.info.get('langs_default_audio', set())):
             value = 0
-        elif force is None and not strict and self.flags.flag(key):
+        elif force is None and not strict and self.bool_flag(key):
             value = 1
         else:
             value = 0
 
         if value:
             self.info['cnt'][key][self.trackgroup] += 1
-            if self.trackgroup == 'audio':
+            if self.trackgroup == 'audio' and key == 'default':
                 self.info.setdefault('langs_default_audio', set()).add(self.t_info.get('tlang', ''))
+                if self.t_info.get('tlang', '') == self.locale:
+                    self.info['default_locale_audio'] = True
 
         return '' if value else ':0'
 
