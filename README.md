@@ -2,14 +2,14 @@
 
 ## Script for adding external tracks to a video, merging, and retiming tracks of linked mkv (mkv segment linking) video
 
-## How to Use
-
+## How to use
 
 1. Download [the executable file](https://github.com/nujievik/generate-video-with-these-files-script/releases) (.exe) or [the Python script](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
 2. If you use the Python script, install [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies).
 3. Run it in the directory containing the videos or external files.
 
-The default behavior can be modified by passing [call arguments](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#call-arguments). For example, you can avoid copying the script to the target directory and instead pass it as an argument:
+The default behavior can be changed by configuring the [configuration file](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#configuration-file) or by passing [command-line arguments](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#command-line-arguments). In particular, you don't need to copy the script into the directory with the files, but you can simply pass the directory as an argument:
+
 ```
 generate-video-with-these-files.exe "directory with files"
 ```
@@ -36,7 +36,7 @@ For convenience, a compiled executable file for Windows is available in the [Rel
 - The **generate-video-with-these-files.py** script, compiled using **PyInstaller**.
 - A built-in compiled version of **Python**, required for the script to work.
 - Precompiled components of **MKVToolNix** (sourced from the official [MKVToolNix website](https://mkvtoolnix.download/downloads.html#windows)).
-- Precompiled version of FFprobe (sourced from GyanD's FFmpeg release on [GitHub](https://github.com/GyanD/codexffmpeg/releases/)).
+- Precompiled version of **FFprobe** (sourced from GyanD's FFmpeg release on [GitHub](https://github.com/GyanD/codexffmpeg/releases/)).
 
 All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a single executable file. This allows you to use the script without needing to install Python, MKVToolNix, and FFprobe.
 
@@ -62,7 +62,7 @@ All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a 
   - Track from file with titles > without titles
 - Sets Forced, Default, and Enabled flags based on track sorting. By default:
   - Forced is disabled for all tracks.
-  - Default is enabled for one track of each type (the first in the sort order). If there is a local audio track, Default for subtitles is disabled.
+  - Default is enabled for one track of each type (the first in the sort order). If a localized track is set as default or a default audio track is in the subtitle language, the default for subtitles is disabled.
   - Enabled is enabled for all tracks.
 - Adds fonts for subtitles to the container.
 - Sorts all fonts by name, including those already present in the container before merging.
@@ -72,7 +72,7 @@ All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a 
 - Supports any arguments supported by `mkvmerge`.
 - Allows setting merge arguments for all files in the directory, for file groups (video, audio, titles, subtitles), and for individual files.
 
-## Default Mode
+## Default mode
 
 - The starting directory and saving directory are the current working directory.
 - Files to merge are searched in subdirectories of the starting directory and up to 3 parent directories.
@@ -85,7 +85,7 @@ All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a 
 - The output file is named after the video, with a suffix indicating what was done (_added_audio, _replaced_subs, etc.)
 - Linked video is split into parts, written to disk, and then the parts are combined into a single video.
 
-## Working with Linked Video
+## Working with linked video
 
 By default, linked video is written to disk in parts first and then merged into a complete video. This process effectively uses twice the disk space of the final video size.
 
@@ -94,23 +94,37 @@ To reduce disk resource usage, you can exclude linked video segments (typically 
 python generate-video-with-these-files.py -linking
 ```
 
-## Argument Remapping Mode
+## Configuration file
+
+- It should be located in the current working directory.
+  
+- It has a lower priority than **command-line arguments**. If a flag value is specified both in the configuration file and in the command-line argument, the latter will take precedence.
+
+- It supports all the **command-line arguments** listed below.
+
+- Syntax examples and commented default values for all flags are listed in the [configuration file](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/config-generate-video-with-these-files.ini).
+
+- To change a flag value in the **configuration file**, uncomment the line and modify the value on the right.
+
+## Argument remapping mode
 
 This mode is activated by passing call arguments. Unspecified arguments remain at default values. The generated `mkvmerge` command includes all flags that are not manually disabled.
 
-## PRO Mode
+## Pro mode
 
 This mode is activated by passing the `+pro` argument. It disables the sorting of fonts already in the video container and creates a clean `mkvmerge` command without flags (`mkvmerge -o outfile file1 file2 file3`). It can be combined with argument remapping, including re-including flags that were removed.
 
-## Call Arguments
+## Command-line arguments
 
 - You can pass any number of arguments.
+
 - If an argument is not recognized, the execution is stopped.
+
 - Arguments can be passed with different syntax.
   - Prefixes like `+`, `-`, `--`, `--no-`, and `--save-` are allowed for supported arguments outside `-for=`.
   - For unsupported arguments outside `-for=`, use the [syntax of mkvmerge options](https://mkvtoolnix.download/doc/mkvmerge.html).
 
-### Startdir and Savedir
+### Startdir and savedir
 
 - Absolute or relative paths can be specified. `startdir` should be specified before `savedir` if `savedir` is passed without the `-save-dir=` key.
 
@@ -118,7 +132,7 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 
 - `-save-dir="save directory"` sets the save directory.
 
-### Text Arguments
+### Text arguments
 
 - Text must be specified after `=`. For example, `-tname="track name"`.
 
@@ -146,17 +160,17 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 
 - `-lim-enabled-ttype=` sets the limit for enabled tracks per type. By default, there is no limit, and all tracks are enabled.
 
-### Generation Range
+### Generation range
 
 - Requires specifying one or two non-negative integers with a separator. The separator can be `-`, `,`, `:`. For example, `-range-gen=2-8`.
 
 - `-range-gen=` sets the generation range for video files. Only videos with corresponding external tracks are considered (if they exist). Videos are taken in alphabetical order.
 
-### Removing Chapters
+### Removing chapters
 
 - `-rm-chapters=op,ed,prologue,preview` removes the specified video segments listed in the argument (for MKVs with chapters).
 
-### TrueFalse Arguments
+### TrueFalse arguments
 
 - TrueFalse arguments are set to True or False depending on the symbol before the argument: `+` for True and `-` for False. Also, if the argument starts with `--no`, the value is False, in all other cases, it is True. Specifically, True is set if the argument is called with a double dash `--` without `no`.
 
@@ -215,7 +229,7 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 - `-no-fonts` disables fonts if any fonts were added before.
 
 
-### For Arguments
+### For arguments
 
 - To specify paths in `-for=`, you need to use absolute paths.
 
@@ -231,39 +245,41 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 
 - `-for="target" -files` skips the specified files.
 
+- `-for="target" -options=[--video-tracks, 0, --audio-tracks, 1]` is a special flag for recording unsupported arguments outside of -for. Without explicitly specifying options, you can simply write `-for="target" --video-tracks 0 --audio-tracks 1`.
+
 - `-for=all` or `-for=` without specifying a path or group returns the input arguments to the common ones.
 
 
-## Examples of Changing Default Behavior
+## Examples of changing default behavior
 
 All examples are written for the Python script. If you are running the `.exe`, just replace `python generate-video-with-these-files.py` with `generate-video-with-these-files.exe`.
 
-### Change Start Directory
+### Change start directory
 ```
 python generate-video-with-these-files.py -start-dir="path to the directory"
 ```
 
-### Change Save Directory
+### Change save directory
 ```
 python generate-video-with-these-files.py -save-dir="path to the directory"
 ```
 
-### Get a Clean Command 'mkvmerge -o outfile file1 file2 file3'
+### Get a clean command 'mkvmerge -o outfile file1 file2 file3'
 ```
 python generate-video-with-these-files.py +pro
 ```
 
-### Set Priority Language for Sorting Tracks
+### Set priority language for sorting tracks
 ```
 python generate-video-with-these-files.py -locale=eng
 ```
 
-### Set Default Track
+### Set default track
 ```
 python generate-video-with-these-files.py -for="target" +default
 ```
 
-### Set Track Names
+### Set track names
 For external tracks:
 ```
 python generate-video-with-these-files.py -tname="track name"
@@ -274,7 +290,7 @@ For video:
 python generate-video-with-these-files.py -for=video --track-name trackID:"track name"
 ```
 
-### Set Track Languages
+### Set track languages
 For external tracks:
 ```
 python generate-video-with-these-files.py -tlang=language
@@ -286,7 +302,7 @@ python generate-video-with-these-files.py -for=video --language trackID:language
 ```
 
 
-### Set Positive Forced Flags
+### Set positive forced flags
 Only for subtitles (default limit is 1, you may omit it):
 ```
 python generate-video-with-these-files.py +forced-signs +lim-forced-signs=1
@@ -297,17 +313,17 @@ For tracks of each type:
 python generate-video-with-these-files.py +forced +lim-forced-ttype=1
 ```
 
-### Set Negative Default Flags
+### Set negative default flags
 ```
 python generate-video-with-these-files.py -lim-default-ttype=0
 ```
 
-### Set Negative Enabled Flags
+### Set negative enabled flags
 ```
 python generate-video-with-these-files.py -lim-enabled-ttype=0
 ```
 
-### Change Output File Names
+### Change output file names
 Set the prefix of the name. The file number and the `.mkv` extension will be added at the end:
 ```
 python generate-video-with-these-files.py -out-pname="prefix "
@@ -323,7 +339,7 @@ python generate-video-with-these-files.py -out-pname-tail=" suffix"
 python generate-video-with-these-files.py -out-pname="Death Note - " -out-pname-tail=" (BDRip 1920x1080)"
 ```
 
-### Add Only External Audio / Subtitles / Fonts
+### Add only external audio / subtitles / fonts
 Audio:
 ```
 python generate-video-with-these-files.py +audio -subs -fonts
@@ -339,17 +355,17 @@ Fonts:
 python generate-video-with-these-files.py +fonts -audio -subs
 ```
 
-### Add Tracks to Original Ones, Not Replace Them
+### Add tracks to original ones, not replace them
 ```
 python generate-video-with-these-files.py +orig-audio +orig-subs
 ```
 
-### Replace Original Tracks with External Ones, Not Add Them
+### Replace original tracks with external ones, not add them
 ```
 python generate-video-with-these-files.py -orig-audio -orig-subs -orig-fonts
 ```
 
-### Remove All Audio / Subtitles / Fonts Tracks
+### Remove all audio / subtitles / fonts tracks
 Audio:
 ```
 python generate-video-with-these-files.py -audio -orig-audio
@@ -365,7 +381,7 @@ Fonts:
 python generate-video-with-these-files.py -fonts -orig-fonts
 ```
 
-### Process Only a Part of the Files
+### Process only a part of the files
 Via generation range.
 In this case, files will only be created for the specified range.
 ```
@@ -379,43 +395,43 @@ In this case, a specified number of files will be created. Files will be iterate
 python generate-video-with-these-files.py -lim-gen=4
 ```
 
-### Disable Track Sorting
+### Disable track sorting
 ```
 python generate-video-with-these-files.py -track-orders
 ```
 
-### Disable Sorting of Existing Fonts in the Video Container
+### Disable sorting of existing fonts in the video container
 ```
 python generate-video-with-these-files.py -sort-orig-fons
 ```
 
-### Remove Chapters and Global Tags from Files
+### Remove chapters and global tags from files
 ```
 python generate-video-with-these-files.py -chapters -global-tags
 ```
 
-### Do Not Set Track Names
+### Do not set track names
 ```
 python generate-video-with-these-files.py -tnames
 ```
 
-### Do Not Set Track Languages
+### Do not set track languages
 ```
 python generate-video-with-these-files.py -tlangs
 ```
 
-### Disable Automatic Flag Setting for Forced, Default, Enabled, Trackname, and Language
+### Disable automatic flag setting for forced, default, enabled, trackname, and language
 ```
 python generate-video-with-these-files.py -forceds -defaults -enableds -tnames -tlangs
 ```
 
-### Do Not Add Files from a Specific Directory
+### Do not add files from a specific directory
 ```
 python generate-video-with-these-files.py -for="path to the directory" -files
 ```
 
 
-## Long and Short Versions of Arguments
+## Long and short versions of arguments
 
 - A negative value can be written either with a `-` or with `--no-`, and a positive value can be written with a `+` or `--save-`. For example, `-chapters` is equivalent to `--no-chapters`, and `+chapters` is equivalent to `--save-chapters` or simply `--chapters`. The double dash without `no` gives a positive value.
 
@@ -455,7 +471,7 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 2. Если используете Python скрипт, установите [зависимости](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8).
 3. Запустите в директории, содержащей видео или внешние файлы.
 
-Поведение по умолчанию можно изменить передачей [аргументов вызова](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B0%D1%80%D0%B3%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B-%D0%B2%D1%8B%D0%B7%D0%BE%D0%B2%D0%B0). В частности, можно не копировать скрипт в директорию с файлами, а просто передать ее в качестве аргумента:
+Поведение по умолчанию можно изменить, настроив [файл конфигурации](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%A4%D0%B0%D0%B9%D0%BB-%D0%BA%D0%BE%D0%BD%D1%84%D0%B8%D0%B3%D1%83%D1%80%D0%B0%D1%86%D0%B8%D0%B8) или передав [аргументы командной строки](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%90%D1%80%D0%B3%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B-%D0%BA%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D0%BD%D0%BE%D0%B9-%D1%81%D1%82%D1%80%D0%BE%D0%BA%D0%B8). В частности, можно не копировать скрипт в директорию с файлами, а просто передать ее в качестве аргумента:
 ```
 generate-video-with-these-files.exe "директория с файлами"
 ```
@@ -508,7 +524,7 @@ generate-video-with-these-files.exe "директория с файлами"
   - дорожка из файла с надписями > без надписей
 - Проставляет Forced, Default, Enabled флаги на основании сортировки дорожек. По умолчанию:
   - forced для всех отключено
-  - default включено для одной дорожки каждого типа (первой в сортировке). Если есть локальная аудиодорожка, default для субтитров выключено
+  - default включено для одной дорожки каждого типа (первой в сортировке). Если локализованная дорожка default или default аудиорожка на языке субтитров, то default для субтитров выключено.
   - enabled для всех включено
 - Добавляет шрифты для субтитров в контейнер.
 - Сортирует все шрифты по имени, в том числе уже имевшиеся в контейнере до объединения.
@@ -529,7 +545,7 @@ generate-video-with-these-files.exe "директория с файлами"
 - Проставляются track-order, forced, default, enabled, track-name, language флаги.
 - Сортируются дорожки с приоритетом локальных
 - Имя выходного файла ставится имя видео + суффикс что сделано (_added_audio, _replaced_subs и т.п.)
-- Линкованное видео разделяется на части, записываются на диск и потом части объединяются.
+- Линкованное видео разделяется на части, части записываются на диск и потом объединяются.
 
 ## Работа с линкованным видео
 
@@ -540,6 +556,18 @@ generate-video-with-these-files.exe "директория с файлами"
 python generate-video-with-these-files.py -linking
 ```
 
+## Файл конфигурации
+
+- Должен располагаться в текущей рабочей директории.
+
+- Имеет более низкий приоритет над **аргументами командной строки**. При указании значения флага в файле конфигурации и в аргументе командной строки приоритет будет отдан последнему.
+
+- Поддерживает все перечисленные ниже **аргументы командной строки**. 
+
+- Примеры синтаксиса и закомментированные дефолтные значения всех флагов перечислены в [файле конфигурации](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/config-generate-video-with-these-files.ini).
+
+- Чтобы изменить значение флага в **файле конфигурации**, нужно раскомментировать строку и изменить значение справа.
+
 ## Режим переназначения аргументов
 
 Активируется передачей аргументов вызова. Непереданные аргументы остаются на дефолтных значениях. Формируемая mkvmerge команда включает все неотключенные вручную флаги.
@@ -548,7 +576,9 @@ python generate-video-with-these-files.py -linking
 
 Активируется передачей `+pro` аргумента. Отключает сортировку шрифтов для шрифтов в контейнере видео. Формирует чистую mkvmerge команду без флагов `mkvmerge -o outfile file1 file2 file3`. Можно комбинировать с режимом переназначения, в частности включать в команду убранные флаги.
 
-## Аргументы вызова
+## Аргументы командной строки
+
+- Имеют приоритет над аргументами в **файле конфигурации**. При указании значения флага в файле конфигурации и в аргументе командной строки приоритет будет отдан последнему.
 
 - Можно передать любое количество аргументов.
 
@@ -676,6 +706,8 @@ python generate-video-with-these-files.py -linking
 
 - `-for="для чего" -files` пропускает заданные файлы.
 
+- `-for="для чего" -options=[--video-tracks, 0, --audio-tracks, 1]` специальный флаг для записи неподдерживаемых вне `-for` аргументов. Без явного указания options можно просто писать `-for="для чего" --video-tracks 0 --audio-tracks 1"`
+
 - `-for=all` или `-for=` без указания пути или группы возвращает ввод аргументов к общим.
 
 
@@ -730,7 +762,7 @@ python generate-video-with-these-files.py -tlang=язык
 python generate-video-with-these-files.py -for=video --language *IDдорожки*:язык
 ```
 
-### Установить положительные Forced
+### Установить положительные forced
 Только для надписей (по умолчанию лимит 1, можно не задавать):
 ```
 python generate-video-with-these-files.py +forced-signs +lim-forced-signs=1
@@ -741,12 +773,12 @@ python generate-video-with-these-files.py +forced-signs +lim-forced-signs=1
 python generate-video-with-these-files.py +forced +lim-forced-ttype=1
 ```
 
-### Установить отрицательные Default
+### Установить отрицательные default
 ```
 python generate-video-with-these-files.py -lim-default-ttype=0
 ```
 
-### Установить отрицательные Enabled
+### Установить отрицательные enabled
 ```
 python generate-video-with-these-files.py -lim-enabled-ttype=0
 ```
@@ -842,7 +874,7 @@ python generate-video-with-these-files.py -tnames
 python generate-video-with-these-files.py -tlangs
 ```
 
-### Отключить автоматическое проставление флагов Forced, Default, Enabled, Trackname, Language
+### Отключить автоматическое проставление флагов forced, default, enabled, trackname, language
 ```
 python generate-video-with-these-files.py -forceds -defaults -enableds -tnames -tlangs
 ```
