@@ -1,5 +1,5 @@
 """
-generate-video-with-these-files-v0.9.2
+generate-video-with-these-files-v0.9.3
 
 Licensed under GPL-3.0.
 This script requires third-party tools: Python, MKVToolNix and FFprobe (part of FFmpeg).
@@ -1428,6 +1428,9 @@ class SplittedMKV:
                 td = self.info['duration'][k] = timedelta(seconds=float(line.split(',')[1]))
                 durations.append(td)
                 break
+        if not durations:
+            duration = self.info['duration']['video'] = self.info['duration']['audio'] = FileInfo.get_file_info(self.source, 'Duration:')
+            durations.append(duration)
         self.info['duration']['max'] = max(durations)
         return self.info['duration'][key]
 
@@ -1857,7 +1860,7 @@ class SplittedMKV:
     def processing_segments(self):
         if not Tools.ffprobe_installed(exit_if_none=False):
             self.merge.delete_temp_files()
-        self.merge.splitted_info[str(self.merge.video)] = {}
+        self.merge.splitted_info[''] = {} #clear info about non-uid
         self.correct_chapters_times()
         self.orig_audio, self.orig_subs = self.merge.bool_flag('orig_audio'), self.merge.bool_flag('orig_subs')
 
