@@ -36,7 +36,7 @@ For convenience, a compiled executable file for Windows is available in the [Rel
 - The **generate-video-with-these-files.py** script, compiled using **PyInstaller**.
 - A built-in compiled version of **Python**, required for the script to work.
 - Precompiled components of **MKVToolNix** (sourced from the official [MKVToolNix website](https://mkvtoolnix.download/downloads.html#windows)).
-- Precompiled version of **FFprobe** (sourced from GyanD's FFmpeg release on [GitHub](https://github.com/GyanD/codexffmpeg/releases/)).
+- Precompiled version of **FFprobe** (sourced from BtbN's FFmpeg win64-gpl release on [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases)).
 
 All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a single executable file. This allows you to use the script without needing to install Python, MKVToolNix, and FFprobe.
 
@@ -62,7 +62,7 @@ All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a 
   - Track from file with titles > without titles
 - Sets Forced, Default, and Enabled flags based on track sorting. By default:
   - Forced is disabled for all tracks.
-  - Default is enabled for one track of each type (the first in the sort order). If a localized track is set as default or a default audio track is in the subtitle language, the default for subtitles is disabled.
+  - Default is enabled for one track of each type (the first in the sorting order). If the localized audio track is set to default or if the default is set to the audio track in the subtitle language, then the default for subtitles is disabled.
   - Enabled is enabled for all tracks.
 - Adds fonts for subtitles to the container.
 - Sorts all fonts by name, including those already present in the container before merging.
@@ -498,7 +498,7 @@ generate-video-with-these-files.exe "директория с файлами"
 - **generate-video-with-these-files.py** скрипт, скомпилированный с помощью **PyInstaller**.
 - Встроенную скомпилированную версию **Python**, необходимую для работы скрипта.
 - Скомпилированные компоненты MKVToolNix (полученные с официального [сайта MKVToolNix](https://mkvtoolnix.download/downloads.html#windows)).
-- Скомпилированную версию **FFprobe** (полученную из релиза FFmpeg от GyanD на [GitHub](https://github.com/GyanD/codexffmpeg/releases/)).
+- Скомпилированную версию **FFprobe** (полученную из релиза FFmpeg win64-gpl от BtbN на [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases)).
 
 Все компоненты (скрипт, Python, MKVToolNix и FFprobe) включены в один исполняемый файл. Это позволяет использовать скрипт без необходимости устанавливать Python, MKVToolNix и FFprobe.
 
@@ -524,7 +524,7 @@ generate-video-with-these-files.exe "директория с файлами"
   - дорожка из файла с надписями > без надписей
 - Проставляет Forced, Default, Enabled флаги на основании сортировки дорожек. По умолчанию:
   - forced для всех отключено
-  - default включено для одной дорожки каждого типа (первой в сортировке). Если локализованная дорожка default или default аудиорожка на языке субтитров, то default для субтитров выключено.
+  - default включено для одной дорожки каждого типа (первой в сортировке). Если локализованная аудиодорожка установлена default или default установлена аудиорожка на языке субтитров, то default для субтитров выключено.
   - enabled для всех включено
 - Добавляет шрифты для субтитров в контейнер.
 - Сортирует все шрифты по имени, в том числе уже имевшиеся в контейнере до объединения.
