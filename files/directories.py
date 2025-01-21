@@ -46,20 +46,20 @@ def find_dir_by_match_filenames(video_list, search_dir, recursive=False, first=T
 
     return founds if founds else None
 
-def find_subsdir_by_sort(dirs):
+def find_subsdir_by_sort(video_list, dirs):
     found_dirs = find_dir_by_match_filenames(video_list, dirs['video'], recursive=True, first=False)
     found_subs = []
     for sdir in found_dirs:
-        found_subs.append(find_ext.find_ext_files(sdir, EXTENSIONS['subs'], search_name=video_list[0].stem))
+        found_subs.extend(find_ext.find_ext_files(sdir, EXTENSIONS['subs'], search_name=video_list[0].stem))
 
     if found_subs:
-        tmp_info = orders.set_files_info(filepaths=found_subs, filegroup='subs', trackgroups=['subs'])
-        sorted_subs = sorted(
-            found_subs,
-            key=lambda filepath: get_sort_key(filepath, 'subs', orders.params.info.get(str(filepath), {}), get('subs', []))
-        )
+        orders.params.video = video_list[0]
+        orders.params.locale = get_flag.flag('locale')
 
-        return sorted_subs[0].parent
+        tmp_info = orders.set_files_info(filepaths=found_subs, filegroup='subs', trackgroups=['subs'])
+        orders.set_files_order(tmp_info)
+
+        return orders.params.info['filepaths'][0].parent
 
 def find_subsdir_after_audiodir(dirs):
     video_list = find_ext.find_ext_files(dirs['video'], EXTENSIONS['video'])
@@ -72,7 +72,7 @@ def find_subsdir_after_audiodir(dirs):
         if subs_dir:
             return subs_dir
 
-    return find_subsdir_by_sort(dirs)
+    return find_subsdir_by_sort(video_list, dirs)
 
 def find_fontdir(dirs):
     for search_dir in [dirs['subs'], dirs['subs'].parent]:
