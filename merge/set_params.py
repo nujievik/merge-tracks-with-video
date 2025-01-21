@@ -24,11 +24,6 @@ def set_common_params():
     params.count_gen = 0
     params.count_gen_before = 0
 
-    params.start_range, params.end_range = param('range_gen')
-    if params.start_range:
-        params.start_range -= 1
-        params.end_range -= 1
-
 def set_file_lists(fgroups=[]):
     params.video_list = [params.video]
     param = flags.merge.bool_flag
@@ -70,9 +65,9 @@ def set_file_params():
 
     set_file_lists()
 
-def set_output_path():
+def set_output_path(fid):
     if params.out_pname or params.out_pname_tail:
-        ind = f'{params.ind+1:0{len(str(len(params.video_list)))}d}'
+        ind = f'{fid+1:0{len(str(len(params.video_list)))}d}'
         stem = f'{params.out_pname}{ind}{params.out_pname_tail}'
 
     else:

@@ -19,14 +19,16 @@ DEFAULT = {
     'lim_enabled_ttype': 99999,
     'lim_forced_signs': 1,
 
-    'range_gen': [0, 99999],
+    'range_gen': [1, 99999],
 
     'rm_chapters': set(),
 
     'options': [],
 
+    'version': False,
     'pro': False,
     'extended_log': False,
+    'search_dirs': True,
     'global_tags': True,
     'chapters': True,
     'files': True,
@@ -52,7 +54,6 @@ DEFAULT = {
     'opening': True,
     'ending': True,
     'force_retiming': True,
-    'version': False,
 
     'for_priority': 'file_first', #dir_first, mix
     'for': {},
@@ -94,7 +95,7 @@ STRICT_BOOL = {
 }
 STRICT_BOOL[False] = TYPES['bool'] - STRICT_BOOL[True]
 
-FOR_SEPARATE_FLAGS = TYPES['bool'].union({'tname', 'tlang', 'options'}) - {'version'}
+FOR_SEPARATE_FLAGS = TYPES['bool'].union({'tname', 'tlang', 'options'}) - {'version', 'search_dirs'}
 
 MATCHINGS = {
     'part': {'pro_mode': 'pro',
@@ -117,6 +118,7 @@ MATCHINGS = {
              'language': 'lang',
              'track_lang': 'tlang',
              'remove': 'rm',
+             'directories': 'dirs',
     },
 
     'full': {'lang': 'tlang',

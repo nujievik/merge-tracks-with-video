@@ -30,7 +30,7 @@ def set_files_info(filepaths=[], filegroup='', trackgroups=[]):
 
         for trackgroup in trackgroups:
             for tid in mkvtools.get_track_type_tids(filepath, trackgroup):
-                params.filepath, params.filegroup, params.tid = params.matching_keys.get(str(filepath), [filepath, filegroup, tid])
+                params.filepath, params.filegroup, params.tid = params.matching_keys.get(str(filepath), (filepath, filegroup, tid))
 
                 if trackgroup != 'video':
                     args = [params.tid, params.filepath, params.filegroup, params.video]

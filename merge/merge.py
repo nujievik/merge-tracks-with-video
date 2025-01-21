@@ -10,12 +10,14 @@ def merge_all_files():
     set_params.set_common_params()
     executor.temp_dir = params.temp_dir
 
-    for params.ind, params.video in enumerate(files['video'][params.start_range:], start=params.start_range):
+    start, end = flags.merge.get_flag.flag('range_gen')
+
+    for fid, params.video in enumerate(files['video'][start-1:end], start=start-1):
         params.filepath, params.filegroup = params.video, 'video'
 
-        if params.count_gen >= params.lim_gen or params.ind > params.end_range:
+        if params.count_gen >= params.lim_gen:
             break
-        if flags.merge.for_flag('files') is False:
+        if not flags.merge.bool_flag('files'):
             continue
 
         set_params.set_file_params()
@@ -26,7 +28,7 @@ def merge_all_files():
             if all(not x for x in [params.mkv_split, params.audio_list, params.subs_list, params.fonts_list]):
                 continue #skip video if not exist segment linking, external audio, subs or font
 
-        set_params.set_output_path()
+        set_params.set_output_path(fid)
         if params.output.exists():
             params.count_gen_before += 1
             continue

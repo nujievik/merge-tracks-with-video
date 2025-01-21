@@ -10,6 +10,7 @@ def main():
 
     if get_flag.flag('version'):
         print(f'generate-video-with-these-files v{__version__}')
+        return
 
     if not get_flag.flag('lim_gen'):
         print("A new video can't be generated because the limit-generate set to 0.")
@@ -24,7 +25,9 @@ def main():
           f"using files from the start directory '{str(get_flag.flag("start_dir"))}'.")
 
     lmsg = f"Files for generating a new video not found. Checked the directory '{str(get_flag.flag('start_dir'))}'"
-    lmsg = f"{lmsg}, its subdirectories and {get_flag.flag("lim_search_up")} directories up."
+    lmsg = f"{lmsg} and its subdirectories"
+    if get_flag.flag('search_dirs'):
+        lmsg = f"{lmsg} and {get_flag.flag("lim_search_up")} directories up."
 
     files.find.find_all_files()
 
@@ -42,7 +45,7 @@ def main():
               "had generated names before the current run of the script. Generation for these files has been skipped.")
 
     if merge.params.count_gen:
-        print(f"\nThe generate was executed successfully. {merge.params.count_gen} video files were generated"
+        print(f"\nThe generate was executed successfully. {merge.params.count_gen} video files were generated "
               f"in the directory '{str(get_flag.flag("save_dir"))}'")
     else:
         print(lmsg)

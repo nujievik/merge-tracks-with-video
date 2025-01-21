@@ -4,6 +4,7 @@ from pathlib import Path
 
 import executor
 import flags.merge
+import flags.set_flag
 import files.find_ext
 from . import params, set_params
 from files.files import EXTENSIONS
@@ -13,7 +14,10 @@ def extract_orig_attachments():
     if params.orig_attachs_dir.exists():
         shutil.rmtree(params.orig_attachs_dir)
 
-    for fpath in params.video_list + params.subs_list:
+    for ind, fpath in enumerate(params.video_list + params.subs_list, start=1):
+        if params.mkv_split and ind > len(params.video_list):
+            fpath, _, _ = params.matching_keys.get(str(fpath), (fpath, None, None))
+
         if fpath.suffix in EXTENSIONS['mkvtools_supported']:
             names = []
             command = ['mkvmerge', '-i', str(fpath)]
@@ -31,6 +35,9 @@ def extract_orig_attachments():
 
             if len(command) > 3:
                 executor.execute(command, get_stdout=False)
+
+            if ind > len(params.video_list):
+                flags.set_flag.for_flag(str(fpath), 'fonts', False)
 
 def sort_orig_fonts():
     if not flags.merge.bool_flag('sort_orig_fonts'):

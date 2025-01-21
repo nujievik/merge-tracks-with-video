@@ -10,9 +10,9 @@ def get_key_by_arg(arg, for_key):
     key = None
 
     if not arg.startswith(('-', '+')) and not for_key:
-        for flag in ['start_dir', 'save_dir']:
-            if str(get_flag.flag(flag)) == str(Path.cwd()):
-                key = flag
+        for flg in ['start_dir', 'save_dir']:
+            if str(get_flag.flag(flg)) == str(Path.cwd()):
+                key = flg
                 break
         return key
 
@@ -86,8 +86,8 @@ def get_value_by_arg(arg, key, for_key, for_key_options):
         elif number is not None and key in TYPES['limit']:
             value = number
 
-        elif number is not None and key in TYPES['range']:
-            num2 = flag(key)[1]
+        elif number and key in TYPES['range']: #range start with 1, not 0
+            num2 = get_flag.flag(key)[1]
             value = [number, num2]
 
         elif key in TYPES['range']:
@@ -95,18 +95,26 @@ def get_value_by_arg(arg, key, for_key, for_key_options):
             if match:
                 ind = match.start()
 
-                num1 = type_convert.str_to_number(value[:ind])
-                num2 = type_convert.str_to_number(value[ind + 1:])
+                num1 = type_convert.str_to_number(value[:ind], positive=True)
+                num2 = type_convert.str_to_number(value[ind + 1:], positive=True)
 
                 if num1 is not None and num2 is not None and num2 >= num1:
                     pass
                 elif num1 is not None:
-                    num2 = flag(key)[1]
+                    num2 = get_flag.flag(key)[1]
                 elif num2 is not None:
-                    num1 = flag(key)[0]
+                    num1 = get_flag.flag(key)[0]
 
                 if num1 is not None:
                     value = [num1, num2]
+                else:
+                    value = None
+
+            else:
+                value = None
+
+        else:
+            value = None
 
     elif key in TYPES['bool']:
         value = not (arg.startswith('--no') or (arg.startswith('-') and not arg.startswith('--')))

@@ -25,8 +25,6 @@ trackgroup = ''
 lim_gen = 0
 count_gen = 0
 count_gen_before = 0
-start_range = 0
-end_range = 0
 ind = 0
 tid = 0
 

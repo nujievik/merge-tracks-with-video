@@ -4,21 +4,27 @@ from datetime import timedelta
 def str_to_path(str_in, check_exists=False):
     try:
         path_out = Path(str_in)
+
         if check_exists and not path_out.exists():
             print('Error. Path not exists!')
-            return
+            path_out = None
+
     except Exception:
-        return
+        path_out = None
 
     return path_out
 
-def str_to_number(str_in, int_num=True, non_negative=True):
+def str_to_number(str_in, int_num=True, non_negative=True, positive=False):
     try:
         number = int(str_in) if int_num else float(str_in)
-        if non_negative and number < 0:
-            return
+
+        if positive and number <= 0:
+            number = None
+        elif non_negative and number < 0:
+            number = None
+
     except Exception:
-        return
+        number = None
 
     return number
 

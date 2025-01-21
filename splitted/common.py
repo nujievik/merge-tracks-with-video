@@ -98,7 +98,7 @@ def merge_file_segments(segments):
     executor.execute(command, get_stdout=False)
 
 def set_matching_keys(filepath, filegroup):
-    merge.params.matching_keys[str(params.retimed)] = [filepath, filegroup, params.tid]
+    merge.params.matching_keys[str(params.retimed)] = (filepath, filegroup, params.tid)
 
 def get_uid_lengths():
     lengths = {'uid': {'chapters': timedelta(0), 'defacto': timedelta(0)},
@@ -116,11 +116,11 @@ def get_uid_lengths():
 
     return lengths
 
-def extract_track():
-    command = ['mkvextract', 'tracks', str(params.source), f'{params.tid}:{str(params.segment)}']
+def extract_track(source, out):
+    command = ['mkvextract', 'tracks', str(source), f'{params.tid}:{str(out)}']
 
     if flags.merge.bool_flag('extended_log'):
-        print(f"Extracting subtitles track {params.tid} from the file '{str(params.source)}'. Executing "
+        print(f"Extracting subtitles track {params.tid} from the file '{str(source)}'. Executing "
               f"the following command:\n {type_convert.command_to_print_str(command)}")
 
     executor.execute(command, get_stdout=False)

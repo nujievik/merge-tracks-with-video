@@ -7,7 +7,7 @@ def replace_keys(fpath, fgroup, replace=True):
         fpath = fpath if fpath else params.filepath
         fgroup = fgroup if fgroup else params.filegroup
 
-        fpath, fgroup, _ = params.matching_keys.get(str(fpath), [fpath, fgroup, None])
+        fpath, fgroup, _ = params.matching_keys.get(str(fpath), (fpath, fgroup, None))
 
     return fpath, fgroup
 

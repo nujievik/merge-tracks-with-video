@@ -30,14 +30,14 @@ def set_retimed_orig_subs():
         if lines.get(params.uids[ind], []):
             continue
 
-        params.source = params.sources[ind]
-        params.segment = Path(params.temp_dir) / 'orig_subs' / f'subs_{params.subs_cnt}_segment_{ind}.ass'
+        source = params.sources[ind]
+        segment = Path(params.temp_dir) / 'orig_subs' / f'subs_{params.subs_cnt}_segment_{ind}.ass'
 
-        common.extract_track()
-        with open(params.segment, 'r', encoding='utf-8') as file:
+        common.extract_track(source, segment)
+        with open(segment, 'r', encoding='utf-8') as file:
             lines[params.uids[ind]] = file.readlines()
 
-    params.retimed = Path(params.segment.parent) / f'subs_{params.subs_cnt}.ass'
+    params.retimed = Path(segment.parent) / f'subs_{params.subs_cnt}.ass'
 
     with open(params.retimed, 'w', encoding='utf-8') as file:
         for line in lines[params.uids[params.indexes[0]]]:
@@ -63,8 +63,7 @@ def set_retimed_ext_subs(source):
         params.retimed.parent.mkdir(parents=True, exist_ok=True)
         read = source
     else:
-        params.source = source
-        common.extract_track()
+        common.extract_track(source, params.retimed)
         read = params.retimed
 
     with open(read, 'r', encoding='utf-8') as file:

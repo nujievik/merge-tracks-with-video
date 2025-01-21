@@ -85,6 +85,9 @@ def set_directories():
     for key in ['video', 'audio', 'subs', 'fonts']:
         dirs[key] = None
 
+    if not get_flag.flag('search_dirs'):
+        return
+
     start_dir = get_flag.flag('start_dir')
 
     dirs['video'] = find_videodir_up(start_dir, EXTENSIONS['audio'])
