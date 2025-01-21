@@ -4,8 +4,8 @@
 
 ## How to use
 
-1. Download [the executable file](https://github.com/nujievik/generate-video-with-these-files-script/releases) (.exe) or [the Python script](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
-2. If you use the Python script, install [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies).
+1. [Download](https://github.com/nujievik/generate-video-with-these-files-script/releases) the executable file (.exe) for Windows x64 or the packaged script set (.pyz).
+2. If you use the **script set**, install [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies).
 3. Run it in the directory containing the videos or external files.
 
 The default behavior can be changed by configuring the [configuration file](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#configuration-file) or by passing [command-line arguments](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#command-line-arguments). In particular, you don't need to copy the script into the directory with the files, but you can simply pass the directory as an argument:
@@ -29,16 +29,17 @@ generate-video-with-these-files.exe "directory with files"
 
 ## Description
 
-This project includes a Python script that uses components **Python**, **MKVToolNix**, and **FFmpeg**. The source code is available in the repository.
+The project includes a set of Python scripts that use custom components **Python**, **MKVToolNix**, and **FFmpeg**. The source code of the scripts is available in the repository.
 
-For convenience, a compiled executable file for Windows is available in the [Releases](https://github.com/nujievik/generate-video-with-these-files-script/releases) section. This file includes:
+For convenience, a compiled executable file (.exe) for Windows x64 is available in the [Releases](https://github.com/nujievik/generate-video-with-these-files-script/releases) section. For other systems, a packaged script set (.pyz) is available.
 
-- The **generate-video-with-these-files.py** script, compiled using **PyInstaller**.
+The executable file for Windows contains all the necessary components for the operation:
+- The set of scripts from the repository, compiled using **PyInstaller**.
 - A built-in compiled version of **Python**, required for the script to work.
 - Precompiled components of **MKVToolNix** (sourced from the official [MKVToolNix website](https://mkvtoolnix.download/downloads.html#windows)).
 - Precompiled version of **FFprobe** (sourced from BtbN's FFmpeg win64-gpl release on [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases)).
 
-All components (the script, Python, MKVToolNix, and FFprobe) are bundled into a single executable file. This allows you to use the script without needing to install Python, MKVToolNix, and FFprobe.
+The packaged script set (.pyz) is assembled using **zipapp** and requires the installation of [dependencies](https://github.com/nujievik/generate-video-with-these-files-script?tab=readme-ov-file#dependencies).
 
 ## Functionality
 
@@ -91,7 +92,7 @@ By default, linked video is written to disk in parts first and then merged into 
 
 To reduce disk resource usage, you can exclude linked video segments (typically openings and endings). In this case, intermediate parts will not be written, and the final video will be generated directly. This can be done using the flag:
 ```
-python generate-video-with-these-files.py -linking
+python generate-video-with-these-files.pyz -linking
 ```
 
 ## Configuration file
@@ -123,6 +124,9 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 - Arguments can be passed with different syntax.
   - Prefixes like `+`, `-`, `--`, `--no-`, and `--save-` are allowed for supported arguments outside `-for=`.
   - For unsupported arguments outside `-for=`, use the [syntax of mkvmerge options](https://mkvtoolnix.download/doc/mkvmerge.html).
+ 
+### Version
+`--version` displays the current version of the program and exits.
 
 ### Startdir and savedir
 
@@ -177,6 +181,8 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 - `+pro` activates Pro mode (generates a clean mkvmerge command without flags).
 
 - `+extended-log` activates extended logging.
+
+- `-search-dirs` disables file search in directories above the starting directory. It performs a recursive search in subdirectories of the starting directory.
 
 - `-linking` removes external parts of linked video.
 
@@ -252,182 +258,188 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 
 ## Examples of changing default behavior
 
-All examples are written for the Python script. If you are running the `.exe`, just replace `python generate-video-with-these-files.py` with `generate-video-with-these-files.exe`.
+All examples are written for the Python script. If you are running the `.exe`, just replace `python generate-video-with-these-files.pyz` to `generate-video-with-these-files.exe`.
+
+### Disable file search in directories above
+It will search for files recursively in subdirectories of the starting directory.
+```
+python generate-video-with-these-files.pyz -search-dirs
+```
 
 ### Change start directory
 ```
-python generate-video-with-these-files.py -start-dir="path to the directory"
+python generate-video-with-these-files.pyz -start-dir="path to the directory"
 ```
 
 ### Change save directory
 ```
-python generate-video-with-these-files.py -save-dir="path to the directory"
+python generate-video-with-these-files.pyz -save-dir="path to the directory"
 ```
 
 ### Get a clean command 'mkvmerge -o outfile file1 file2 file3'
 ```
-python generate-video-with-these-files.py +pro
+python generate-video-with-these-files.pyz +pro
 ```
 
 ### Set priority language for sorting tracks
 ```
-python generate-video-with-these-files.py -locale=eng
+python generate-video-with-these-files.pyz -locale=eng
 ```
 
 ### Set default track
 ```
-python generate-video-with-these-files.py -for="target" +default
+python generate-video-with-these-files.pyz -for="target" +default
 ```
 
 ### Set track names
 For external tracks:
 ```
-python generate-video-with-these-files.py -tname="track name"
+python generate-video-with-these-files.pyz -tname="track name"
 ```
 
 For video:
 ```
-python generate-video-with-these-files.py -for=video --track-name trackID:"track name"
+python generate-video-with-these-files.pyz -for=video --track-name trackID:"track name"
 ```
 
 ### Set track languages
 For external tracks:
 ```
-python generate-video-with-these-files.py -tlang=language
+python generate-video-with-these-files.pyz -tlang=language
 ```
 
 For video:
 ```
-python generate-video-with-these-files.py -for=video --language trackID:language
+python generate-video-with-these-files.pyz -for=video --language trackID:language
 ```
 
 
 ### Set positive forced flags
 Only for subtitles (default limit is 1, you may omit it):
 ```
-python generate-video-with-these-files.py +forced-signs +lim-forced-signs=1
+python generate-video-with-these-files.pyz +forced-signs +lim-forced-signs=1
 ```
 
 For tracks of each type:
 ```
-python generate-video-with-these-files.py +forced +lim-forced-ttype=1
+python generate-video-with-these-files.pyz +forced +lim-forced-ttype=1
 ```
 
 ### Set negative default flags
 ```
-python generate-video-with-these-files.py -lim-default-ttype=0
+python generate-video-with-these-files.pyz -lim-default-ttype=0
 ```
 
 ### Set negative enabled flags
 ```
-python generate-video-with-these-files.py -lim-enabled-ttype=0
+python generate-video-with-these-files.pyz -lim-enabled-ttype=0
 ```
 
 ### Change output file names
 Set the prefix of the name. The file number and the `.mkv` extension will be added at the end:
 ```
-python generate-video-with-these-files.py -out-pname="prefix "
+python generate-video-with-these-files.pyz -out-pname="prefix "
 ```
 
 Set the suffix of the name after the file number. The `.mkv` extension will be automatically added at the end:
 ```
-python generate-video-with-these-files.py -out-pname-tail=" suffix"
+python generate-video-with-these-files.pyz -out-pname-tail=" suffix"
 ```
 
 #### Example to set name 'Death Note - episodeNumber (BDRip 1920x1080).mkv'
 ```
-python generate-video-with-these-files.py -out-pname="Death Note - " -out-pname-tail=" (BDRip 1920x1080)"
+python generate-video-with-these-files.pyz -out-pname="Death Note - " -out-pname-tail=" (BDRip 1920x1080)"
 ```
 
 ### Add only external audio / subtitles / fonts
 Audio:
 ```
-python generate-video-with-these-files.py +audio -subs -fonts
+python generate-video-with-these-files.pyz +audio -subs -fonts
 ```
 
 Subtitles:
 ```
-python generate-video-with-these-files.py +subs -audio -fonts
+python generate-video-with-these-files.pyz +subs -audio -fonts
 ```
 
 Fonts:
 ```
-python generate-video-with-these-files.py +fonts -audio -subs
+python generate-video-with-these-files.pyz +fonts -audio -subs
 ```
 
 ### Add tracks to original ones, not replace them
 ```
-python generate-video-with-these-files.py +orig-audio +orig-subs
+python generate-video-with-these-files.pyz +orig-audio +orig-subs
 ```
 
 ### Replace original tracks with external ones, not add them
 ```
-python generate-video-with-these-files.py -orig-audio -orig-subs -orig-fonts
+python generate-video-with-these-files.pyz -orig-audio -orig-subs -orig-fonts
 ```
 
 ### Remove all audio / subtitles / fonts tracks
 Audio:
 ```
-python generate-video-with-these-files.py -audio -orig-audio
+python generate-video-with-these-files.pyz -audio -orig-audio
 ```
 
 Subtitles:
 ```
-python generate-video-with-these-files.py -no-subs -orig-subs
+python generate-video-with-these-files.pyz -no-subs -orig-subs
 ```
 
 Fonts:
 ```
-python generate-video-with-these-files.py -fonts -orig-fonts
+python generate-video-with-these-files.pyz -fonts -orig-fonts
 ```
 
 ### Process only a part of the files
 Via generation range.
 In this case, files will only be created for the specified range.
 ```
-python generate-video-with-these-files.py -range-gen=8-10
+python generate-video-with-these-files.pyz -range-gen=8-10
 ```
 
 
 Via generation limit.
 In this case, a specified number of files will be created. Files will be iterated from the beginning. If the output file exists, the generation counter will not increase, and the next file will be taken.
 ```
-python generate-video-with-these-files.py -lim-gen=4
+python generate-video-with-these-files.pyz -lim-gen=4
 ```
 
 ### Disable track sorting
 ```
-python generate-video-with-these-files.py -track-orders
+python generate-video-with-these-files.pyz -track-orders
 ```
 
 ### Disable sorting of existing fonts in the video container
 ```
-python generate-video-with-these-files.py -sort-orig-fons
+python generate-video-with-these-files.pyz -sort-orig-fons
 ```
 
 ### Remove chapters and global tags from files
 ```
-python generate-video-with-these-files.py -chapters -global-tags
+python generate-video-with-these-files.pyz -chapters -global-tags
 ```
 
 ### Do not set track names
 ```
-python generate-video-with-these-files.py -tnames
+python generate-video-with-these-files.pyz -tnames
 ```
 
 ### Do not set track languages
 ```
-python generate-video-with-these-files.py -tlangs
+python generate-video-with-these-files.pyz -tlangs
 ```
 
 ### Disable automatic flag setting for forced, default, enabled, trackname, and language
 ```
-python generate-video-with-these-files.py -forceds -defaults -enableds -tnames -tlangs
+python generate-video-with-these-files.pyz -forceds -defaults -enableds -tnames -tlangs
 ```
 
 ### Do not add files from a specific directory
 ```
-python generate-video-with-these-files.py -for="path to the directory" -files
+python generate-video-with-these-files.pyz -for="path to the directory" -files
 ```
 
 
@@ -438,7 +450,8 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 - All arguments can be written in a longer and more understandable form. The following abbreviations are used (words in arguments listed with `|` are interchangeable):
 ```
 'pro-mode' | 'pro' 
-'directory' | 'dir' 
+'directory' | 'dir'
+'directories' | 'dirs'
 'output' | 'out' 
 'partname' | 'pname' 
 'limit' | 'lim' 
@@ -455,6 +468,7 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 'trackname' | 'tname' 
 'track_lang' | 'lang' 
 'tlang' | 'lang'
+'remove' | 'rm'
 ```
 
 
@@ -467,8 +481,8 @@ python generate-video-with-these-files.py -for="path to the directory" -files
 
 ## Как этим пользоваться
 
-1. Скачайте [исполняемый файл](https://github.com/nujievik/generate-video-with-these-files-script/releases) (.exe) или Python [скрипт](https://github.com/nujievik/generate-video-with-these-files-script/blob/main/generate-video-with-these-files.py).
-2. Если используете Python скрипт, установите [зависимости](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8).
+1. [Скачайте](https://github.com/nujievik/generate-video-with-these-files-script/releases) исполняемый файл (.exe) для Windows x64 или универсальный набор скриптов (.pyz).
+2. Если используете **набор скриптов**, установите [зависимости](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8).
 3. Запустите в директории, содержащей видео или внешние файлы.
 
 Поведение по умолчанию можно изменить, настроив [файл конфигурации](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%A4%D0%B0%D0%B9%D0%BB-%D0%BA%D0%BE%D0%BD%D1%84%D0%B8%D0%B3%D1%83%D1%80%D0%B0%D1%86%D0%B8%D0%B8) или передав [аргументы командной строки](https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%90%D1%80%D0%B3%D1%83%D0%BC%D0%B5%D0%BD%D1%82%D1%8B-%D0%BA%D0%BE%D0%BC%D0%B0%D0%BD%D0%B4%D0%BD%D0%BE%D0%B9-%D1%81%D1%82%D1%80%D0%BE%D0%BA%D0%B8). В частности, можно не копировать скрипт в директорию с файлами, а просто передать ее в качестве аргумента:
@@ -491,16 +505,17 @@ generate-video-with-these-files.exe "директория с файлами"
 
 ## Описание
 
-Этот проект включает Python-скрипт, который использует компоненты **Python**, **MKVToolNix** и **FFmpeg**. Исходный код доступен в репозитории.
+Проект включает набор Python-скриптов, которые используют пользовательские компоненты **Python**, **MKVToolNix** и **FFmpeg**. Исходный код скриптов доступен в репозитории.
 
-Для удобства использования для Windows в разделе [Releases](https://github.com/nujievik/generate-video-with-these-files-script/releases) доступен скомпилированный исполняемый файл, который включает:
+Для удобства использования в разделе [Releases](https://github.com/nujievik/generate-video-with-these-files-script/releases) для Windows x64 доступен скомпилированный исполняемый файл (.exe). А для остальных систем - упакованный набор скриптов (.pyz).
 
-- **generate-video-with-these-files.py** скрипт, скомпилированный с помощью **PyInstaller**.
+Исполняемый файл для Windows содержит все необходимые для работы компоненты:
+- Набор скриптов из репозитория, скомпилированный с помощью **PyInstaller**.
 - Встроенную скомпилированную версию **Python**, необходимую для работы скрипта.
-- Скомпилированные компоненты MKVToolNix (полученные с официального [сайта MKVToolNix](https://mkvtoolnix.download/downloads.html#windows)).
+- Скомпилированные компоненты **MKVToolNix** (полученные с официального [сайта MKVToolNix](https://mkvtoolnix.download/downloads.html#windows)).
 - Скомпилированную версию **FFprobe** (полученную из релиза FFmpeg win64-gpl от BtbN на [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases)).
 
-Все компоненты (скрипт, Python, MKVToolNix и FFprobe) включены в один исполняемый файл. Это позволяет использовать скрипт без необходимости устанавливать Python, MKVToolNix и FFprobe.
+Упакованный набор скриптов (.pyz) собран с помощью **zipapp** и требует установки [зависимостей]((https://github.com/nujievik/generate-video-with-these-files-script/tree/main?tab=readme-ov-file#%D0%B7%D0%B0%D0%B2%D0%B8%D1%81%D0%B8%D0%BC%D0%BE%D1%81%D1%82%D0%B8)).
 
 ## Функциональность
 
@@ -553,7 +568,7 @@ generate-video-with-these-files.exe "директория с файлами"
 
 Чтобы снизить трату дискового ресурса, можно отрезать прилинкованные видео части (обычно это опенинг и эндинг). Тогда промежуточные части записываться не будут, будет сразу писаться итоговое видео. Сделать это можно с помощью флага:
 ```
-python generate-video-with-these-files.py -linking
+python generate-video-with-these-files.pyz -linking
 ```
 
 ## Файл конфигурации
@@ -587,6 +602,9 @@ python generate-video-with-these-files.py -linking
 - Аргументы можно передавать с разным синтаксисом. 
   - допустимы префиксы `+`, `-`, `--`, `--no-`, `--save-` для поддерживаемых вне `-for=` аргументов. 
   - для неподдерживаемых вне `-for=` нужно соблюдать [синтаксис опций mkvmerge](https://mkvtoolnix.download/doc/mkvmerge.html).
+
+### Версия
+`--version` выводит текущую версию программы и завершает работу.
 
 ### Стартдир и сейвдир
 
@@ -641,6 +659,8 @@ python generate-video-with-these-files.py -linking
 - `+pro` активирует Pro режим (дает чистую команду mkvmerge без флагов).
 
 - `+extended-log` активирует расширенный лог.
+
+- `-search-dirs` отключает поиск файлов в директориях выше директории старта. Используется рекурсивный поиск в поддиректориях старта.
 
 - `-linking` удаляет внешние части линкованного видео.
 
@@ -713,175 +733,181 @@ python generate-video-with-these-files.py -linking
 
 ## Примеры изменения поведения по умолчанию
 
-Все примеры написаны для python скрипта. Если вы запускаете `.exe` просто замените `python generate-video-with-these-files.py` на `generate-video-with-these-files.exe`
+Все примеры написаны для Python. Если вы запускаете `.exe` просто замените `python generate-video-with-these-files.pyz` на `generate-video-with-these-files.exe`
+
+### Отключить поиск файлов в директориях выше
+Будет искать файлы рекурсивно в поддиректориях директории старта
+```
+python generate-video-with-these-files.pyz -search-dirs
+```
 
 ### Изменить директорию старта
 ```
-python generate-video-with-these-files.py -start-dir="путь к директории"
+python generate-video-with-these-files.pyz -start-dir="путь к директории"
 ```
 
 ### Изменить директорию сохранения
 ```
-python generate-video-with-these-files.py -save-dir="путь к директории"
+python generate-video-with-these-files.pyz -save-dir="путь к директории"
 ```
 
 ### Получить чистую команду 'mkvmerge -o outfile file1 file2 file3'
 ```
-python generate-video-with-these-files.py +pro
+python generate-video-with-these-files.pyz +pro
 ```
 
 ### Установить приоритетный язык для сортировки дорожек
 ```
-python generate-video-with-these-files.py -locale=eng
+python generate-video-with-these-files.pyz -locale=eng
 ```
 
 ### Установить дорожку по умолчанию
 ```
-python generate-video-with-these-files.py -for="для чего" +default
+python generate-video-with-these-files.pyz -for="для чего" +default
 ```
 
 ### Установить имя дорожек
 Для внешних дорожек:
 ```
-python generate-video-with-these-files.py -tname="имя дорожки"
+python generate-video-with-these-files.pyz -tname="имя дорожки"
 ```
 
 Для видео:
 ```
-python generate-video-with-these-files.py -for=video --track-name *IDдорожки*:"имя дорожки"
+python generate-video-with-these-files.pyz -for=video --track-name *IDдорожки*:"имя дорожки"
 ```
 
 ### Установить язык дорожек
 Для внешних дорожек:
 ```
-python generate-video-with-these-files.py -tlang=язык
+python generate-video-with-these-files.pyz -tlang=язык
 ```
 
 Для видео:
 ```
-python generate-video-with-these-files.py -for=video --language *IDдорожки*:язык
+python generate-video-with-these-files.pyz -for=video --language *IDдорожки*:язык
 ```
 
 ### Установить положительные forced
 Только для надписей (по умолчанию лимит 1, можно не задавать):
 ```
-python generate-video-with-these-files.py +forced-signs +lim-forced-signs=1
+python generate-video-with-these-files.pyz +forced-signs +lim-forced-signs=1
 ```
 
 Для дорожек каждого типа:
 ```
-python generate-video-with-these-files.py +forced +lim-forced-ttype=1
+python generate-video-with-these-files.pyz +forced +lim-forced-ttype=1
 ```
 
 ### Установить отрицательные default
 ```
-python generate-video-with-these-files.py -lim-default-ttype=0
+python generate-video-with-these-files.pyz -lim-default-ttype=0
 ```
 
 ### Установить отрицательные enabled
 ```
-python generate-video-with-these-files.py -lim-enabled-ttype=0
+python generate-video-with-these-files.pyz -lim-enabled-ttype=0
 ```
 
 ### Изменить имя выходных файлов
 Установить начало имени. В конце будет добавлен номер файла и расширение .mkv.:
 ```
-python generate-video-with-these-files.py -out-pname="prefix "
+python generate-video-with-these-files.pyz -out-pname="prefix "
 ```
 Установить хвост имени после номера файла. В конце автоматически добавится .mkv:
 ```
-python generate-video-with-these-files.py -out-pname-tail=" suffix"
+python generate-video-with-these-files.pyz -out-pname-tail=" suffix"
 ```
 
 #### Пример установить имя 'Death Note - номерсерии (BDRip 1920x1080).mkv'
 ```
-python generate-video-with-these-files.py -out-pname="Death Note - " -out-pname-tail=" (BDRip 1920x1080)"
+python generate-video-with-these-files.pyz -out-pname="Death Note - " -out-pname-tail=" (BDRip 1920x1080)"
 ```
 
 ### Добавить только внешние аудио / субтитры / шрифты
 Аудио:
 ```
-python generate-video-with-these-files.py +audio -subs -fonts
+python generate-video-with-these-files.pyz +audio -subs -fonts
 ```
 Субтитры:
 ```
-python generate-video-with-these-files.py +subs -audio -fonts
+python generate-video-with-these-files.pyz +subs -audio -fonts
 ```
 Шрифты:
 ```
-python generate-video-with-these-files.py +fonts -audio -subs
+python generate-video-with-these-files.pyz +fonts -audio -subs
 ```
 
 ### Добавить дорожки к оригинальным, а не заменить оригинальные
 ```
-python generate-video-with-these-files.py +orig-audio +orig-subs
+python generate-video-with-these-files.pyz +orig-audio +orig-subs
 ```
 
 ### Заменить оригинальные дорожки внешними, а не добавить
 ```
-python generate-video-with-these-files.py -orig-audio -orig-subs -orig-fonts
+python generate-video-with-these-files.pyz -orig-audio -orig-subs -orig-fonts
 ```
 
 ### Удалить все дорожки аудио / субтитров / все шрифты
 Аудио:
 ```
-python generate-video-with-these-files.py -audio -orig-audio
+python generate-video-with-these-files.pyz -audio -orig-audio
 ```
 Субтитры:
 ```
-python generate-video-with-these-files.py -no-subs -orig-subs
+python generate-video-with-these-files.pyz -no-subs -orig-subs
 ```
 Шрифты:
 ```
-python generate-video-with-these-files.py -fonts -orig-fonts
+python generate-video-with-these-files.pyz -fonts -orig-fonts
 ```
 
 ### Обработать только часть файлов
 Через диапазон генерации.
 В этом случае создаются файлы только для указанного диапазона.
 ```
-python generate-video-with-these-files.py -range-gen=8-10
+python generate-video-with-these-files.pyz -range-gen=8-10
 ```
 
 Через лимит генерации.
 В этом случае создастся заданное количество файлов. Файлы перебираются с начала. Если выходной файл существует, счетчик генерации не увеличивается, берется следующий файл.
 ```
-python generate-video-with-these-files.py -lim-gen=4
+python generate-video-with-these-files.pyz -lim-gen=4
 ```
 
 ### Отключить сортировку дорожек
 ```
-python generate-video-with-these-files.py -track-orders
+python generate-video-with-these-files.pyz -track-orders
 ```
 
 ### Отключить сортировку уже имеющихся в видеоконтейнере шрифтов
 ```
-python generate-video-with-these-files.py -sort-orig-fons
+python generate-video-with-these-files.pyz -sort-orig-fons
 ```
 
 ### Удалить главы и теги из файлов
 ```
-python generate-video-with-these-files.py -chapters -global-tags
+python generate-video-with-these-files.pyz -chapters -global-tags
 ```
 
 ### Не проставлять имена дорожек
 ```
-python generate-video-with-these-files.py -tnames
+python generate-video-with-these-files.pyz -tnames
 ```
 
 ### Не проставлять языки дорожек
 ```
-python generate-video-with-these-files.py -tlangs
+python generate-video-with-these-files.pyz -tlangs
 ```
 
 ### Отключить автоматическое проставление флагов forced, default, enabled, trackname, language
 ```
-python generate-video-with-these-files.py -forceds -defaults -enableds -tnames -tlangs
+python generate-video-with-these-files.pyz -forceds -defaults -enableds -tnames -tlangs
 ```
 
 ### Не добавлять файлы из определенной директории
 ```
-`python generate-video-with-these-files.py -for="путь к директории" -files`
+`python generate-video-with-these-files.pyz -for="путь к директории" -files`
 ```
 
 
@@ -893,6 +919,7 @@ python generate-video-with-these-files.py -forceds -defaults -enableds -tnames -
 ```
 'pro-mode' | 'pro'
 'directory' | 'dir'
+'directories' | 'dirs'
 'output' | 'out'
 'partname' | 'pname'
 'limit' | 'lim'
@@ -909,4 +936,5 @@ python generate-video-with-these-files.py -forceds -defaults -enableds -tnames -
 'trackname' | 'tname'
 'track_lang' | 'lang'
 'tlang' | 'lang'
+'remove' | 'rm'
 ```
