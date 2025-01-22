@@ -31,6 +31,7 @@ DEFAULT = {
     'search_dirs': True,
     'global_tags': True,
     'chapters': True,
+    'sub_charsets': True,
     'files': True,
     'video': True,
     'audio': True,
@@ -91,6 +92,7 @@ STRICT_BOOL = {
            'forced',
            'forced_signs',
            't_orders',
+           'sub_charsets',
     }
 }
 STRICT_BOOL[False] = TYPES['bool'] - STRICT_BOOL[True]

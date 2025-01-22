@@ -1,12 +1,13 @@
 import flags.merge
 from . import orders, params
+from file_info import encoding_detect
 
 def get_common_part_command():
     part = []
 
     for key in ['video', 'global_tags', 'chapters']:
         if not flags.merge.bool_flag(key):
-            part.append(f'--no-{key}')
+            part.append(f"--no-{key.replace('_', '-')}")
 
     return part + flags.merge.for_flag('options')
 
@@ -104,6 +105,10 @@ def set_tids_flags_pcommand():
                     val = params.info.get(str(filepath), {}).get(tid, {}).get('tlang', '')
                     if val:
                         part.extend(['--language', f'{tid}:{val}'])
+
+            if all(x in {'signs', 'subs'} for x in [filegroup, params.trackgroup]):
+                if flg('sub_charsets'):
+                    part.extend(encoding_detect.get_sub_charset_pcommand(filepath, tid))
 
             cmd[position:position] = part
             params.info['position'][fid] += len(part)

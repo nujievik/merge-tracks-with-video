@@ -34,7 +34,6 @@ mkv_cutted = False
 mkv_split = False
 rm_linking = False
 extracted_orig = False
-setted_cp1251 = False
 replace_audio = False
 replace_subs = False
 replace_font = False

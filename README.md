@@ -17,6 +17,7 @@ generate-video-with-these-files.exe "directory with files"
 ## Dependencies
 
 - [Python](https://www.python.org/downloads/)
+- [Chardet](https://github.com/chardet/chardet)
 - [MKVToolNix](https://mkvtoolnix.download/)
 - [FFprobe](https://ffmpeg.org/download.html) (for splitted MKV)
 
@@ -24,6 +25,7 @@ generate-video-with-these-files.exe "directory with files"
 
 - **Own Code**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 - **Python**: [PSF License](https://www.python.org/psf/license/)
+- **Chardet**: [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 - **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 - **FFprobe** (part of FFmpeg): [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 
@@ -35,7 +37,6 @@ For convenience, a compiled executable file (.exe) for Windows x64 is available 
 
 The executable file for Windows contains all the necessary components for the operation:
 - The set of scripts from the repository, compiled using **PyInstaller**.
-- A built-in compiled version of **Python**, required for the script to work.
 - Precompiled components of **MKVToolNix** (sourced from the official [MKVToolNix website](https://mkvtoolnix.download/downloads.html#windows)).
 - Precompiled version of **FFprobe** (sourced from BtbN's FFmpeg win64-gpl release on [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases)).
 
@@ -50,7 +51,8 @@ The packaged script set (.pyz) is assembled using **zipapp** and requires the in
 - Merges linked (mkv segment linking) video.
 - Allows you to trim a portion of an MKV video (for MKVs with chapters).
 - Retimes audio and subtitles for linked or trimmed videos to prevent desynchronization.
-- Names audio and subtitle tracks based on their file name tail OR the directory name. The original name, if present, is preserved.
+- Sets the encoding for subtitles that are not recognized in UTF.
+- Names audio and subtitle tracks based on their file name tail OR the directory name. (The original name, if present, is preserved).
 - Sets the language of audio and subtitle tracks based on keywords in the file paths.
 - Sets the system locale language as the priority for track sorting.
   - Supports English and Russian. If not specified, defaults to Russian.
@@ -67,8 +69,7 @@ The packaged script set (.pyz) is assembled using **zipapp** and requires the in
   - Enabled is enabled for all tracks.
 - Adds fonts for subtitles to the container.
 - Sorts all fonts by name, including those already present in the container before merging.
-- Sets cp1251 encoding for subtitles not recognized in UTF-8.
-- Removes unrecognized chapters that cause errors during generation.
+- Skips unrecognized by mkvmerge files and chapters.
 - Allows significant changes to default behavior by adding call arguments.
 - Supports any arguments supported by `mkvmerge`.
 - Allows setting merge arguments for all files in the directory, for file groups (video, audio, titles, subtitles), and for individual files.
@@ -183,6 +184,8 @@ This mode is activated by passing the `+pro` argument. It disables the sorting o
 - `+extended-log` activates extended logging.
 
 - `-search-dirs` disables file search in directories above the starting directory. It performs a recursive search in subdirectories of the starting directory.
+
+- `-sub-charsets` disables setting the encoding for subtitles that are not recognized in UTF.
 
 - `-linking` removes external parts of linked video.
 
@@ -493,6 +496,7 @@ generate-video-with-these-files.exe "директория с файлами"
 ## Зависимости
 
 - [Python](https://www.python.org/downloads/)
+- [Chardet](https://github.com/chardet/chardet)
 - [MKVToolNix](https://mkvtoolnix.download/)
 - [FFprobe](https://ffmpeg.org/download.html) (для разделенного MKV)
 
@@ -500,6 +504,7 @@ generate-video-with-these-files.exe "директория с файлами"
 
 - **Собственный код**: [GNU General Public License v3.0](https://www.gnu.org/licenses/gpl-3.0.html)
 - **Python**: [PSF License](https://www.python.org/psf/license/)
+- **Chardet**: [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 - **MKVToolNix**: [GNU General Public License v2.0](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
 - **FFprobe** (часть FFmpeg): [GNU Lesser General Public License v2.1](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
 
@@ -511,7 +516,6 @@ generate-video-with-these-files.exe "директория с файлами"
 
 Исполняемый файл для Windows содержит все необходимые для работы компоненты:
 - Набор скриптов из репозитория, скомпилированный с помощью **PyInstaller**.
-- Встроенную скомпилированную версию **Python**, необходимую для работы скрипта.
 - Скомпилированные компоненты **MKVToolNix** (полученные с официального [сайта MKVToolNix](https://mkvtoolnix.download/downloads.html#windows)).
 - Скомпилированную версию **FFprobe** (полученную из релиза FFmpeg win64-gpl от BtbN на [GitHub](https://github.com/BtbN/FFmpeg-Builds/releases)).
 
@@ -526,7 +530,8 @@ generate-video-with-these-files.exe "директория с файлами"
 - Объединяет линкованное (mkv segment linking) видео.
 - Позволяет обрезать часть mkv видео (для mkv с chapters).
 - Ретаймит аудио и субтитры для объединенного линкованного или обрезанного видео, чтобы не было рассинхрона.
-- Называет дорожки аудио и субтитров по хвосту их имени ИЛИ по имени директории. Исходное название, если оно есть, копируется без изменений.
+- Выставляет кодировку для нераспознанных в UTF субтитров.
+- Называет дорожки аудио и субтитров по хвосту их имени ИЛИ по имени директории. (Исходное название, если оно есть, копируется без изменений).
 - Устанавливает язык дорожек аудио и субтитров по ключевым словам в пути к файлам.
 - Устанавливает язык системной локали приоритетным для сортировки дорожек.
   - поддерживаются eng и rus. Если не определено - rus.
@@ -542,9 +547,8 @@ generate-video-with-these-files.exe "директория с файлами"
   - default включено для одной дорожки каждого типа (первой в сортировке). Если локализованная аудиодорожка установлена default или default установлена аудиорожка на языке субтитров, то default для субтитров выключено.
   - enabled для всех включено
 - Добавляет шрифты для субтитров в контейнер.
-- Сортирует все шрифты по имени, в том числе уже имевшиеся в контейнере до объединения.
-- Ставит кодировку cp1251 для нераспознанных в UTF-8 субтитров.
-- Удаляет нераспознанные chapters, которые вызывают ошибку генерации.
+- Сортирует все шрифты по имени. (В том числе уже имевшиеся в контейнере до объединения).
+- Пропускает нераспознанные mkvmerge файлы и chapters.
 - Позволяет значительно изменить поведение по умолчанию, добавив аргументы вызова.
 - Поддерживает любые аргументы, поддерживаемые mkvmerge.
 - Позволяет задать аргументы объединения для всех файлов в директории, для групп файлов (видео, аудио, надписи, субтитры) и для отдельных файлов.
@@ -661,6 +665,8 @@ python generate-video-with-these-files.pyz -linking
 - `+extended-log` активирует расширенный лог.
 
 - `-search-dirs` отключает поиск файлов в директориях выше директории старта. Используется рекурсивный поиск в поддиректориях старта.
+
+- `-sub-charsets` отключает выставление кодировки для нераспознанных в UTF субтитров.
 
 - `-linking` удаляет внешние части линкованного видео.
 

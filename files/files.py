@@ -88,6 +88,10 @@ EXTENSIONS = {
     'retime_subs': {
         '.ass'
     },
+
+    'single_track': {
+        '.srt'
+    },
 }
 EXTENSIONS['video'] = EXTENSIONS['container'].union(EXTENSIONS['video'])
 EXTENSIONS['audio'] = EXTENSIONS['container'].union(EXTENSIONS['audio'])

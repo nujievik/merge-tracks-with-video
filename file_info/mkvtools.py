@@ -1,4 +1,5 @@
 import re
+from pathlib import Path
 
 import executor
 import type_convert
@@ -10,6 +11,9 @@ def file_has_video_track(filepath):
 
 def get_track_type_tids(filepath, track_type):
     tids = []
+    if filepath.suffix in EXTENSIONS['single_track']:
+        return [0]
+
     track_type = track_type if track_type != "subs" else "subtitles"
     pattern = r"Track ID (\d+):"
 

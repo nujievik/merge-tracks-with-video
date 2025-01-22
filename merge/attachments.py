@@ -36,18 +36,18 @@ def extract_orig_attachments():
             if len(command) > 3:
                 executor.execute(command, get_stdout=False)
 
-            if ind > len(params.video_list):
-                flags.set_flag.for_flag(str(fpath), 'fonts', False)
+                if ind > len(params.video_list):
+                    flags.set_flag.for_flag(str(fpath), 'fonts', False)
 
 def sort_orig_fonts():
     if not flags.merge.bool_flag('sort_orig_fonts'):
         return
 
+    if params.rm_linking:
+        set_params.set_file_lists(['fonts'])
+
     extract_orig_attachments()
     params.orig_fonts_list = files.find_ext.find_ext_files(params.orig_attachs_dir, EXTENSIONS['fonts'])
 
     if params.orig_fonts_list:
-        if params.rm_linking:
-            set_params.set_file_lists(['fonts'])
-
         params.fonts_list = rm_duplicates_fonts_sort(params.fonts_list + params.orig_fonts_list)

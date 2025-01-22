@@ -25,12 +25,11 @@ def set_common_params():
     params.count_gen_before = 0
 
 def set_file_lists(fgroups=[]):
-    params.video_list = [params.video]
     param = flags.merge.bool_flag
 
     if not fgroups:
         fgroups = ['audio', 'subs']
-        if not params.fonts_list and files['fonts']:
+        if params.orig_fonts_list or not params.fonts_list and files['fonts']:
             fgroups.append('fonts')
 
     for fgroup in fgroups:
@@ -47,7 +46,10 @@ def set_file_lists(fgroups=[]):
 
         setattr(params, f'{fgroup}_list', filepaths)
 
+    params.orig_fonts_list = []
+
 def set_file_params():
+    params.video_list = [params.video]
     param = flags.merge.bool_flag
 
     params.pro = param('pro')
@@ -58,17 +60,17 @@ def set_file_params():
         setattr(params, f'replace_{fgroup}', value)
 
     params.mkv_linking = params.mkv_cutted = params.mkv_split = False
-    params.extracted_orig = params.rm_linking = params.setted_cp1251 = False
+    params.extracted_orig = params.rm_linking = False
 
     params.matching_keys = {}
     params.new_chapters = ''
 
     set_file_lists()
 
-def set_output_path(fid):
+def set_output_path():
     if params.out_pname or params.out_pname_tail:
         num_digits = len(str(len(files['video'])))
-        ind = f'{fid+1:0{num_digits}d}'
+        ind = f'{params.ind+1:0{num_digits}d}'
 
         stem = f'{params.out_pname}{ind}{params.out_pname_tail}'
 
