@@ -139,5 +139,12 @@ KEYS = {
             'eng',
             'en'
         },
+
+        'jpn': {
+            'japanese',
+            'jpn',
+            'ja',
+            'jp'
+        },
     },
 }

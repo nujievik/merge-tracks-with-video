@@ -11,8 +11,9 @@ def file_has_video_track(filepath):
 
 def get_track_type_tids(filepath, track_type):
     tids = []
+
     if filepath.suffix in EXTENSIONS['single_track']:
-        return [0]
+        return [0] if filepath.suffix in EXTENSIONS[track_type] else []
 
     track_type = track_type if track_type != "subs" else "subtitles"
     pattern = r"Track ID (\d+):"
