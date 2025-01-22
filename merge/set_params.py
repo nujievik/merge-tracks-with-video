@@ -67,7 +67,9 @@ def set_file_params():
 
 def set_output_path(fid):
     if params.out_pname or params.out_pname_tail:
-        ind = f'{fid+1:0{len(str(len(params.video_list)))}d}'
+        num_digits = len(str(len(files['video'])))
+        ind = f'{fid+1:0{num_digits}d}'
+
         stem = f'{params.out_pname}{ind}{params.out_pname_tail}'
 
     else:
