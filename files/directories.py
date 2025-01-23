@@ -75,7 +75,11 @@ def find_subsdir_after_audiodir(dirs):
     return find_subsdir_by_sort(video_list, dirs)
 
 def find_fontdir(dirs):
-    for search_dir in [dirs['subs'], dirs['subs'].parent]:
+    potentials = [dirs['subs']]
+    if str(dirs['subs']) != str(dirs['video']):
+        potentials.append(dirs['subs'].parent)
+
+    for search_dir in potentials:
         fonts = find_ext.find_ext_files(search_dir, EXTENSIONS['fonts'], recursive=True)
         if fonts:
             return fonts[0].parent
