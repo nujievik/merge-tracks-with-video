@@ -3,7 +3,7 @@ from pathlib import Path
 
 import executor
 import type_convert
-from files.files import EXTENSIONS
+from .keys import EXTENSIONS, KEYS
 
 def file_has_video_track(filepath):
     command = ['mkvmerge', '-i', str(filepath)]
@@ -45,22 +45,23 @@ def get_file_info(filepath, query, tid=None):
 
     stdout_lines = executor.execute(['mkvinfo', str(filepath)]).splitlines()
     if tid is not None:
-        stdout_lines = cut_stdout_for_track(stdout_lines, tid+1) #tid mkvinfo +1 to mkvmerge
+        stdout_lines = cut_stdout_for_track(stdout_lines, tid+1)
+                                     #tid mkvinfo +1 to mkvmerge
 
     for line in stdout_lines:
         if query in line:
+            value = line.split(':', 1)[1].strip()
+
             if "Segment UID:" in query:
-                uid_hex = line.strip()
-                return "".join(byte[2:] for byte in uid_hex.split() if byte.startswith("0x"))
+                return ''.join(
+                    byte[2:] if byte.startswith('0x') else byte
+                    for byte in value.split()
+                )
 
-            match = re.search(rf".*{query}\s*(.*)", line)
+            elif "Duration:" in query:
+                return type_convert.str_to_timedelta(value)
 
-            if "Duration:" in query:
-                if match:
-                    str_duration = match.group(1).strip()
-                    return type_convert.str_to_timedelta(str_duration)
-
-            if match:
-                value = match.group(1).strip()
+            else:
                 return value if value != 'und' else ''
-    return ''
+
+    return KEYS['default_matroska'].get(query.lower(), '')
