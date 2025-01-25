@@ -18,7 +18,7 @@ def add_skips(linking=False):
 
             for flg_short, flg_long in MATCHINGS['full'].items():
                 if flg_long == flg:
-                    name.add(flg_short)
+                    names.add(flg_short)
 
     names.update({name.lower() for name in flags.merge.flag('rm_chapters', default_if_missing=True)})
 
