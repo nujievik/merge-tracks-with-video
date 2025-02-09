@@ -7,7 +7,9 @@ from . import constants, find_directories, found
 
 def init_found_attributes():
     found.stems_dict = {}
-    for attr in {'added_exts', 'search_dirs', 'searched_dirs', 'fonts'}:
+    found.fonts = {}
+
+    for attr in {'added_exts', 'search_dirs', 'searched_dirs'}:
         setattr(found, attr, set())
     for group in {'video', 'audio', 'subtitles', 'fonts'}:
         setattr(found, f'{group}_dir', '')
@@ -33,7 +35,7 @@ def set_files_from_list(fnames, sdir):
             continue
 
         if f.endswith(SUFFIXES['fonts']):
-            found.fonts.add(f'{sdir}{f}')
+            found.fonts[f] = sdir
 
         elif f.endswith(SUFFIXES['total_wo_fonts']):
             for prefix in found.prefixes:
@@ -86,20 +88,6 @@ def remove_stems_single_file():
     for stem in to_remove:
         del found.stems_dict[stem]
 
-def remove_duplicates_and_sort_fonts(fonts):
-    new_fonts = []
-    stems = set()
-
-    # For fixed size exts. If it changed, replace code to rsplit('.', 1)[0]
-    for font in fonts:
-        stem = font[:-4]
-        if not stem in stems:
-            stems.add(stem)
-            new_fonts.append(font)
-
-    new_fonts.sort(key=str.lower)
-    return new_fonts
-
 def find_all_files():
     init_found_attributes()
     set_files_non_recursive()
@@ -125,4 +113,3 @@ def find_all_files():
         set_files_recursive()
 
     remove_stems_single_file()
-    found.fonts = remove_duplicates_and_sort_fonts(found.fonts)

@@ -1,5 +1,5 @@
 stems_dict = {}
-fonts = []
+fonts = {}
 
 search_dirs = set()
 searched_dirs = set()

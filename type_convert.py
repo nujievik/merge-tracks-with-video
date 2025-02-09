@@ -1,5 +1,7 @@
 from datetime import timedelta
 
+import path_methods
+
 def str_to_number(str_in, int_num=True, non_negative=True, positive=False):
     try:
         number = int(str_in) if int_num else float(str_in)
@@ -30,4 +32,5 @@ def str_to_timedelta(time_str):
     return timedelta(seconds=total_seconds)
 
 def command_to_print_str(command):
-    return (f"{' '.join(f"'{str(item)}'" for item in command)}")
+    return (f"'{path_methods.get_file_stem(command[0])}' "
+            + f"{' '.join(f"'{item}'" for item in command[1:])}")

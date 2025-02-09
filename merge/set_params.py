@@ -21,7 +21,7 @@ def set_common_params():
     params.count_gen = params.count_gen_earlier = 0
 
 def clear_file_lists():
-    for lst in {'video', 'audio', 'subtitles', 'orig_fonts_list'}:
+    for lst in {'video', 'audio', 'subtitles'}:
         setattr(params, f'{lst}_list', [])
 
 def init_file_lists():
@@ -31,21 +31,37 @@ def init_file_lists():
             fgroup_list = getattr(params, f'{fgroup}_list')
             fgroup_list.append(fpath)
 
-    if len(params.fonts_list) != len(files.found.fonts):
-        params.fonts_list = files.found.fonts.copy()
-
 def filter_file_lists_by_flags():
     param = options.manager.get_merge_flag
 
     for fgroup in {'video', 'audio', 'subtitles'}:
-        fpaths = [f for f in getattr(params, f'{fgroup}_list')
-                  if param('files', f, fgroup)]
+        if param(fgroup):
+            fpaths = [f for f in getattr(params, f'{fgroup}_list')
+                      if param('files', f, fgroup)]
+        else:
+            fpaths = []
         setattr(params, f'{fgroup}_list', fpaths)
+
+def set_fonts_list_if_need():
+    if (not options.manager.get_merge_flag('fonts') or
+        not files.found.fonts
+        ):
+        params.fonts_list = []
+
+    # First pass; need for set_out_file and split_or_something_else
+    elif (not params.fonts_list and
+          files.found.fonts
+        ):
+        if len(files.found.fonts) != 1:
+            params.fonts_list = ['']
+        else:
+            params.fonts_list = ['', '']
 
 def set_file_lists():
     clear_file_lists()
     init_file_lists()
     filter_file_lists_by_flags()
+    set_fonts_list_if_need()
 
 def set_current_params():
     file_info.setted.info = {}
@@ -70,7 +86,7 @@ def set_current_params():
 
     for attr in {
             'mkv_linking', 'mkv_cutted', 'mkv_split', 'extracted_orig',
-            'rm_linking', 'rm_video_chapters',
+            'rm_linking', 'rm_video_chapters', 'extracted_orig_fonts'
     }:
         setattr(params, attr, False)
 

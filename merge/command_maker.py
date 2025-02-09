@@ -19,7 +19,7 @@ def get_part_command_for_video():
         part.append('--no-audio')
     if params.replace_subtitles or params.extracted_orig:
         part.append('--no-subtitles')
-    if params.orig_fonts_list or params.replace_fonts:
+    if params.replace_fonts or params.extracted_orig_fonts:
         part.append('--no-attachments')
 
     return part + get_common_part_command()

@@ -15,7 +15,7 @@ def mismatched_codec_params():
     print('Trying to generate another cutted version of the video '
           'without external video parts.')
     splitted.processing.processing_codec_error()
-    attachments.sort_orig_fonts()
+    attachments.set_fonts_list()
     params.out_file = params.out_file.replace('_merged_', '_cutted_')
 
     return True

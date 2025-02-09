@@ -76,7 +76,7 @@ def merge_all_files():
         if params.mkv_split:
             splitted.processing.processing_segments()
 
-        attachments.sort_orig_fonts()
+        attachments.set_fonts_list()
         execute_merge()
         params.count_gen += 1
 

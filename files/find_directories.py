@@ -28,11 +28,10 @@ def set_dirs_by_start_doubles():
     if not removed_stem:
         found.searched_dirs.add(f'{found.start_dir}{found.sep}')
 
-    if found.fonts:
-        found.fonts_dir = found.start_dir
-
     if found.audio_dir or found.subtitles_dir:
         found.video_dir = found.start_dir
+        if found.fonts:
+            found.fonts_dir = found.start_dir
         return True
     else:
         return False
@@ -71,22 +70,23 @@ def set_dirs_by_added_exts(added_exts, sdir, temp_fonts):
             if any(getattr(found, f'{group}_dir') for group in groups):
                 break
 
-    if temp_fonts:
-        found.fonts_dir = sdir[:-1]
+    if temp_fonts and not found.fonts_dir:
+        font = next(iter(temp_fonts))
+        found.fonts_dir = temp_fonts[font][:-1]
         found.fonts.update(temp_fonts)
 
     found.searched_dirs.add(sdir)
 
 def set_directory_files(sdir):
     sdir = path_methods.ensure_trailing_sep(sdir)
-    temp_fonts = set()
-    added_exts = set()
+    temp_fonts = {}
     stems_to_replace = {}
+    added_exts = set()
     replace = False
 
     for f in os.listdir(sdir):
         if f.endswith(SUFFIXES['fonts']):
-            temp_fonts.add(f'{sdir}{f}')
+            temp_fonts[f] = sdir
 
         elif f.endswith(SUFFIXES['total_wo_fonts']):
             stem, ext = f.rsplit('.', 1)
@@ -117,6 +117,8 @@ def set_directory_files(sdir):
         return False
 
 def find_subsdir_after_audiodir():
+    pass
+    """
     temp_subtitles = set()
     for sdir, _, fnames in os.walk(found.video_dir):
         sdir = path_methods.ensure_trailing_sep(sdir)
@@ -127,6 +129,7 @@ def find_subsdir_after_audiodir():
             if f.endswith(SUFFIXES['subtitles']):
                 temp_subtitles.add(f)
                 break
+    """
 
 def find_fontdir():
     potentials = [found.subtitles_dir]
@@ -134,8 +137,8 @@ def find_fontdir():
         potentials.append(os.path.dirname(found.subtitles_dir))
     searched = set()
 
-    for sdir in potentials:
-        for sdir, _, fnames in os.walk(sdir):
+    for directory in potentials:
+        for sdir, _, fnames in os.walk(directory):
             sdir = path_methods.ensure_trailing_sep(sdir)
             if sdir in searched:
                 continue
@@ -143,7 +146,7 @@ def find_fontdir():
 
             for f in fnames:
                 if f.endswith(SUFFIXES['fonts']):
-                    found.fonts.add(f'{sdir}{f}')
+                    found.fonts[f] = sdir
             if found.fonts:
                 found.fonts_dir = os.path.normpath(sdir)
                 return

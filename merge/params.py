@@ -1,10 +1,10 @@
 command_parts = {}
 counters_fde_flags = {}
+fonts_dict = {}
 matching_keys = {}
 
 audio_list = []
 fonts_list = []
-orig_fonts_list = []
 subtitles_list = []
 video_list = []
 
@@ -33,6 +33,7 @@ tid = 0
 
 default_locale_audio = False
 extracted_orig = False
+extracted_orig_fonts = False
 mkv_cutted = False
 mkv_linking = False
 mkv_split = False
