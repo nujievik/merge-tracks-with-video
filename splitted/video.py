@@ -2,7 +2,7 @@ import os
 from datetime import timedelta
 
 import executor
-import files.found
+import files.find
 import options.set_methods
 import file_info.by_ffprobe
 import file_info.by_mkvtools
@@ -12,13 +12,12 @@ def get_base_dir_fpaths():
     if params.base_dir_fpaths:
         return params.base_dir_fpaths
 
-    if len(files.found.stems_dict) != len(files.found.prefixes):
-        files.found.prefixes = tuple(files.found.stems_dict.keys())
+    files.find.set_prefixes_if_need()
 
     params.base_dir = os.path.dirname(params.base_video) + os.sep
     fnames = os.listdir(params.base_dir)
     filtered_by_prefixes = [
-        f for f in fnames if not f.startswith(files.found.prefixes)
+        f for f in fnames if not f.startswith(files.find.found.prefixes)
     ]
     params.base_dir_fpaths = [
         f'{params.base_dir}{f}' for f in filtered_by_prefixes + fnames]

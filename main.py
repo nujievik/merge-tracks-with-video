@@ -1,8 +1,8 @@
 import sys
 
+import files.find
 import merge.params
 import options.manager
-import files.find_files
 import merge.processing
 import third_party_tools
 import options.set_methods
@@ -52,7 +52,7 @@ def get_message(key):
 
 def main():
     initial_options_and_tools()
-    files.find_files.find_all_files()
+    files.find.all_files_and_dirs()
 
     print(get_message('try_gen'))
     merge.processing.merge_all_files()

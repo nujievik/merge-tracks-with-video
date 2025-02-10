@@ -23,7 +23,7 @@ def skip_sdir(sdir):
     return True if words & PATTERNS['skip_dir'] else False
 
 def ensure_trailing_sep(path):
-    return f'{path}{files.found.sep}' if path[-1] != files.found.sep else path
+    return path + files.found.sep if path[-1] != files.found.sep else path
 
 def get_file_stem(fpath):
     return os.path.splitext(os.path.basename(fpath))[0]

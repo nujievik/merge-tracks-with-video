@@ -29,19 +29,23 @@ def set_tid_info(fpath, fgroup, tid, tgroup):
 
     return fgroup, tgroup
 
-def set_files_info():
+def set_files_info(fpaths=[], init_tgroups=[]):
     temp_file_groups = {}
-    fpaths = ([params.base_video]
-              + params.audio_list
-              + params.subtitles_list)
     track_groups = file_info.setted.info['track_groups'] = {}
+
+    if not fpaths:
+        fpaths = ([params.base_video]
+                  + params.audio_list
+                  + params.subtitles_list)
 
     for fpath in fpaths:
         init_fpath_tgroup_tids(fpath)
         fgroup = file_info.by_mkvtools.get_file_group(fpath)
 
+        if init_tgroups:
+            tgroups = init_tgroups
         # If audio and subtitles was extracted, skip these groups
-        if fgroup == 'video' and params.extracted_orig:
+        elif fgroup == 'video' and params.extracted_orig:
             tgroups = ['video']
         else:
             tgroups = ['video', 'audio', 'subtitles']

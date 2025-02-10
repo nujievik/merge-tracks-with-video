@@ -13,3 +13,5 @@ video_dir = ''
 audio_dir = ''
 subtitles_dir = ''
 fonts_dir = ''
+
+need_set_prefixes = False
