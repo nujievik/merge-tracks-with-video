@@ -17,7 +17,7 @@ def skip_sdir(sdir):
     if sdir in files.found.searched_dirs:
         return True
 
-    sdir_wo_base = sdir[files.found.len_base_dir:]
+    sdir_wo_base = sdir[files.found.len_base_dir:].lower()
     words = set(re.findall(r'\b\w+\b', sdir_wo_base))
 
     return True if words & PATTERNS['skip_dir'] else False
