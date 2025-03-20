@@ -1,0 +1,195 @@
+import re
+from datetime import timedelta
+
+from constants import (
+    ACCEPT_RETIMING_OFFSETS,
+    ACCURACY_TIMEDELTA,
+    SECONDS_IN_HOUR,
+    SECONDS_IN_MINUTE,
+    SHORT_NAMES_FLAG_SEGMENTS,
+    TIMESTAMP_MKVTOOLNIX
+)
+import tools
+
+class _TimestampCast():
+    def timestamp_to_timedelta(self, timestamp):
+        hours, minutes, seconds = timestamp.split(':')
+        total_seconds = int(hours) * SECONDS_IN_HOUR
+        total_seconds += int(minutes) * SECONDS_IN_MINUTE
+        total_seconds += float(seconds)
+        return timedelta(seconds=total_seconds)
+
+    def timedelta_to_timestamp(self, td, **kwargs):
+        std = TIMESTAMP_MKVTOOLNIX
+        hours_place = kwargs.get('hours_place', std['hours_place'])
+        minutes_place = kwargs.get('minutes_place', std['minutes_place'])
+        seconds_place = kwargs.get('seconds_place', std['seconds_place'])
+        decimals_place = kwargs.get('decimals_place', std['decimals_place'])
+
+        total_seconds = int(td.total_seconds())
+        hours, remainder = divmod(total_seconds, SECONDS_IN_HOUR)
+        minutes, seconds = divmod(remainder, SECONDS_IN_MINUTE)
+        d, dp = td.microseconds, decimals_place
+        if dp <= ACCURACY_TIMEDELTA:
+            decimals = int(d / (10 ** (ACCURACY_TIMEDELTA - dp)))
+        else:
+            decimals = d * 10 ** (dp - ACCURACY_TIMEDELTA)
+
+        return (
+            f'{hours:0{hours_place}}:{minutes:0{minutes_place}}:'
+            f'{seconds:0{seconds_place}}.{decimals:0{decimals_place}}')
+
+class _RemoveSegments(_TimestampCast):
+    def _get_remove_names(self):
+        names = set()
+        for name, n in SHORT_NAMES_FLAG_SEGMENTS.items():
+            if not self.get_opt(name):
+                names.add(name)
+                names.add(n)
+        remove_segments = self.get_opt('remove_segments')
+        names.update({name.lower() for name in remove_segments})
+        return names
+
+    def add_remove_segments(self, linking=False):
+        names = self._get_remove_names()
+        remove_linking = linking or not self.get_opt('linked_segments')
+        remove_uids = self.uids_info.get('remove_uids', set())
+
+        for idx, name in enumerate(self.names):
+            uid = self.uids[idx]
+            if (name.lower() in names or
+                remove_linking and uid or
+                uid in remove_uids
+            ):
+                self.remove_idxs.add(idx)
+
+class _SplitFile(_RemoveSegments):
+    def _get_split_command(self):
+        command = [
+            'mkvmerge', '-o', self.segment, '--split',
+            f'parts:{self.start}-{self.end}', '--no-chapters',
+            '--no-global-tags', '--no-subtitles', f'--{self.ftype}-tracks',
+            f'{self.tid}'
+        ]
+        if self.ftype == 'video':
+            command.append('--no-audio')
+            if not self.get_opt('fonts'):
+                command.append('--no-attachments')
+        else:
+            command.extend(['--no-video', '--no-attachments'])
+        command.append(self.source)
+        return command
+
+    def _set_splitted_segment_info(self, mkvmerge_stdout):
+        duration = None
+        pattern = (r'Timestamp used in split decision: '
+                   + TIMESTAMP_MKVTOOLNIX['pattern'])
+        timestamps = re.findall(pattern, mkvmerge_stdout)
+        timestamps = [x.split(':', 1)[1] for x in timestamps]
+        to_timedelta = self.timestamp_to_timedelta
+
+        if len(timestamps) == 2:
+            defacto_start = to_timedelta(timestamps[0])
+            defacto_end = to_timedelta(timestamps[1])
+        elif len(timestamps) == 1:
+            timestamp = to_timedelta(timestamps[0])
+            if self.start > timedelta(0):  # Timestamp for start
+                defacto_start = timestamp
+                duration = self.merge.files.info.by_query(
+                    'Duration:', self.segment)
+                defacto_end = defacto_start + duration
+            else:
+                defacto_start = timedelta(0)
+                defacto_end = timestamp
+        else:
+            defacto_start = timedelta(0)
+            duration = self.merge.files.info.by_query(
+                'Duration:', self.segment)
+            defacto_end = duration
+
+        # Defacto playback <= track duration
+        if duration and defacto_end <= self.end:
+            self.offset_end = timedelta(0)
+        else:
+            self.offset_end = defacto_end - self.end
+        self.offset_start = defacto_start - self.start
+        self.length = defacto_end - defacto_start
+        self.defacto_start = defacto_start
+        self.defacto_end = defacto_end
+
+    def split_file(self, repeat=True):
+        command = self._get_split_command()
+        """
+        if options.manager.get_merge_flag('verbose'):
+            print(f"Extracting a segment of the {params.file_type} track from "
+              f"the file '{params.source}'. Executing the following command:"
+              f"\n{type_cast.command_to_print_str(command)}")
+        """
+        self._set_splitted_segment_info(tools.execute(command))
+
+        # Mkvmerge shift split times to next I-frame. Try repeat split
+        # with new timestamps by offsets
+        if (repeat and
+            any(td > ACCEPT_RETIMING_OFFSETS[self.ftype]
+                for td in [self.offset_start, self.offset_end])
+        ):
+            old_start = self.start
+            old_end = self.defacto_end - self.offset_end
+            _start = self.start - self.offset_start
+            if _start > timedelta(0):
+                self.start = _start
+            self.end = self.end - self.offset_end
+
+            self.split_file(repeat=False)
+            self.offset_start = self.defacto_start - old_start
+            self.offset_end = self.defacto_end - old_end
+
+class Common(_SplitFile):
+    def save_track(self, tid, _tracks):
+        if _tracks is True:
+            return True
+        elif isinstance(_tracks, set):
+            value = True if tid in _tracks else False
+            value = not value if '!' in _tracks else value
+            return value
+        else:
+            return False
+
+    def set_merge_replace_targets(self, retimed, fpath, fgroup):
+        self.merge.replace_targets[retimed] = (
+            fpath, fgroup, self.tid)
+
+    def get_previous_lengths(self, idx):
+        lengths = {}
+        for x in ['uid', 'nonuid']:
+            for _x in ['chapters', 'defacto']:  # Init
+                lengths.setdefault(x, {})[_x] = timedelta(0)
+
+        for _idx in range(idx):
+            x = 'uid' if self.uids[_idx] == self.uids[idx] else 'nonuid'
+            lengths[x]['chapters'] += (
+                self.chap_ends[_idx] - self.chap_starts[_idx])
+            if _idx in self.indexes:
+                lengths[x]['defacto'] += self.ends[_idx] - self.starts[_idx]
+
+        for x in ['uid', 'nonuid']:
+            lengths[x]['offset'] = (
+                lengths[x]['defacto'] - lengths[x]['chapters'])
+
+        return lengths
+
+"""
+def merge_file_segments(segments):
+    command = ['mkvmerge', '-o', params.retimed]
+    command.append(segments[0])
+    for segment in segments[1:]:
+        command.append(f'+{segment}')
+
+    if options.manager.get_merge_flag('verbose'):
+        print(f'Merging retimed {params.file_type} track segments. Executing '
+              'the following command:\n'
+              f'{type_cast.command_to_print_str(command)}')
+
+    executor.execute(command, get_stdout=False)
+
+"""
