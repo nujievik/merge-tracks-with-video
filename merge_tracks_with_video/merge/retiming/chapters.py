@@ -4,7 +4,6 @@ import os
 from datetime import timedelta
 
 from constants import ACCURACY_TIMEDELTA
-import tools
 
 class _ParseChapters():
     def _extract_base_chapters(self):
@@ -12,7 +11,8 @@ class _ParseChapters():
         if os.path.exists(fpath):
             os.remove(fpath)
         command = ['mkvextract', self.base_video, 'chapters', fpath]
-        tools.execute(command, get_stdout=False)
+        msg = 'Trying to extract chapters from base video.'
+        self.execute(command, msg=msg, get_stdout=False)
         return fpath
 
     def parse_base_chapters(self):
@@ -109,4 +109,5 @@ class Chapters(_ParseChapters):
         with open(new_chapters, 'w', encoding='utf-8') as f:
             f.write(pretty_xml_str)
 
-        self.set_opt('chapters', new_chapters, self.base_video)
+        self.merge.chapters = new_chapters
+        self.set_opt('chapters', False, self.base_video)

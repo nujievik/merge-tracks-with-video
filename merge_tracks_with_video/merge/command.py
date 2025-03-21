@@ -41,6 +41,9 @@ class Command():
     def get_merge_command(self):
         command = ['mkvmerge', '-o', self.out_path]
 
+        if isinstance(self.chapters, str):
+            command.extend(['--chapters', self.chapters])
+
         if self.track_order:
             command.extend(['--track-order', self.track_order])
 

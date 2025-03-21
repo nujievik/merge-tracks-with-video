@@ -9,7 +9,6 @@ from constants import (
     SHORT_NAMES_FLAG_SEGMENTS,
     TIMESTAMP_MKVTOOLNIX
 )
-import tools
 
 class _TimestampCast():
     def timestamp_to_timedelta(self, timestamp):
@@ -50,15 +49,15 @@ class _RemoveSegments(_TimestampCast):
         names.update({name.lower() for name in remove_segments})
         return names
 
-    def add_remove_segments(self, linking=False):
+    def add_remove_idxs(self):
         names = self._get_remove_names()
-        remove_linking = linking or not self.get_opt('linked_segments')
+        linked_segments = self.get_opt('linked_segments')
         remove_uids = self.uids_info.get('remove_uids', set())
 
         for idx, name in enumerate(self.names):
             uid = self.uids[idx]
             if (name.lower() in names or
-                remove_linking and uid or
+                not linked_segments and uid or
                 uid in remove_uids
             ):
                 self.remove_idxs.add(idx)
@@ -119,13 +118,9 @@ class _SplitFile(_RemoveSegments):
 
     def split_file(self, repeat=True):
         command = self._get_split_command()
-        """
-        if options.manager.get_merge_flag('verbose'):
-            print(f"Extracting a segment of the {params.file_type} track from "
-              f"the file '{params.source}'. Executing the following command:"
-              f"\n{type_cast.command_to_print_str(command)}")
-        """
-        self._set_splitted_segment_info(tools.execute(command))
+        msg = (f"Extracting a segment of the '{self.ftype}' track from "
+               f"the file '{self.source}'.")
+        self._set_splitted_segment_info(self.execute(command, msg=msg))
 
         # Mkvmerge shift split times to next I-frame. Try repeat split
         # with new timestamps by offsets
@@ -177,19 +172,3 @@ class Common(_SplitFile):
                 lengths[x]['defacto'] - lengths[x]['chapters'])
 
         return lengths
-
-"""
-def merge_file_segments(segments):
-    command = ['mkvmerge', '-o', params.retimed]
-    command.append(segments[0])
-    for segment in segments[1:]:
-        command.append(f'+{segment}')
-
-    if options.manager.get_merge_flag('verbose'):
-        print(f'Merging retimed {params.file_type} track segments. Executing '
-              'the following command:\n'
-              f'{type_cast.command_to_print_str(command)}')
-
-    executor.execute(command, get_stdout=False)
-
-"""

@@ -8,8 +8,6 @@ from .orders import Orders
 from .params import Params
 
 import merge.retiming.make_instance
-import options.manager
-import tools
 
 class _Merge(Attachs, Errors, Command, Orders, Params):
     def __init__(self, files_instance, temp_dir):
@@ -34,26 +32,21 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
         self.set_orders()
         command = self.get_merge_command()
 
-        msg = '\nGenerating a merged video file using mkvmerge. '
-
-        stdout = tools.execute(command, to_json=self.command_json)
-        """
-        print(
-            '\nGenerating a merged video file using mkvmerge. '
-            'Executing the following command:'
-            f'\n{tools.command_to_print_str(command)}'
-        )
-        lmsg = (
-            'The command was executed successfully. The generated video '
+        msg = '\nGenerating a merged video file using mkvmerge.'
+        verbose = not self.verbose is False
+        stdout = self.execute(command, exit_on_error=False, verbose=verbose,
+                              msg=msg, to_json=self.command_json)
+        msg = (
+            'The command was executed successfully. The merged video '
             f'file was saved to:\n{self.out_path}'
         )
-        command = ['mkvmerge', f'@{self.command_json}']
-        stdout = tools.execute(command, exit_on_error=False)
+
         if not isinstance(stdout, tuple):
-            print(lmsg)
-        elif self.error_processing(stdout[0], lmsg):
+            if self.verbose:
+                print(stdout)
+            print(msg)
+        elif self.processing_errors_and_warnings(stdout[0], msg):
             self._execute_merge()
-        """
 
     def _get_stem_idx(self, stem, base_ftrie):
         if self.idx_str:  # Previos
@@ -134,6 +127,7 @@ if __name__ == '__main__':
 
     import files.make_instance
     import options.settings
+    import tools
 
     tools.init()
     options.settings.init()

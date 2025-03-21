@@ -3,7 +3,6 @@ import re
 import shutil
 
 from constants import EXTS_TUPLE
-import tools
 
 class _Extract():
     def _get_attach_names(self, fpath):
@@ -19,7 +18,6 @@ class _Extract():
         if os.path.exists(self.orig_attachs_dir):
             shutil.rmtree(self.orig_attachs_dir)
 
-        replace_targets = self.replace_targets
         for fpath in self.video_list + self.signs_list + self.subtitles_list:
             if not fpath.endswith(EXTS_TUPLE['matroska']):
                 continue
@@ -32,7 +30,7 @@ class _Extract():
                 font = os.path.join(self.orig_attachs_dir, name)
                 command.append(f'{_idx}:{font}')
 
-            tools.execute(command, get_stdout=False)
+            self.execute(command, get_stdout=False)
             self.set_opt('fonts', False, fpath)
 
     def _set_extracted_fonts(self):
@@ -64,7 +62,6 @@ class Attachs(_Extract):
         fonts_list = []
         if self.groups['fonts']:
             names = extracted_fonts.union(set(ext_fonts.keys()))
-            print(sorted(names, key=str.lower))
             for name in sorted(names, key=str.lower):
                 if name in ext_fonts:
                     fonts_list.append(ext_fonts[name] + name)

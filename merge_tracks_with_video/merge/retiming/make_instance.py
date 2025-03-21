@@ -4,7 +4,7 @@ from .common import Common
 from .subtitles import Subtitles
 from .video import Video
 
-import tools
+from tools import check_package
 
 class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
     def __init__(self, merge_instance):
@@ -16,21 +16,19 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
         self.remove_idxs = set()
 
         self.merge = merge_instance
-        self.temp_dir = merge_instance.temp_dir
         self.base_video = merge_instance.base_video
+        self.execute = merge_instance.execute
         self.get_opt = merge_instance.get_opt
+        self.temp_dir = merge_instance.temp_dir
         self.uids_info = merge_instance.files.info.setted['uids']
 
         self.parse_base_chapters()
-        self.add_remove_segments()
+        self.add_remove_idxs()
         self._set_need_flags()
 
     def _set_need_flags(self):
         if any(uid for uid in self.uids):
             self.need_retiming = True
-            self.need_delinked = True
-        else:
-            self.need_delinked = False
 
         if self.remove_idxs:
             self.need_retiming = True
@@ -68,7 +66,7 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
             setattr(self, opt, self.get_opt(opt))
 
     def processing(self):
-        tools.check_package('ffmpeg')
+        check_package('ffmpeg')
         self._processing_init()
         self.correct_none_times()
         self.fill_retimed_video()
@@ -83,28 +81,25 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
 
         self.generate_new_chapters()
 
-    def codec_error_processing(self):
-        pass
+    def processing_mismatched_codec_private_data(self):
+        self.need_cut = True
+        self.set_opt('linked_segments', False, 'global')
+        self.add_remove_idxs()
+
+        self.indexes[:] = [
+            x for x in self.indexes
+            if x not in self.remove_idxs
+        ]
+        self.video_segments['paths'][:] = [
+            x for x in self.video_segments['paths']
+            if not (self.remove_idxs & self.video_segments[x])
+        ]
+        self.update_retimed_video()
+        self.fill_retimed_audio()
+        self.fill_retimed_signs_subtitles()
+
+        self.generate_new_chapters()
 
 def init(merge_instance):
     instance = _MergeRetiming(merge_instance)
     return instance
-
-
-
-"""
-
-def codec_error():
-    common.add_skips(linking=True)
-    params.indexes[:] = [x for x in params.indexes if x not in params.skips]
-    params.segments_vid[:] = [
-        x for x in params.segments_vid
-        if not (params.segments_inds[x] & params.skips)
-    ]
-
-    audio.fill_retimed_audio()
-    subtitles.fill_retimed_subtitles()
-    chapters.generate_new_chapters()
-
-    merge.params.mkv_cutted = merge.params.rm_linking = True
-"""

@@ -26,7 +26,7 @@ class Audio():
 
         return to_retime
 
-    def _get_segments_multiple_src_audio(self):
+    def _get_segments_multiple_src_audio(self, count):
         segments = []
         lengths = {}
 
@@ -40,7 +40,7 @@ class Audio():
 
             self.segment = os.path.join(
                 self.temp_dir, 'orig_audio',
-                f'audio_{self.audio_count}_segment_{idx}.mka')
+                f'audio_{count}_segment_{idx}.mka')
             self.source = self.sources[idx]
             self.split_file()
             segments.append(self.segment)
@@ -50,7 +50,7 @@ class Audio():
 
         return segments
 
-    def _get_segments_single_src_audio(self):
+    def _get_segments_single_src_audio(self, count):
         segments = []
         lengths = {}
 
@@ -68,7 +68,7 @@ class Audio():
             self.segment = os.path.join(
                 self.temp_dir, 'ext_audio',
                 os.path.basename(os.path.dirname(self.source)),
-                f'audio_{self.audio_count}_segment_{idx}.mka')
+                f'audio_{count}_segment_{idx}.mka')
             self.split_file()
             segments.append(self.segment)
 
@@ -82,14 +82,14 @@ class Audio():
         self.ftype = 'audio'
 
         _to_retime = self._get_audio_to_retime()
-        for self.audio_count, tmp in enumerate(_to_retime):
+        for count, tmp in enumerate(_to_retime):
             self.source = tmp[0]
             fpath, fgroup, self.tid = tmp
 
             if self.source == self.base_video:
-                segments = self._get_segments_multiple_src_audio()
+                segments = self._get_segments_multiple_src_audio(count)
             else:
-                segments = self._get_segments_single_src_audio()
+                segments = self._get_segments_single_src_audio(count)
 
             first = segments[0]
             self.retimed_audio.append(first)

@@ -28,6 +28,7 @@ class _Files(Directories, PrefixTries, _Fonts):
         self.sep = os.sep
         self.start_dir = self.ensure_end_sep(start_dir)
         self.get_opt = options.manager.get_opt
+        self.set_opt = options.manager.set_opt
         self.skip_file_patterns = self.get_opt('skip_file_patterns')
         self.skip_directory_patterns = self.get_opt('skip_directory_patterns')
 

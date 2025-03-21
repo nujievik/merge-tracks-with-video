@@ -1,18 +1,49 @@
 class Errors():
-    def error_processing(self, stdout, lmsg):
+    def _processing_mismatched_codec_private_data(self):
+        # A linked segments was removed earlier
+        if not self.get_opt('linked_segments'):
+            return False
+
+        if not self.verbose is False:
+            print('Trying to generate another cutted version of the video '
+                  'without linked segments.')
+
+        self.retiming.processing_mismatched_codec_private_data()
+        self.set_fonts_list()
+        self.out_path = self.out_path.replace(
+            '_merged_video', '_cutted_video')
+        return True
+
+    def processing_errors_and_warnings(self, stdout, msg):
         stdout_lines = stdout.splitlines()
-        cleaned_stdout = ''.join(stdout.split()).lower()
+        #last_line = stdout_lines[-1] if stdout_lines else ''
+        verbose = self.verbose
 
-        last_line = stdout_lines
-        last_line_out = stdout.splitlines()[-1] if command_out else ''
-        cleaned_lline_out = ''.join(last_line_out.split()).lower()
+        #Collect errors and warnings:
+        errors = []
+        warnings = []
+        for line in stdout_lines:
+            if line.startswith('Error:'):
+                errors.append(line)
+            elif line.startswith('Warning:'):
+                warnings.append(line)
 
-        if self.verbose:
-            if 'warning:' in cleaned_out:
-                for line in stdout.splitlines():
-                    if line.lower().startswith('warning:'):
-                        print(line)
+        # Print messages if need
+        if verbose:
+            print(stdout)
+        elif verbose is None:
+            for line in warnings:
+                print(line)
 
+        if not errors:
+            print(msg)
+            if any("The codec's private data does not match" in line
+                   for line in warnings
+            ):
+                return self._processing_mismatched_codec_private_data()
+
+        else:
+            pass
 
 
 """

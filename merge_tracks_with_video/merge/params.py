@@ -1,10 +1,16 @@
 import os
 
 import options.manager
+import tools
 
 class _CommonParams():
+    def execute(self, command, **kwargs):
+        if kwargs.get('verbose', None) is None:
+            kwargs['verbose'] = self.verbose
+        return tools.execute(command, **kwargs)
+
     def set_opt(self, key, value, target):
-        target, _, _ = self.replace_targets.get(target, (target, None, None))
+        target, *_ = self.replace_targets.get(target, (target,))
         self.setted_opts.setdefault(target, set()).add(key)
 
         options.manager.set_opt(key, value, target)
@@ -104,11 +110,8 @@ class Params(_CommonParams):
         self.fpath = self.base_video
         self.fgroup = 'video'
 
-        for attr in [
-            'need_retiming', 'extracted_orig', 'rm_linking',
-            'rm_video_chapters', 'extracted_orig_fonts', 'new_chapters'
-        ]:
-            setattr(self, attr, False)
+        self.chapters = None
+        self.need_retiming = False
 
         return True
 

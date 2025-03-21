@@ -2,8 +2,7 @@ import os
 
 import srt
 
-from constants import EXTS_TUPLE, IDX_START_ASS_SUBS_EVENTS
-import tools
+from constants import ASS_SPECS, EXTS_TUPLE
 
 class _IndepSource():
     def __init__(self, retiming_instance):
@@ -42,7 +41,8 @@ class _IndepSource():
 
     def _extract_track(self, tid, source, out_path):
         command = ['mkvextract', 'tracks', source, f'{tid}:{out_path}']
-        tools.execute(command, get_stdout=False)
+        msg = f"Extracting subtitles track '{tid}' from the file '{source}'."
+        self.execute(command, msg=msg, get_stdout=False)
 
     def _iterate_section_lines(self, section, source):
         in_section = False
@@ -67,17 +67,23 @@ class _IndepSource():
         to_timedelta = self.retiming.timestamp_to_timedelta
         to_timestamp = lambda td: self.retiming.timedelta_to_timestamp(
                 td, hours_place=1, decimals_place=2)
-        idx_start = IDX_START_ASS_SUBS_EVENTS
+        prefixes = ASS_SPECS['events_prefixes']
+        idx_start = ASS_SPECS['events_idx_start']
         idx_end = idx_start + 1
         idx_before_times = idx_end + 1
-        writed = set()
+        written_format = False
 
         file.write(section + '\n')
         for idx in indexes:
             start, end, offset = timings[idx]
             source = extracted[sources[idx]]
             for line in self._iterate_section_lines(section, source):
-                if line.startswith(('Dialogue:', 'Comment:')):
+                if line.startswith('Format:'):
+                    if not written_format:
+                        file.write(line)
+                        written_format = True
+
+                elif line.startswith(prefixes):
                     parts = line.split(',')
                     _start = to_timedelta(parts[idx_start])
                     _end = to_timedelta(parts[idx_end])
@@ -95,10 +101,6 @@ class _IndepSource():
                                     + ','.join(parts[idx_before_times:])
                                     )
                         file.write(new_line)
-
-                elif not line in writed:
-                    file.write(line)
-                    writed.add(line)
         file.write('\n')
 
     def _write_retimed_srt(self, file):
@@ -176,7 +178,7 @@ class _MultipleSource(_IndepSource):
         extracted = self.extracted
         _key = next(iter(extracted))
         source = extracted[_key]
-        writed = set()
+        written_lines = set()
         section = ''
         iterator = self._iterate_section_lines
 
@@ -193,12 +195,12 @@ class _MultipleSource(_IndepSource):
                     file.write(section + '\n')
                     for _, _source in extracted.items():
                         for _line in iterator(section, _source):
-                            if not _line in writed:
+                            if not _line in written_lines:
                                 file.write(_line)
-                                writed.add(_line)
+                                written_lines.add(_line)
                     file.write('\n')
 
-                    writed.clear()
+                    written_lines.clear()
                     section = ''
 
     def get_retimed_subtitles(self, count):
@@ -330,11 +332,12 @@ class Subtitles():
         retimed_subtitles = self.retimed_subtitles
         retimed_signs.clear()
         retimed_subtitles.clear()
-
         retimed_list = []
-        count = 0
-        multiple_source = _MultipleSource(self)
-        retimed_list = multiple_source.get_retimed_subtitles(count)
+
+        if self.need_extract_orig:
+            count = 0
+            multiple_source = _MultipleSource(self)
+            retimed_list += multiple_source.get_retimed_subtitles(count)
 
         count = len(retimed_list)
         single_source = _SingleSource(self)

@@ -2,7 +2,6 @@ import os
 from datetime import timedelta
 
 ACCURACY_TIMEDELTA = 6
-IDX_START_ASS_SUBS_EVENTS = 1
 SECONDS_IN_HOUR = 3600
 SECONDS_IN_MINUTE = 60
 
@@ -90,7 +89,7 @@ ARGUMENTS = {
         'limit_generate',
         'limit_search_above',
         'remove_segments',
-        'linked_parts',
+        'linked_segments',
         'opening',
         'ending',
         'force_retiming',
@@ -336,6 +335,18 @@ MATROSKA_DEFAULT = {
 #
 # Retiming constants
 #
+
+ASS_SPECS = {
+    'events_idx_start': 1,
+
+    'events_prefixes': (
+        'Dialogue:',
+        'Comment:',
+        'Picture:',
+        'Sound:',
+        'Movie:'
+    ),
+}
 
 # It's video track acceptable delta between original chapter time and
 # defacto time. If delta > acceptable, try retiming.

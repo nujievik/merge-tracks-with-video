@@ -71,7 +71,7 @@ def _command_to_print_str(command):
             + f"{' '.join(f"'{item}'" for item in command[1:])}")
 
 def execute(command, **kwargs):
-    get_stdout = kwargs.get('get_stdout', True)
+    # Some correction of the command
     if kwargs.get('quiet', True) and command[0].endswith(TOOLS['quiet']):
         _add = ['-v', 'quiet']
         if command[1:3] != _add:
@@ -79,8 +79,18 @@ def execute(command, **kwargs):
     if kwargs.get('set_tool_path', True):
         command[0] = tool_paths.get(command[0], command[0])
 
+    # Print message if need
+    verbose = kwargs.get('verbose', None)
+    if verbose:
+        if kwargs.get('msg', ''):
+            print(kwargs['msg'])
+        print('Executing the following command:')
+        print(_command_to_print_str(command))
+
+    get_stdout = kwargs.get('get_stdout', True)
+    to_json = kwargs.get('to_json', None)
     try:
-        if kwargs.get('to_json', None):
+        if to_json:
             with open(to_json, 'w') as file:
                 json.dump(command[1:], file, indent=4)
             _command = [command[0], f'@{to_json}']
@@ -91,14 +101,21 @@ def execute(command, **kwargs):
         return out.stdout.decode() if get_stdout else True
 
     except Exception as e:
+        exit_on_error = kwargs.get('exit_on_error', True)
+        if not exit_on_error and not get_stdout:
+            return False
+
         decode = e.output.decode() if hasattr(e, 'output') else ''
 
-        if not kwargs.get('exit_on_error', True):
-            return (decode, 1) if get_stdout else False
+        if not exit_on_error:
+            return (decode, 1)
 
         else:
-            print(f'Error executing the following command:\n'
-                    f'{_command_to_print_str(command)}\n{decode}')
+            if verbose:  # The command was printed above
+                print(f'Error executing the command.\n{decode}')
+            else:
+                print(f'Error executing the following command:\n'
+                        f'{_command_to_print_str(command)}\n{decode}')
             sys.exit(1)
 
 def init():
