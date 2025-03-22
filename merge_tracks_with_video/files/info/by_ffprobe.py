@@ -1,10 +1,8 @@
 from datetime import timedelta
 
-import tools
-
 class ByFfprobe():
     def duration(self, fpath, uid, key='max'):
-        _info = self.setted.setdefault('uid', {}).setdefault(
+        _info = self.setted_info.setdefault('uid', {}).setdefault(
             uid, {}).setdefault('duration', {})
 
         if _info.get(key, None) is not None:
@@ -20,7 +18,8 @@ class ByFfprobe():
                 '-read_intervals', '99999999999', '-show_entries',
                 'frame=pts_time', '-of', 'csv', fpath
             ]
-            for line in reversed(tools.execute(command).splitlines()):
+            stdout = self.tools.execute(command)
+            for line in reversed(stdout.splitlines()):
                 duration = timedelta(seconds=float(line.split(',')[1]))
                 if duration:
                     _info[tgroup] = duration
@@ -43,7 +42,8 @@ class ByFfprobe():
             f'{td.total_seconds()}%+{offset_search}', '-show_entries',
             'frame=pict_type,pts_time', '-of', 'csv', fpath
         ]
-        for line in tools.execute(command).splitlines():
+        stdout = self.tools.execute(command)
+        for line in stdout.splitlines():
             if 'I' in line:
                 times.add(timedelta(seconds=float(line.split(',')[1])))
         return times

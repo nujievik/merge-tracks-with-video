@@ -2,9 +2,8 @@ import argparse
 
 from .custom_types import CustomTypes
 
-from constants import ARGUMENTS
-from metadata import __package_name__, __version__
-import tools
+from merge_tracks_with_video.constants import ARGUMENTS, TOOLS
+from merge_tracks_with_video.metadata import __package_name__, __version__
 
 class TargetParsers():
     def __init__(self):
@@ -31,6 +30,7 @@ class TargetParsers():
         add('-V', '--version', action='version',
             version=f'{__package_name__} {__version__}')
         add('-o', '--output', type=ct.output)
+        add('--continue-on-error', action='store_true', default=None)
         add('-v', '--verbose', action='store_true', default=None,
             help='Increase verbosity')
         add('-q', '--quiet', action='store_false', default=None,
@@ -89,7 +89,7 @@ class TargetParsers():
         add('--specials', nargs=1,
             help='Add other options to mkvmerge command')
         add('--target', nargs=argparse.REMAINDER)
-        for tool in tools.tool_paths:
+        for tool in TOOLS['names']:
             add(f'--{tool}', nargs=argparse.REMAINDER)
 
     def _get_target_parser(self):

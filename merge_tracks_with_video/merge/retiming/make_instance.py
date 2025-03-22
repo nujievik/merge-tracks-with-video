@@ -4,7 +4,7 @@ from .common import Common
 from .subtitles import Subtitles
 from .video import Video
 
-from tools import check_package
+from merge_tracks_with_video.tools import check_package
 
 class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
     def __init__(self, merge_instance):
@@ -20,7 +20,7 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
         self.execute = merge_instance.execute
         self.get_opt = merge_instance.get_opt
         self.temp_dir = merge_instance.temp_dir
-        self.uids_info = merge_instance.files.info.setted['uids']
+        self.uids_info = merge_instance.files.info.setted_info['uids']
 
         self.parse_base_chapters()
         self.add_remove_idxs()

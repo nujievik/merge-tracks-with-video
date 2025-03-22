@@ -2,11 +2,13 @@ import os
 import shutil
 import uuid
 
-import files.make_instance
-import merge.make_instance
-import options.settings
-import tools
+from . import tools
 
+import merge_tracks_with_video.files.make_instance
+import merge_tracks_with_video.merge.make_instance
+import merge_tracks_with_video.options.settings
+
+"""
 def _get_message(key):
     start_dir = options.manager.get_opt('start_dir')
     save_dir = options.manager.get_opt('save_dir')
@@ -36,17 +38,19 @@ def _get_message(key):
         return ("\nThe generate was executed successfully. "
                 f"{merge.params.count_gen} video files were generated in "
                 f"the directory '{save_dir}'.")
+"""
 
 def main():
     tools.init()
-    options.settings.init()
-    files_instance = files.make_instance.init()
+    merge_tracks_with_video.options.settings.init()
+    files_instance = merge_tracks_with_video.files.make_instance.init()
 
     save_dir = files_instance.get_opt('save_directory')
     temp_dir = os.path.join(
         save_dir, f'__temp_files__.{str(uuid.uuid4())[:8]}')
     try:
-        merge = init(files_instance, temp_dir)
+        merge = merge_tracks_with_video.merge.make_instance.init(
+            files_instance, temp_dir)
         merge.processing()
     finally:
         if os.path.exists(temp_dir):

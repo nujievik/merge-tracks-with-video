@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 
-from constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS_TUPLE
 
 class _Extract():
     def _get_attach_names(self, fpath):

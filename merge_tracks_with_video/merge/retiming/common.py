@@ -1,7 +1,7 @@
 import re
 from datetime import timedelta
 
-from constants import (
+from merge_tracks_with_video.constants import (
     ACCEPT_RETIMING_OFFSETS,
     ACCURACY_TIMEDELTA,
     SECONDS_IN_HOUR,
@@ -10,15 +10,17 @@ from constants import (
     TIMESTAMP_MKVTOOLNIX
 )
 
-class _TimestampCast():
-    def timestamp_to_timedelta(self, timestamp):
+class TimestampCast():
+    @staticmethod
+    def timestamp_to_timedelta(timestamp):
         hours, minutes, seconds = timestamp.split(':')
         total_seconds = int(hours) * SECONDS_IN_HOUR
         total_seconds += int(minutes) * SECONDS_IN_MINUTE
         total_seconds += float(seconds)
         return timedelta(seconds=total_seconds)
 
-    def timedelta_to_timestamp(self, td, **kwargs):
+    @staticmethod
+    def timedelta_to_timestamp(td, **kwargs):
         std = TIMESTAMP_MKVTOOLNIX
         hours_place = kwargs.get('hours_place', std['hours_place'])
         minutes_place = kwargs.get('minutes_place', std['minutes_place'])
@@ -38,7 +40,7 @@ class _TimestampCast():
             f'{hours:0{hours_place}}:{minutes:0{minutes_place}}:'
             f'{seconds:0{seconds_place}}.{decimals:0{decimals_place}}')
 
-class _RemoveSegments(_TimestampCast):
+class _RemoveSegments():
     def _get_remove_names(self):
         names = set()
         for name, n in SHORT_NAMES_FLAG_SEGMENTS.items():
@@ -140,6 +142,14 @@ class _SplitFile(_RemoveSegments):
             self.offset_end = self.defacto_end - old_end
 
 class Common(_SplitFile):
+    def __init__(self):
+        super().__init__()
+        self.timedelta_to_timestamp = TimestampCast.timedelta_to_timestamp
+        self.timestamp_to_timedelta = TimestampCast.timestamp_to_timedelta
+
+    def timedelta_to_timestamp(self, td, **kwargs):
+        return TimestampCast.timedelta_to_timestamp(td, **kwargs)
+
     def save_track(self, tid, _tracks):
         if _tracks is True:
             return True

@@ -7,9 +7,13 @@ import sys
 from .target_parsers import TargetParsers
 from . import manager
 
-from constants import ARGUMENTS, DEFAULT_OPTS, PATTERNS
-from metadata import __config_name__, __package_name__
-import tools
+from merge_tracks_with_video.constants import (
+    ARGUMENTS,
+    DEFAULT_OPTS,
+    PATTERNS
+)
+from merge_tracks_with_video.metadata import __config_name__, __package_name__
+import merge_tracks_with_video.tools
 
 class _Parse(TargetParsers):
     def __init__(self):
@@ -66,9 +70,11 @@ class _Parse(TargetParsers):
                 if value is None:
                     pass
 
-                elif key in tools.tool_paths:
+                elif key in merge_tracks_with_video.tools.tool_paths:
                     command = [key] + value
-                    print(tools.execute(command))
+                    print(merge_tracks_with_video.tools.execute(
+                        command, quiet=False)
+                    )
                     sys.exit(0)
 
                 elif not key in ARGUMENTS['auxiliary']:
@@ -154,27 +160,21 @@ def _by_locale():
                 return
 
 def init():
-    manager.setted.clear()
+    manager.setted_opts.clear()
     _by_locale()
     parse = _Parse()
     parse.configs()
     parse.sys_argv()
 
     for target, _dict in parse.target_dict.items():
-        manager.setted.setdefault(target, {}).update(_dict)
+        manager.setted_opts.setdefault(target, {}).update(_dict)
 
-    glob_opts = manager.setted.get('global', {})
+    glob_opts = manager.setted_opts.get('global', {})
     if ('start_directory' in glob_opts and
         not 'save_directory' in glob_opts
     ):
         glob_opts['save_directory'] = glob_opts['start_directory']
 
-    #print('DEBUG manager.setted')
-    #print(manager.setted)
-    #print(manager.DEFAULT_OPTS['global']['start_directory'])
-    #print(manager.DEFAULT_OPTS['global']['save_directory'])
-
 if __name__ == '__main__':
-    import tools
-    tools.init()
+    merge_tracks_with_video.tools.init()
     init()

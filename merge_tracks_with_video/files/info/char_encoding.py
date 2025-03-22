@@ -2,11 +2,11 @@ import os
 
 import chardet
 
-from constants import CHUNK_SIZE_READ, EXTS_SET
+from merge_tracks_with_video.constants import CHUNK_SIZE_READ, EXTS_SET
 
 class CharEncoding():
     def char_encoding(self, fpath):
-        _info = self.setted.setdefault(fpath, {})
+        _info = self.setted_info.setdefault(fpath, {})
 
         if _info.get('char_encoding', None) is not None:
             return _info['char_encoding']

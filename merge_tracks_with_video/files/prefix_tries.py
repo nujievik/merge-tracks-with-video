@@ -1,6 +1,6 @@
 import os
 
-from constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS_TUPLE
 
 class TrieNode:
     def __init__(self):

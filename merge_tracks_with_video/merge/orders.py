@@ -1,10 +1,12 @@
-import os
-
 class Orders():
     def _get_order_sort_key(self, fpath, fgroup, tids=[]):
-        _targets = (fpath, fgroup, os.path.dirname(fpath))
-        get_opt = lambda x: self.get_opt(x, *_targets, replace_targets=True,
-                                         def_unset=False)
+        if fpath in self.replace_targets:
+            fpath, fgroup, _tid = self.replace_targets[fpath]
+            tids = [_tid]
+        # replace_targets=True will add parent dir to args
+        get_opt = lambda x: self.get_opt(
+            x, fpath, fgroup, replace_targets=True, def_unset=False)
+
         _forced = get_opt('forced_display_flag')
         _default = get_opt('default_track_flag')
         _enabled = get_opt('track_enabled_flag')
@@ -47,11 +49,11 @@ class Orders():
             for path in lst:
                 fids[path] = fid
                 fid += 1
-        self.fids = fids
+        return fids
 
-    def _set_track_order(self):
+    def _set_track_order(self, fids):
         order = []
-        fids = self.fids
+        order_str = []
         track_groups = self.track_groups
         for group in track_groups:
             args = []
@@ -66,9 +68,11 @@ class Orders():
             for path, _, tids in sorted_args:
                 fid = fids[path]
                 tid = tids[0]  # tids always has 1 element
-                order.append(f'{fid}:{tid}')
-        self.track_order = ','.join(order)
+                order.append((fid, tid))
+                order_str.append(f'{fid}:{tid}')
+        self.track_order = order
+        self.track_order_str = ','.join(order_str)
 
     def set_orders(self):
-        self._set_file_orders()
-        self._set_track_order()
+        fids = self._set_file_orders()
+        self._set_track_order(fids)

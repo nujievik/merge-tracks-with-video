@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 
-from constants import TOOLS
+from merge_tracks_with_video.constants import TOOLS
 
 tool_paths = {x: x for x in TOOLS['names']}
 

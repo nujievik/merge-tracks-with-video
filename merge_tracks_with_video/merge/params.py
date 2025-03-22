@@ -1,19 +1,17 @@
 import os
 
-import options.manager
-import tools
+from merge_tracks_with_video.options.manager import setted_opts
 
 class _CommonParams():
     def execute(self, command, **kwargs):
         if kwargs.get('verbose', None) is None:
             kwargs['verbose'] = self.verbose
-        return tools.execute(command, **kwargs)
+        return self.files.info.tools.execute(command, **kwargs)
 
     def set_opt(self, key, value, target):
         target, *_ = self.replace_targets.get(target, (target,))
         self.setted_opts.setdefault(target, set()).add(key)
-
-        options.manager.set_opt(key, value, target)
+        self.files.set_opt(key, value, target)
 
     def get_opt(self, key, *args, **kwargs):
         if not args:
@@ -26,19 +24,25 @@ class _CommonParams():
         elif kwargs.pop('replace_targets', False):
             if args[0] in self.replace_targets:
                 args = self.replace_targets[args[0]][:2]
-                args = (*args, os.path.dirname(args[0]))
+            args = (*args, os.path.dirname(args[0]))
 
         if kwargs.get('pro_mode', None) is None:
             kwargs['pro_mode'] = self.pro_mode
 
-        return options.manager.get_opt(key, *args, **kwargs)
+        return self.files.get_opt(key, *args, **kwargs)
 
     def set_common_params(self):
         self.setted_opts = {}
         self.replace_targets = {}
         self.append_to = {}
-        get_opt = options.manager.get_opt
-        self.pro_mode = get_opt('pro_mode')
+
+        get_opt = lambda x: self.get_opt(x, 'global', pro_mode=False)
+        for attr in [
+            'continue_on_error', 'locale_language', 'output', 'pro_mode',
+            'sorting_fonts', 'verbose',
+        ]:
+            setattr(self, attr, get_opt(attr))
+
         self.groups = {}
         for group in ['video', 'audio', 'signs', 'subtitles', 'fonts']:
             self.groups[group] = self.get_opt('files', group)
@@ -46,16 +50,12 @@ class _CommonParams():
         self.track_groups = ['video', 'audio', 'signs', 'subtitles']
 
         self.save_dir = get_opt('save_directory')
-        self.orig_attachs_dir = os.path.join(self.temp_dir, 'orig_attachs')
         self.orig_attachs_dir = self.files.ensure_end_sep(
-            self.orig_attachs_dir)
+            os.path.join(self.temp_dir, 'orig_attachs')
+        )
         self.command_json = os.path.join(self.temp_dir, 'command.json')
         os.makedirs(self.temp_dir, exist_ok=True)
 
-        self.verbose = get_opt('verbose')
-        self.sorting_fonts = get_opt('sorting_fonts')
-        self.locale_language = get_opt('locale_language')
-        self.output = get_opt('output')
         self.count_gen = 0
         self.count_gen_earlier = 0
 
@@ -67,20 +67,20 @@ class Params(_CommonParams):
             getattr(self, f'{group}_list').clear()
 
         # Clear all except uids
-        setted = self.files.info.setted
-        uids = setted.pop('uids', {})
+        setted_info = self.files.info.setted_info
+        uids = setted_info.pop('uids', {})
         uids.pop('', None)  # Remove nonuid info
-        setted.clear()
-        setted['uids'] = uids
+        setted_info.clear()
+        setted_info['uids'] = uids
 
-        setted_opts = self.setted_opts
-        for target in setted_opts:
-            _dict = options.manager.setted.get(target, {})
-            for key in setted_opts[target]:
+        _setted_opts = self.setted_opts
+        for target in _setted_opts:
+            _dict = setted_opts.get(target, {})
+            for key in _setted_opts[target]:
                 _dict.pop(key, None)
             if not _dict:  # Remove empty target
-                options.manager.setted.pop(target, None)
-        setted_opts.clear()
+                setted_opts.pop(target, None)
+        _setted_opts.clear()
 
     def _set_file_lists(self):
         stem = self.stem

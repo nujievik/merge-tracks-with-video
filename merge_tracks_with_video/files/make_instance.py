@@ -3,9 +3,9 @@ import os
 from .directories import Directories
 from .prefix_tries import PrefixTries
 
-from constants import EXTS_TUPLE
-import files.info.make_instance
-import options.manager
+from merge_tracks_with_video.constants import EXTS_TUPLE
+import merge_tracks_with_video.files.info.make_instance
+import merge_tracks_with_video.options.manager
 
 class _Fonts():
     def _scan_dir_fonts(self, path):
@@ -27,8 +27,8 @@ class _Files(Directories, PrefixTries, _Fonts):
         self.dir_ftrie_pairs = {}
         self.sep = os.sep
         self.start_dir = self.ensure_end_sep(start_dir)
-        self.get_opt = options.manager.get_opt
-        self.set_opt = options.manager.set_opt
+        self.get_opt = merge_tracks_with_video.options.manager.get_opt
+        self.set_opt = merge_tracks_with_video.options.manager.set_opt
         self.skip_file_patterns = self.get_opt('skip_file_patterns')
         self.skip_directory_patterns = self.get_opt('skip_directory_patterns')
 
@@ -37,17 +37,19 @@ class _Files(Directories, PrefixTries, _Fonts):
         self.delete_stems_doubles()
         self.set_dir_ftrie_pairs()
 
-        self.info = files.info.make_instance.init(self.base_dir)
+        self.info = merge_tracks_with_video.files.info.make_instance.init(
+            self)
 
 def init():
-    start_dir = options.manager.get_opt('start_directory')
+    start_dir = merge_tracks_with_video.options.manager.get_opt(
+        'start_directory')
     instance = _Files(start_dir)
     return instance
 
 if __name__ == '__main__':
-    import options.settings
-    import tools
+    import merge_tracks_with_video.options.settings
+    import merge_tracks_with_video.tools
 
-    tools.init()
-    options.settings.init()
+    merge_tracks_with_video.tools.init()
+    merge_tracks_with_video.options.settings.init()
     init()

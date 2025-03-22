@@ -47,7 +47,7 @@ class _BaseDir():
                     self.stems = _stems
                     self.base_dir = self.ensure_end_sep(_dir)
                     # Set priority for files in start_directory
-                    start_dir = os.path.normath(self.start_dir)
+                    start_dir = os.path.normpath(self.start_dir)
                     self.set_opt('track_enabled_flag', True, start_dir)
                     return
 

@@ -1,40 +1,47 @@
 import os
 
-from constants import PATTERNS
-import options.manager
+from merge_tracks_with_video.constants import PATTERNS
 
-class _TrackName():
-    def _tname_by_path(self, fpath):
-        tail = self._clean_path_tail(fpath)
-        if len(tail) > 2:
-            return tail
-        else:
-            return self._clean_dir_name(fpath)
+class Track():
+    def _by_setted_opts_dict(self, _dict, fpath, opt_key, tid_init):
+        for tid, val in _dict.items():
+            _info = self.setted_info[fpath].setdefault(tid, {})
+            _info[opt_key] = val
+        return self.setted_info[fpath].get(tid_init, {}).get(opt_key, '')
 
     def track_name(self, tid, fpath, fgroup):
-        _info = self.setted.setdefault(fpath, {}).setdefault(tid, {})
+        _info = self.setted_info.setdefault(fpath, {}).setdefault(tid, {})
 
         if _info.get('name', None) is not None:
             return _info['name']
 
         _dir = os.path.dirname(fpath)
-        name = options.manager.get_opt('track_name', fpath, fgroup, _dir)
+        name = self.get_opt('track_name', fpath, fgroup, _dir)
+        if isinstance(name, dict):
+            name = self._by_setted_opts_dict(name, fpath, 'name', tid)
+
         if not name:
             name = self.by_query('Name:', fpath, tid)
+
         if not name:
-            name = self._tname_by_path(fpath)
+            name = self._clean_path_tail(fpath)
+            if not len(name) > 2:
+                name = self._clean_dir_name(fpath)
 
         _info['name'] = name
         return name
 
-class Track(_TrackName):
     def language(self, tid, fpath, fgroup):
-        _info = self.setted.setdefault(fpath, {}).setdefault(tid, {})
+        _info = self.setted_info.setdefault(fpath, {}).setdefault(tid, {})
 
         if _info.get('language', None) is not None:
             return _info['language']
 
-        lang = options.manager.get_opt('language', fpath, fgroup)
+        _dir = os.path.dirname(fpath)
+        lang = self.get_opt('language', fpath, fgroup, _dir)
+        if isinstance(lang, dict):
+            lang = self._by_setted_opts_dict(lang, fpath, 'language', tid)
+
         if not lang:
             lang = self.by_query('Language', fpath, tid)
 

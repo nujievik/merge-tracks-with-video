@@ -38,19 +38,55 @@ class Command():
 
         return part
 
+    def _add_track_opts_parts(self, parts):
+        insert_positions = {}
+        replace_targets = self.replace_targets
+        get_opt = lambda x: self.get_opt(
+            x, fpath, fgroup, replace_targets=True)
+        info = self.files.info
+
+        for fid, tid in self.track_order:
+            part = []
+            fpath, fgroup = parts['targets'][fid]
+            if fpath in replace_targets:
+                fpath, fgroup, _tid = replace_targets[fpath]
+            else:
+                _tid = tid
+
+            track_name = info.track_name(_tid, fpath, fgroup)
+            if track_name:
+                part.extend(['--track-name', f'{tid}:{track_name}'])
+            language = info.language(_tid, fpath, fgroup)
+            if language:
+                part.extend(['--language', f'{tid}:{language}'])
+
+            pos = insert_positions.setdefault(fid, 0)
+            parts[fid][pos:pos] = part
+            insert_positions[fid] += len(part)
+
+        return parts
+
     def get_merge_command(self):
         command = ['mkvmerge', '-o', self.out_path]
 
         if isinstance(self.chapters, str):
             command.extend(['--chapters', self.chapters])
 
-        if self.track_order:
-            command.extend(['--track-order', self.track_order])
+        if self.track_order_str:
+            command.extend(['--track-order', self.track_order_str])
 
+        parts = {'targets': {}}
+        fid = -1
         for fgroup in self.track_groups:
             lst = getattr(self, f'{fgroup}_list')
-            for fpath in lst:
-                command.extend(self._get_file_pcommand(fpath, fgroup))
+            for fid, fpath in enumerate(lst, start=fid+1):
+                parts[fid] = self._get_file_pcommand(fpath, fgroup)
+                parts['targets'][fid] = (fpath, fgroup)
+
+        parts = self._add_track_opts_parts(parts)
+
+        for fid in range(fid+1):
+            command.extend(parts[fid])
 
         specials = self.get_opt('specials', 'fonts', glob_unset=False)
         for font in self.fonts_list:

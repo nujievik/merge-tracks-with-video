@@ -1,24 +1,22 @@
 import re
-from datetime import timedelta
 
-from constants import (
+from merge_tracks_with_video.constants import (
     EXTS_TUPLE,
     MATROSKA_DEFAULT,
     PATTERNS,
-    SECONDS_IN_HOUR,
-    SECONDS_IN_MINUTE
 )
-import tools
+from merge_tracks_with_video.merge.retiming.common import TimestampCast
 
 class _Stdouts():
     def stdout_mkvmerge_i(self, fpath):
-        _info = self.setted.setdefault(fpath, {}).setdefault('stdouts', {})
+        _info = self.setted_info.setdefault(
+            fpath, {}).setdefault('stdouts', {})
 
         if _info.get('mkvmerge_i', None) is not None:
             return _info['mkvmerge_i']
 
         else:
-            stdout = tools.execute(['mkvmerge', '-i', fpath])
+            stdout = self.tools.execute(['mkvmerge', '-i', fpath])
             stdout = stdout.splitlines()
             _info['mkvmerge_i'] = stdout
             return stdout
@@ -40,12 +38,13 @@ class _Stdouts():
         return stdout[idx:idx_end]
 
     def _stdout_mkvinfo(self, fpath, tid=None):
-        _info = self.setted.setdefault(fpath, {}).setdefault('stdouts', {})
+        _info = self.setted_info.setdefault(
+            fpath, {}).setdefault('stdouts', {})
 
         if _info.get('mvkinfo', None) is not None:
             stdout = _info['mkvinfo']
         else:
-            stdout = tools.execute(['mkvinfo', fpath])
+            stdout = self.tools.execute(['mkvinfo', fpath])
             stdout = stdout.splitlines()
             _info['mkvinfo'] = stdout
 
@@ -55,13 +54,6 @@ class _Stdouts():
             return self._cut_stdout_mkvinfo(stdout, tid)
 
 class ByMkvtools(_Stdouts):
-    def _timestamp_to_timedelta(self, timestamp):
-        hours, minutes, seconds = timestamp.split(':')
-        total_seconds = int(hours) * SECONDS_IN_HOUR
-        total_seconds += int(minutes) * SECONDS_IN_MINUTE
-        total_seconds += float(seconds)
-        return timedelta(seconds=total_seconds)
-
     def by_query(self, query, fpath, tid=None):
         if not fpath.endswith(EXTS_TUPLE['matroska']):
             return ''
@@ -75,7 +67,7 @@ class ByMkvtools(_Stdouts):
                         for byte in value.split()
                     )
                 elif 'Duration:' in query:
-                    return self._timestamp_to_timedelta(value)
+                    return TimestampCast.timestamp_to_timedelta(value)
                 else:
                     return value if value != 'und' else ''
 
@@ -83,7 +75,7 @@ class ByMkvtools(_Stdouts):
         return MATROSKA_DEFAULT.get(_key, '')
 
     def file_tids(self, fpath):
-        _info = self.setted.setdefault(fpath, {})
+        _info = self.setted_info.setdefault(fpath, {})
 
         if _info.get('tids', None) is not None:
             return _info['tids']
@@ -100,7 +92,7 @@ class ByMkvtools(_Stdouts):
         return tids
 
     def tgroup_tids(self, tgroup, fpath):
-        _info = self.setted.setdefault(
+        _info = self.setted_info.setdefault(
             fpath, {}).setdefault('tgroup_tids', {})
 
         if _info.get(tgroup, None) is not None:
@@ -134,7 +126,7 @@ class ByMkvtools(_Stdouts):
         return False
 
     def file_group(self, fpath):
-        _info = self.setted.setdefault(fpath, {})
+        _info = self.setted_info.setdefault(fpath, {})
 
         if _info.get('file_group', None) is not None:
             return _info['file_group']

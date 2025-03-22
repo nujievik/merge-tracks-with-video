@@ -3,7 +3,7 @@ from xml.dom import minidom
 import os
 from datetime import timedelta
 
-from constants import ACCURACY_TIMEDELTA
+from merge_tracks_with_video.constants import ACCURACY_TIMEDELTA
 
 class _ParseChapters():
     def _extract_base_chapters(self):
@@ -23,6 +23,8 @@ class _ParseChapters():
         except Exception:
             return
 
+        to_timedelta = self.timestamp_to_timedelta
+
         for atom in root.findall('.//ChapterAtom'):
             uid = atom.find('ChapterSegmentUID')
             uid = uid.text.lower() if uid is not None else ''
@@ -30,12 +32,12 @@ class _ParseChapters():
 
             start = atom.find('ChapterTimeStart')
             if start is not None:
-                start = self.timestamp_to_timedelta(start.text)
+                start = to_timedelta(start.text)
             self.chap_starts.append(start)
 
             end = atom.find('ChapterTimeEnd')
             if end is not None:
-                end = self.timestamp_to_timedelta(end.text)
+                end = to_timedelta(end.text)
             self.chap_ends.append(end)
 
             name = atom.find('.//ChapterDisplay/ChapterString')

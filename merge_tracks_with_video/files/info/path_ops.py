@@ -1,7 +1,7 @@
 import os
 import re
 
-from constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS_TUPLE
 
 class PathOps():
     def _relative_path(self, path):

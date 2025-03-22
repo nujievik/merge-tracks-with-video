@@ -1,41 +1,25 @@
-from constants import DEFAULT_OPTS, INVERSE_UNSET_ON_PRO
+from merge_tracks_with_video.constants import (
+    DEFAULT_OPTS,
+    INVERSE_UNSET_ON_PRO
+)
 
-setted = {}
+setted_opts = {}
 
 def set_opt(key, value, target='global'):
     if not key in DEFAULT_OPTS['global']:
         # Debug check
         print(f"Warning: option '{key}' not in DEFAULT_OPTS['global']")
-    setted.setdefault(target, {})[key] = value
+    setted_opts.setdefault(target, {})[key] = value
 
 def get_opt(key, *args, **kwargs):
-    if not key in DEFAULT_OPTS['global']:
-        # Debug check
-        print(f"Warning: option '{key}' not in DEFAULT_OPTS['global']")
-    if not args:
-        args = ('global',)
-    _get_opt = _GetOpt(key, args, kwargs)
-    return _get_opt.value
-
-class _GetOpt():
-    def __init__(self, key, args, kwargs):
-        self.key = key
-        self.args = args
-        self.kwargs = kwargs
-        self.value = self._get_value()
-
-    def _get_value(self):
-        key = self.key
-        value = None
-        kwargs = self.kwargs
-
-        for target in self.args:
-            value = setted.get(target, {}).get(key, None)
+    def get_value():
+        for target in args:
+            value = setted_opts.get(target, {}).get(key, None)
             if value is not None:
                 return value
 
         if kwargs.get('glob_unset', True):
-            value = setted.get('global', {}).get(key, None)
+            value = setted_opts.get('global', {}).get(key, None)
 
         if value is None and kwargs.get('def_unset', True):
             value = DEFAULT_OPTS['global'].get(key, None)
@@ -43,3 +27,11 @@ class _GetOpt():
                 value = not value
 
         return value
+
+    if not key in DEFAULT_OPTS['global']:
+        # Debug check
+        print(f"Warning: option '{key}' not in DEFAULT_OPTS['global']")
+    if not args:
+        args = ('global',)
+
+    return get_value()

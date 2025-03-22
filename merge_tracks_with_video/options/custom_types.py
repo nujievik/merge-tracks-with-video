@@ -2,9 +2,9 @@ import argparse
 import os
 import re
 
-from constants import PATTERNS
-from metadata import __package_name__
-import tools
+from merge_tracks_with_video.constants import PATTERNS
+from merge_tracks_with_video.metadata import __package_name__
+import merge_tracks_with_video.tools
 
 class CustomTypes():
     def __init__(self):
@@ -72,7 +72,7 @@ class CustomTypes():
         mkvtoolnix_lang_codes = self.mkvtoolnix_lang_codes
 
         command = ['mkvmerge', '--list-languages']
-        stdout = tools.execute(command)
+        stdout = merge_tracks_with_video.tools.execute(command)
         pattern = re.compile(r"\|\s*([a-z]{2,3})\s*\|?")
 
         for line in stdout.splitlines()[2:]:

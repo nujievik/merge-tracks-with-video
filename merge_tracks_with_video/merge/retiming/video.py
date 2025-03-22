@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import timedelta
 
-from constants import ACCEPT_RETIMING_OFFSETS
+from merge_tracks_with_video.constants import ACCEPT_RETIMING_OFFSETS
 
 class _SegmentSource():
     def _iterate_dir_mkv(self, base_dir):

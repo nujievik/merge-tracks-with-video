@@ -2,7 +2,7 @@ import os
 
 import srt
 
-from constants import ASS_SPECS, EXTS_TUPLE
+from merge_tracks_with_video.constants import ASS_SPECS, EXTS_TUPLE
 
 class _IndepSource():
     def __init__(self, retiming_instance):

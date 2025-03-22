@@ -1,10 +1,6 @@
 import os
 from datetime import timedelta
 
-ACCURACY_TIMEDELTA = 6
-SECONDS_IN_HOUR = 3600
-SECONDS_IN_MINUTE = 60
-
 TOOLS = {
     'names': {
         'ffprobe',
@@ -64,6 +60,7 @@ ARGUMENTS = {
             'force_retiming',
             'fonts',
             'sorting_fonts',
+            'continue_on_error',
         },
 
         'bool_replace_keys': {
@@ -93,6 +90,7 @@ ARGUMENTS = {
         'opening',
         'ending',
         'force_retiming',
+        'continue_on_error',
     },
 }
 ARGUMENTS['config']['split'].update({x for x in TOOLS['names']})
@@ -142,6 +140,8 @@ DEFAULT_OPTS = {
         'save_directory': os.getcwd(),
 
         'output': None,  # By default usage orig name + suffixes
+        'continue_on_error': False,
+
         'verbose': None,
         'pro_mode': False,
         'search_above': True,
@@ -320,6 +320,7 @@ EXTS_SET['video'].update(EXTS_SET['container'])
 EXTS_SET['audio'].update(EXTS_SET['container'])
 EXTS_SET['total_wo_fonts'] = EXTS_SET['video'].union(
     EXTS_SET['audio'], EXTS_SET['subtitles'])
+EXTS_SET['total'] = EXTS_SET['total_wo_fonts'].union(EXTS_SET['fonts'])
 
 EXTS_TUPLE = {group: tuple(exts)
               for group, exts in EXTS_SET.items()}
@@ -335,6 +336,10 @@ MATROSKA_DEFAULT = {
 #
 # Retiming constants
 #
+
+ACCURACY_TIMEDELTA = 6
+SECONDS_IN_HOUR = 3600
+SECONDS_IN_MINUTE = 60
 
 ASS_SPECS = {
     'events_idx_start': 1,

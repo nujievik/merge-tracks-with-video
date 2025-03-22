@@ -7,7 +7,7 @@ from .command import Command
 from .orders import Orders
 from .params import Params
 
-import merge.retiming.make_instance
+import merge_tracks_with_video.merge.retiming.make_instance
 
 class _Merge(Attachs, Errors, Command, Orders, Params):
     def __init__(self, files_instance, temp_dir):
@@ -18,7 +18,8 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
 
     def _retiming_or_something_else(self):
         if self.base_video.endswith('.mkv'):
-            self.retiming = merge.retiming.make_instance.init(self)
+            self.retiming = merge_tracks_with_video.merge.retiming. \
+                make_instance.init(self)
 
         if any(x for x in (
             self.need_retiming, self.audio_list, self.signs_list,
@@ -100,7 +101,7 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
                 print(f"Not found video by prefix '{self.stem}'. Skip this.")
                 continue
             elif not self._retiming_or_something_else():
-                print("Not found external tracks for video"
+                print("Not found external tracks for video "
                       f"'{self.base_video}'. Skip this.")
                 continue
             elif self.set_out_path(idx) and os.path.exists(self.out_path):
@@ -125,13 +126,14 @@ if __name__ == '__main__':
     import shutil
     import uuid
 
-    import files.make_instance
-    import options.settings
-    import tools
+    import merge_tracks_with_video.files.make_instance
+    import merge_tracks_with_video.options.settings
+    import merge_tracks_with_video.tools
 
-    tools.init()
-    options.settings.init()
-    files_instance = files.make_instance.init()
+    merge_tracks_with_video.tools.init()
+    merge_tracks_with_video.options.settings.init()
+    files_instance = merge_tracks_with_video.files.make_instance.init()
+
     save_dir = files_instance.get_opt('save_directory')
     temp_dir = os.path.join(
         save_dir, f'__temp_files__.{str(uuid.uuid4())[:8]}')
