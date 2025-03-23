@@ -19,14 +19,10 @@ class _SegmentSource():
 
     def _get_base_mkv_names(self, base_dir):
         if base_dir != self.uids_info.get('base_dir', None):
-            lim_sort = self.get_opt('limit_sorting_files', 'global')
             names = []
             count = 0
             for f in self._iterate_dir_mkv(base_dir):
                 names.append(f)
-                count += 1
-                if count > lim_sort:
-                    return self._iterate_dir_mkv(base_dir)
             names.sort(reverse=True)  # OP-ED symbols later than 0-9
             self.uids_info['base_dir'] = base_dir
             self.uids_info['base_mkv_names'] = names
@@ -138,11 +134,14 @@ class Video(_SegmentSource):
             self.start = self.uid_info['end']
             start = None
 
+        def get_times(_td):
+            return self.merge.files.info.i_frames(
+                self.source, self.tid, _td, '0.000001')
+
         for td in [start, end]:
             if td is None:  # If earlier setted
                 continue
-            get_times = lambda _td: self.merge.files.info.i_frames(
-                self.source, self.tid, _td, '0.000001')
+
             times = get_times(td)  # Receive I-frame time <= td
             _delta = td - next(iter(times))
             times.update(get_times(_delta))  # Receive next I-frame
@@ -245,8 +244,9 @@ class Video(_SegmentSource):
             # Usage self.base_video with --split options
             if all(not self.uids[idx] for idx in self.indexes):
                 self.video_segments['paths'][:] = [self.base_video]
-                to_timestamp = lambda td: self.timedelta_to_standart_timestamp(
-                    td, decimals_place=6)
+                def to_timestamp(td):
+                    return self.timedelta_to_timestamp(
+                        td, decimals_place=6)
 
                 str_times = []
                 for times in self.video_segments['times']:

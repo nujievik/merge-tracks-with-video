@@ -8,7 +8,7 @@ from .target_parsers import TargetParsers
 from . import manager
 
 from merge_tracks_with_video.constants import (
-    ARGUMENTS,
+    SETTING_OPTS,
     DEFAULT_OPTS,
     PATTERNS
 )
@@ -46,7 +46,7 @@ class _Parse(TargetParsers):
             if args_dict.get(x, None) is None:
                 args_dict[x] = args_dict.pop(f'pos_{x}', None)
 
-        for key in ARGUMENTS['action_append']:
+        for key in SETTING_OPTS['action_append']:
             if args_dict[key] is not None:
                 value = args_dict[key]
                 value = self._correct_action_append_arg(key, value)
@@ -77,15 +77,19 @@ class _Parse(TargetParsers):
                     )
                     sys.exit(0)
 
-                elif not key in ARGUMENTS['auxiliary']:
+                elif not key in SETTING_OPTS['auxiliary']:
                     target_dict[key] = value
 
             if args.target is None:
                 break
             else:
-                target = os.path.normpath(''.join(args.target[:1]))
-                if target == '.':
+                raw = ''.join(args.target[:1])
+                if not raw:
                     target = 'global'
+                elif raw in SETTING_OPTS['special_targets']:
+                    target = raw
+                else:
+                    target = os.path.abspath(raw)
                 to_parse = args.target[1:]
 
     def _parse_config(self, path):
@@ -109,7 +113,7 @@ class _Parse(TargetParsers):
                           f"{path}")
                     sys.exit(1)
 
-                elif lower_key in ARGUMENTS['config']['bool_only']:
+                elif lower_key in SETTING_OPTS['config']['bool_only']:
                     _value = PATTERNS['bool'].get(value.lower(), None)
                     if _value is None:
                         print("Error: incorrect Bool value for option "
@@ -119,17 +123,17 @@ class _Parse(TargetParsers):
                         manager.set_opt(lower_key, _value)
                         continue
 
-                elif (lower_key in ARGUMENTS['config']['bool_maybe'] and
+                elif (lower_key in SETTING_OPTS['config']['bool_maybe'] and
                       value.lower() in PATTERNS['bool']
                 ):
-                    _key = ARGUMENTS['config']['bool_replace_keys'].get(
+                    _key = SETTING_OPTS['config']['bool_replace_keys'].get(
                         lower_key, lower_key)
                     _value = PATTERNS['bool'][value.lower()]
                     manager.set_opt(_key, _value)
 
                 else:
                     to_parse.append(f'--{key}')
-                    if key in ARGUMENTS['config']['split']:
+                    if key in SETTING_OPTS['config']['split']:
                         to_parse.extend(value.split())
                     else:
                         to_parse.append(value)

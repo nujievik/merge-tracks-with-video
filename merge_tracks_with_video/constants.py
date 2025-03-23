@@ -24,76 +24,92 @@ TOOLS = {
     'quiet': ('ffprobe', 'ffprobe.exe'),
 }
 
+
 #
 # Options constants
 #
 
-ARGUMENTS = {
-    'action_append': {
-        'track_name',
-        'language',
-        'forced_display_flag',
-        'default_track_flag',
-        'track_enabled_flag',
-    },
+DEFAULT_OPTS = {
+    'global': {
+        'start_directory': os.getcwd(),
+        'save_directory': os.getcwd(),
 
-    'auxiliary': {
-        'pos_start_directory',
-        'pos_save_directory',
-        'target',
-    },
+        'output': None,  # By default usage orig name + suffixes
+        'continue_on_error': False,
 
-    'config': {
-        'bool_maybe': {
-            'audio_tracks',
-            'video_tracks',
-            'subtitle_tracks',
+        'verbose': None,
+        'pro_mode': False,
+        'locale_language': 'rus',
+        'range_generate': [0, 9999999],
+
+        'limit_generate': 9999999,
+        'limit_search_above': 3,
+        #'limit_tracks': 9999999,
+
+        'adding_default_track_flags': True,
+        'adding_forced_display_flags': True,
+        'adding_languages': True,
+        'adding_sub_charsets': True,
+        'adding_track_enabled_flags': True,
+        'adding_track_names': True,
+        'adding_track_orders': True,
+
+        'remove_segments': set(),
+        'linked_segments': True,
+        'force_retiming': True,
+
+        'audio_tracks': True,
+        'video_tracks': True,
+        'subtitles_tracks': True,
+        'fonts': True,
+        'sorting_fonts': True,
+        'chapters': True,
+
+        'track_name': '',
+        'language': '',
+        # By default None-value flags is restricted to limits
+        'forced_display_flag': None,
+        'limit_forced_display_flag': 0,
+        'default_track_flag': None,
+        'limit_default_track_flag': 1,
+        'track_enabled_flag': None,
+        'limit_track_enabled_flag': 9999999,
+
+        'specials': [],
+        'target': 'global',
+        'files': True,
+
+        'skip_file_patterns': {
+            '_added_',
+            '_cutted_',
+            '_merged_',
+            '_replaced_',
         },
 
-        'bool_only': {
-            'verbose',
-            'pro_mode',
-            'search_above',
-            'linked_segments',
-            'opening',
-            'ending',
-            'force_retiming',
-            'fonts',
-            'sorting_fonts',
-            'continue_on_error',
+        'skip_directory_patterns': {
+            '__temp_files__'
+            'bdmenu',
+            'bonus',
+            'commentary',
+            'creditless',
+            'endings',
+            'extra',
+            'nc',
+            'nd',
+            'op',
+            'openings',
+            'pv',
+            'special',
+            'specials',
+            'бонус',
         },
-
-        'bool_replace_keys': {
-            'subtitle_tracks': 'subtitles_tracks',
-        },
-
-        'split': {
-            'target',
-        },
-    },
-
-    'exclude_in_target': {
-        'pos_start_directory',
-        'save_directory',
-        'pos_save_directory',
-        'start_directory',
-        'output',
-        'verbose',
-        'quiet',
-        'locale_language',
-        'search_above',
-        'range_generate',
-        'limit_generate',
-        'limit_search_above',
-        'remove_segments',
-        'linked_segments',
-        'opening',
-        'ending',
-        'force_retiming',
-        'continue_on_error',
     },
 }
-ARGUMENTS['config']['split'].update({x for x in TOOLS['names']})
+
+INVERSE_UNSET_ON_PRO = {
+    x for x in DEFAULT_OPTS['global'] if x.startswith('adding')
+}
+INVERSE_UNSET_ON_PRO.add('sorting_fonts')
 
 PATTERNS = {
     'bool': {
@@ -134,87 +150,78 @@ PATTERNS = {
     },
 }
 
-DEFAULT_OPTS = {
-    'global': {
-        'start_directory': os.getcwd(),
-        'save_directory': os.getcwd(),
-
-        'output': None,  # By default usage orig name + suffixes
-        'continue_on_error': False,
-
-        'verbose': None,
-        'pro_mode': False,
-        'search_above': True,
-        'locale_language': 'rus',
-        'range_generate': [0, 9999999],
-
-        'limit_generate': 9999999,
-        'limit_search_above': 3,
-        'limit_forced': 0,
-        'limit_default': 1,
-        'limit_enabled': 9999999,
-        'limit_sorting_files': 10000,
-        #'limit_tracks': 9999999,
-
-        'remove_segments': set(),
-        'linked_segments': True,
-        'opening': True,
-        'ending': True,
-        'force_retiming': True,
-
-        'audio_tracks': True,
-        'video_tracks': True,
-        'signs_tracks': True,
-        'subtitles_tracks': True,
-        'fonts': True,
-        'sorting_fonts': True,
-        'chapters': True,
-
-        'track_name': '',
-        'language': '',
-        'forced_display_flag': False,
-        'default_track_flag': True,
-        'track_enabled_flag': True,
-
-        'specials': [],
-        'target': 'global',
-        'files': True,
-
-        'skip_file_patterns': {
-            '_added_',
-            '_cutted_',
-            '_merged_',
-            '_replaced_',
-        },
-
-        'skip_directory_patterns': {
-            '__temp_files__'
-            'bdmenu',
-            'bonus',
-            'commentary',
-            'creditless',
-            'endings',
-            'extra',
-            'nc',
-            'nd',
-            'op',
-            'openings',
-            'pv',
-            'special',
-            'specials',
-            'бонус',
-        },
-
-        'flag_track_order': True,
+SETTING_OPTS = {
+    'action_append': {
+        'default_track_flag',
+        'forced_display_flag',
+        'language',
+        'track_enabled_flag',
+        'track_name',
     },
 
-    'signs': {
-        'limit_forced': 1,  # Limit 1 but flag disabled by default
-        'forced_display_flag': False,
+    'auxiliary': {
+        'pos_save_directory',
+        'pos_start_directory',
+        'target',
     },
+
+    'config': {
+        'bool_maybe': {
+            'audio_tracks',
+            'subtitle_tracks',
+            'video_tracks',
+        },
+
+        'bool_only': {
+            'continue_on_error',
+            'fonts',
+            'force_retiming',
+            'linked_segments',
+            'pro_mode',
+            'search_above',
+            'sorting_fonts',
+            'verbose',
+        },
+
+        'bool_replace_keys': {
+            'subtitle_tracks': 'subtitles_tracks',
+        },
+
+        'split': {
+            'target',
+        },
+    },
+
+    'exclude_in_target': {
+        'continue_on_error',
+        'force_retiming',
+        'limit_generate',
+        'limit_search_above',
+        'linked_segments',
+        'locale_language',
+        'output',
+        'pos_save_directory',
+        'pos_start_directory',
+        'pro_mode',
+        'quiet',
+        'range_generate',
+        'remove_segments',
+        'save_directory',
+        'search_above',
+        'start_directory',
+        'verbose',
+    },
+
+    'special_targets': {
+        'audio',
+        'global',
+        'signs',
+        'subtitles',
+        'video',
+    }
 }
-
-INVERSE_UNSET_ON_PRO = {}
+SETTING_OPTS['exclude_in_target'].update(INVERSE_UNSET_ON_PRO)
+SETTING_OPTS['config']['split'].update({x for x in TOOLS['names']})
 
 
 #
@@ -345,11 +352,11 @@ ASS_SPECS = {
     'events_idx_start': 1,
 
     'events_prefixes': (
-        'Dialogue:',
         'Comment:',
+        'Dialogue:',
+        'Movie:'
         'Picture:',
         'Sound:',
-        'Movie:'
     ),
 }
 
@@ -369,9 +376,4 @@ TIMESTAMP_MKVTOOLNIX = {
     'minutes_place': 2,
     'seconds_place': 2,
     'decimals_place': 9,
-}
-
-SHORT_NAMES_FLAG_SEGMENTS = {
-    'opening': 'op',
-    'ending': 'ed',
 }

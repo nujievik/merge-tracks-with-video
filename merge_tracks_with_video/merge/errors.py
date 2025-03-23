@@ -37,7 +37,7 @@ class Errors():
 
     def _processing_file_not_recognized(self, error):
         fpath = self._get_fpath_from_error(error)
-        for fgroup in self.groups:
+        for fgroup in self.groups['total']:
             lst = getattr(self, f'{fgroup}_list')
             for idx, _fpath in enumerate(lst):
                 if _fpath == fpath:

@@ -75,15 +75,16 @@ class Chapters(_ParseChapters):
         if not self.chapters:
             return
 
-        to_timestamp = lambda td: self.timedelta_to_timestamp(
-            td, decimals_place=ACCURACY_TIMEDELTA)
-
         root = ET.Element('Chapters')
         edition = ET.SubElement(root, 'EditionEntry')
 
         ET.SubElement(edition, 'EditionFlagOrdered').text = '1'
         ET.SubElement(edition, 'EditionFlagDefault').text = '1'
         ET.SubElement(edition, 'EditionFlagHidden').text = '0'
+
+        def to_timestamp(td):
+            return self.timedelta_to_timestamp(
+                td, decimals_place=ACCURACY_TIMEDELTA)
 
         length = timedelta(0)
         for idx in self.indexes:

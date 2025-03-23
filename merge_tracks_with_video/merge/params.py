@@ -26,28 +26,39 @@ class _CommonParams():
                 args = self.replace_targets[args[0]][:2]
             args = (*args, os.path.dirname(args[0]))
 
-        if kwargs.get('pro_mode', None) is None:
-            kwargs['pro_mode'] = self.pro_mode
-
         return self.files.get_opt(key, *args, **kwargs)
 
     def set_common_params(self):
-        self.setted_opts = {}
-        self.replace_targets = {}
         self.append_to = {}
-
-        get_opt = lambda x: self.get_opt(x, 'global', pro_mode=False)
-        for attr in [
-            'continue_on_error', 'locale_language', 'output', 'pro_mode',
-            'sorting_fonts', 'verbose',
-        ]:
-            setattr(self, attr, get_opt(attr))
-
         self.groups = {}
-        for group in ['video', 'audio', 'signs', 'subtitles', 'fonts']:
-            self.groups[group] = self.get_opt('files', group)
+        self.replace_targets = {}
+        self.setted_opts = {}
+        self.track_order = {}
+
+        pro_mode = self.get_opt('pro_mode', 'global')
+        def get_opt(x):
+            return self.get_opt(x, 'global', pro_mode=pro_mode)
+        attrs = [
+            'adding_default_track_flags', 'adding_forced_display_flags',
+            'adding_languages', 'adding_sub_charsets',
+            'adding_track_enabled_flags', 'adding_track_names',
+            'adding_track_orders', 'continue_on_error', 'locale_language',
+            'output', 'sorting_fonts', 'verbose',
+        ]
+        for x in attrs:
+            setattr(self, x, get_opt(x))
+        if any(getattr(self, x) for x in attrs[:6]):
+            self.need_adding = True
+        else:
+            self.need_adding = False
+
+        groups = self.groups
+        groups['total'] = ['video', 'audio', 'signs', 'subtitles', 'fonts']
+        for group in groups['total']:
+            groups[group] = self.get_opt('files', group)
             setattr(self, f'{group}_list', [])
-        self.track_groups = ['video', 'audio', 'signs', 'subtitles']
+        groups['with_tracks'] = groups['total'][:-1]
+        groups['tracks'] = ['video', 'audio', 'subtitles']
 
         self.save_dir = get_opt('save_directory')
         self.orig_attachs_dir = self.files.ensure_end_sep(
@@ -60,10 +71,10 @@ class _CommonParams():
         self.count_gen_earlier = 0
 
 class Params(_CommonParams):
-    def _clear_old_stem_info(self):
+    def _clear_setted_on_previos_stem(self):
         self.append_to.clear()
         self.replace_targets.clear()
-        for group in self.track_groups:
+        for group in self.groups['with_tracks']:
             getattr(self, f'{group}_list').clear()
 
         # Clear all except uids
@@ -100,7 +111,7 @@ class Params(_CommonParams):
     def set_stem_params(self, stem):
         self.stem = stem
         self.files.info.stem = stem
-        self._clear_old_stem_info()
+        self._clear_setted_on_previos_stem()
 
         self._set_file_lists()
         if not self.video_list:
@@ -138,18 +149,3 @@ class Params(_CommonParams):
 
         self.out_path = os.path.join(self.save_dir, f'{stem}.mkv')
         return True
-
-"""
-def init_fid_part_cmd(fid):
-    if not fid:  # For fid 0
-        params.command_parts = {}
-    cmd = params.command_parts.setdefault(fid, {})['cmd'] = []
-    params.command_parts[fid]['position_to_insert'] = 0
-    return cmd
-
-def init_fde_flags_params():
-    params.counters_fde_flags = {}
-    params.langs_default_audio = set()
-    params.default_locale_audio = False
-    params.setted_false_enabled_subtitles = False
-"""

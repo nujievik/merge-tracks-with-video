@@ -4,7 +4,7 @@ class Command():
             return []  # It's was extracted in self.retiming
 
         part = []
-        for _group in ['video', 'audio', 'subtitles']:
+        for _group in self.groups['tracks']:
             key = f'{_group}_tracks'
             value = self.get_opt(key)
             if value is False:
@@ -39,13 +39,52 @@ class Command():
         return part
 
     def _add_track_opts_parts(self, parts):
-        insert_positions = {}
-        replace_targets = self.replace_targets
-        get_opt = lambda x: self.get_opt(
-            x, fpath, fgroup, replace_targets=True)
-        info = self.files.info
+        def _get_flag_value():
+            value = get_opt(flag)
+            if isinstance(value, dict):
+                value = value.get(tid, None)
+            limit = get_opt(f'limit_{flag}')
+            tgroup = order[fid][tid]
+            if fgroup == 'signs' and tgroup == 'subtitles':
+                tgroup = 'signs'
+            count = flags.setdefault(tgroup, {}).setdefault(flag, 0)
 
-        for fid, tid in self.track_order:
+            if count >= limit:
+                val = 0
+            # User settings
+            elif value is not None:
+                val = value
+            # Auto settings
+            elif (flag == 'default_track_flag' and
+                  tgroup == 'subtitles' and
+                  (flags.get('default_locale_audio', False) or
+                   language in flags.get('langs_default_audio', set())
+                   )
+            ):
+                val = 0
+            else:
+                val = 1
+
+            if val:
+                flags[tgroup][flag] += 1
+                if tgroup == 'audio' and flag == 'default_track_flag':
+                    langs = flags.setdefault('langs_default_audio', set())
+                    langs.add(language)
+                    if language == self.locale_language:
+                        flags['default_locale_audio'] = True
+
+            return '' if val else ':0'
+
+        def get_opt(x):
+            return self.get_opt(x, fpath, fgroup, replace_targets=True)
+
+        flags = {}
+        positions = {}
+        info = self.files.info
+        order = self.track_order
+        replace_targets = self.replace_targets
+
+        for fid, tid in order['fid_tid_pairs']:
             part = []
             fpath, fgroup = parts['targets'][fid]
             if fpath in replace_targets:
@@ -53,16 +92,33 @@ class Command():
             else:
                 _tid = tid
 
-            track_name = info.track_name(_tid, fpath, fgroup)
-            if track_name:
-                part.extend(['--track-name', f'{tid}:{track_name}'])
-            language = info.language(_tid, fpath, fgroup)
-            if language:
-                part.extend(['--language', f'{tid}:{language}'])
+            if self.adding_track_names:
+                track_name = info.track_name(_tid, fpath, fgroup)
+                if track_name:
+                    part.extend(['--track-name', f'{tid}:{track_name}'])
 
-            pos = insert_positions.setdefault(fid, 0)
+            if self.adding_languages:
+                language = info.language(_tid, fpath, fgroup)
+                if language:
+                    part.extend(['--language', f'{tid}:{language}'])
+
+            for flag in ['forced_display_flag', 'default_track_flag',
+                         'track_enabled_flag']:
+                if not getattr(self, f'adding_{flag}s'):
+                    continue
+                val = _get_flag_value()
+                part.extend([f"--{flag.replace('_', '-')}", f'{tid}{val}'])
+
+            if fgroup in {'signs', 'subtitles'}:
+                encoding = info.char_encoding(fpath)
+                if (encoding and  # These encodings are recognized auto
+                    not encoding.lower().startswith(('utf-', 'ascii'))
+                ):
+                    part.extend(['--sub-charset', f'{tid}:{encoding}'])
+
+            pos = positions.setdefault(fid, 0)
             parts[fid][pos:pos] = part
-            insert_positions[fid] += len(part)
+            positions[fid] += len(part)
 
         return parts
 
@@ -71,19 +127,19 @@ class Command():
 
         if isinstance(self.chapters, str):
             command.extend(['--chapters', self.chapters])
-
-        if self.track_order_str:
-            command.extend(['--track-order', self.track_order_str])
+        if self.adding_track_orders:
+            command.extend(['--track-order', self.track_order['str']])
 
         parts = {'targets': {}}
         fid = -1
-        for fgroup in self.track_groups:
+        for fgroup in self.groups['with_tracks']:
             lst = getattr(self, f'{fgroup}_list')
             for fid, fpath in enumerate(lst, start=fid+1):
                 parts[fid] = self._get_file_pcommand(fpath, fgroup)
                 parts['targets'][fid] = (fpath, fgroup)
 
-        parts = self._add_track_opts_parts(parts)
+        if self.need_adding:
+            parts = self._add_track_opts_parts(parts)
 
         for fid in range(fid+1):
             command.extend(parts[fid])
@@ -93,232 +149,3 @@ class Command():
             command.extend(specials + ['--attach-file', font])
 
         return command
-
-"""
-def get_merge_command():
-    command = ['mkvmerge', '-o', params.out_file]
-
-    if options.manager.get_merge_flag('t_orders', params.base_video, 'video'):
-        order = file_info.setted.info['track_order_str']
-        command.extend(['--track-order', order])
-
-    fid = 0
-    cmd = set_params.init_fid_part_cmd(fid)
-    part = get_part_command_for_video()
-
-    cmd.extend(part + [params.video_list[0]])
-    for part_video in params.video_list[1:]:
-        cmd.extend(part + [f'+{part_video}'])
-
-    for params.fgroup in ('audio', 'signs', 'subtitles'):
-        fpaths = file_info.setted.info.get('file_groups', {}).get(
-            params.fgroup, [])
-
-        for fid, params.fpath in enumerate(fpaths, start=fid+1):
-            cmd = set_params.init_fid_part_cmd(fid)
-            cmd.extend(get_part_command_for_file() + [params.fpath])
-
-    set_tids_options_pcommand()
-
-    for fid in range(len(params.command_parts)):
-        command.extend(params.command_parts[fid]['cmd'])
-
-    for font in params.fonts_list:
-        specials = options.manager.get_merge_target_option(
-            'specials', font, 'fonts')
-        command.extend(specials + ['--attach-file', font])
-
-    if params.new_chapters:
-        command.extend(['--chapters', params.new_chapters])
-
-    return command
-
-
-
-def get_common_part_command():
-    part = []
-
-    for flg in ['video', 'global_tags', 'chapters']:
-        if not options.manager.get_merge_flag(flg):
-            part.append(f"--no-{flg.replace('_', '-')}")
-
-    return part + options.manager.get_merge_target_option('specials')
-
-def get_part_command_for_video():
-    part = []
-    params.fpath, params.fgroup = params.base_video, 'video'
-
-    if params.replace_audio or params.extracted_orig:
-        part.append('--no-audio')
-    if params.replace_subtitles or params.extracted_orig:
-        part.append('--no-subtitles')
-    if params.replace_fonts or params.extracted_orig_fonts:
-        part.append('--no-attachments')
-
-    return part + get_common_part_command()
-
-def get_part_command_for_file():
-    part = []
-    flg = options.manager.get_merge_flag
-
-    if not flg('audio'):
-        part.append('--no-audio')
-    if not flg('subtitles'):
-        part.append('--no-subtitles')
-    if not flg('fonts'):
-        part.append('--no-attachments')
-
-    return part + get_common_part_command()
-
-def get_params_to_set_fde(key):
-    if (params.tgroup == 'signs' and
-        key == 'forced' and
-        options.manager.get_merge_flag('forced_signs')
-        ):
-        limit = options.manager.get_option('lim_forced_signs')
-    else:
-        limit = options.manager.get_option(f'lim_{key}_ttype')
-
-    counters = params.counters_fde_flags.setdefault(key, {})
-    count = counters.setdefault(params.tgroup, 0)
-
-    strict = 1 if key == 'forced' else 0
-    setted_true = options.manager.get_merge_option(key)
-
-    return limit, counters, count, strict, setted_true
-
-def get_value_forced_default_enabled(key, track_info):
-    limit, counters, count, strict, setted_true = get_params_to_set_fde(key)
-
-    if count >= limit:
-        value = 0
-    elif setted_true:
-        value = 1
-    elif (key == 'forced' and
-          params.tgroup == 'signs'
-          ):
-        value = 1
-    elif (key == 'default' and
-          params.tgroup == 'subtitles' and
-          (params.default_locale_audio or
-           params.setted_false_enabled_subtitles or
-           track_info.get('tlang', '') in params.langs_default_audio
-           )
-          ):
-        params.setted_false_enabled_subtitles = True
-        value = 0
-    elif (setted_true is None and
-          not strict and
-          options.manager.get_merge_flag(key)
-          ):
-        value = 1
-    else:
-        value = 0
-
-    if value:
-        counters[params.tgroup] += 1
-
-        if params.tgroup == 'audio' and key == 'default':
-            tlang = track_info.get('tlang', '')
-            params.langs_default_audio.add(tlang)
-            if tlang == params.locale:
-                params.default_locale_audio = True
-
-    return '' if value else ':0'
-
-def get_sub_charset_pcommand(fpath, tid):
-    encoding = file_info.char_encoding.get_char_encoding(fpath)
-
-    if (not encoding or
-        encoding.lower().startswith(('utf-', 'ascii'))
-        ):  # These encodes auto-detect by mkvmerge
-        return []
-    else:
-        return ['--sub-charset', f'{tid}:{encoding}']
-
-def set_tids_options_pcommand():
-    set_params.init_fde_flags_params()
-    track_orders = file_info.setted.info['track_orders']
-
-    for params.tgroup in track_orders:
-        for fid, tid in track_orders[params.tgroup]:
-            part = []
-
-            fpath = params.fpath = file_info.setted.info['file_paths'][fid]
-            fgroup = file_info.setted.info[fpath]['file_group']
-            params.fgroup = fgroup
-
-            track_info = file_info.setted.info.get(fpath, {}).get(tid, {})
-            flg = options.manager.get_merge_flag
-
-            if flg('forceds'):
-                val = get_value_forced_default_enabled('forced', track_info)
-                part.extend(['--forced-display-flag', f'{tid}{val}'])
-
-            if flg('defaults'):
-                val = get_value_forced_default_enabled('default', track_info)
-                part.extend(['--default-track-flag', f'{tid}{val}'])
-
-            if flg('enableds'):
-                val = get_value_forced_default_enabled('enabled', track_info)
-                part.extend(['--track-enabled-flag', f'{tid}{val}'])
-
-            if fgroup != 'video':
-                if flg('tnames'):
-                    val = track_info.get('tname', '')
-                    if val:
-                        part.extend(['--track-name', f'{tid}:{val}'])
-
-                if flg('tlangs'):
-                    val = track_info.get('tlang', '')
-                    if val:
-                        part.extend(['--language', f'{tid}:{val}'])
-
-            if (params.tgroup in {'signs', 'subtitles'} and
-                flg('sub_charsets')
-                ):
-                part.extend(get_sub_charset_pcommand(fpath, tid))
-
-            cmd = params.command_parts[fid]['cmd']
-            p = params.command_parts[fid]['position_to_insert']
-            cmd[p:p] = part
-            params.command_parts[fid]['position_to_insert'] += len(part)
-
-def get_merge_command():
-    command = ['mkvmerge', '-o', params.out_file]
-
-    if options.manager.get_merge_flag('t_orders', params.base_video, 'video'):
-        order = file_info.setted.info['track_order_str']
-        command.extend(['--track-order', order])
-
-    fid = 0
-    cmd = set_params.init_fid_part_cmd(fid)
-    part = get_part_command_for_video()
-
-    cmd.extend(part + [params.video_list[0]])
-    for part_video in params.video_list[1:]:
-        cmd.extend(part + [f'+{part_video}'])
-
-    for params.fgroup in ('audio', 'signs', 'subtitles'):
-        fpaths = file_info.setted.info.get('file_groups', {}).get(
-            params.fgroup, [])
-
-        for fid, params.fpath in enumerate(fpaths, start=fid+1):
-            cmd = set_params.init_fid_part_cmd(fid)
-            cmd.extend(get_part_command_for_file() + [params.fpath])
-
-    set_tids_options_pcommand()
-
-    for fid in range(len(params.command_parts)):
-        command.extend(params.command_parts[fid]['cmd'])
-
-    for font in params.fonts_list:
-        specials = options.manager.get_merge_target_option(
-            'specials', font, 'fonts')
-        command.extend(specials + ['--attach-file', font])
-
-    if params.new_chapters:
-        command.extend(['--chapters', params.new_chapters])
-
-    return command
-"""

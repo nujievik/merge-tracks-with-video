@@ -26,6 +26,9 @@ class ByFfprobe():
                     durations.append(duration)
                     break
 
+        # Some builds of ffprobe incorrectly process the large
+        # -read_intervals option. In this case, use the value from
+        # mkvinfo
         if not durations:
             duration = self.by_query('Duration:', fpath)
             _info['video'] = duration

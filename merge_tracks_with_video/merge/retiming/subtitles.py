@@ -65,7 +65,8 @@ class _IndepSource():
         sources = self.sources
         indexes = self.retiming.indexes
         to_timedelta = self.retiming.timestamp_to_timedelta
-        to_timestamp = lambda td: self.retiming.timedelta_to_timestamp(
+        def to_timestamp(td):
+            return self.retiming.timedelta_to_timestamp(
                 td, hours_place=1, decimals_place=2)
         prefixes = ASS_SPECS['events_prefixes']
         idx_start = ASS_SPECS['events_idx_start']

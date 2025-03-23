@@ -73,17 +73,13 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
     def processing(self):
         count_gen = 0
         count_gen_earlier = 0
-        get_opt = lambda x: self.get_opt(x, 'global')
+        def get_opt(x): return self.get_opt(x, 'global')
 
         start, end = get_opt('range_generate')
         lim_gen = get_opt('limit_generate')
         base_ftrie = self.files.dir_ftrie_pairs[self.files.base_dir]
         stems = self.files.stems.starts_with('')
-        if len(stems) <= get_opt('limit_sorting_files'):
-            stems.sort()
-            stems_sorted = True
-        else:
-            stems_sorted = False
+        stems.sort()
 
         self.idx_str = ''
         for stem in stems:
@@ -91,10 +87,7 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
             if idx < start:
                 continue
             elif idx > end:
-                if stems_sorted:
-                    break
-                else:
-                    continue
+                break
             elif count_gen >= lim_gen:
                 break
             elif not self.set_stem_params(stem):

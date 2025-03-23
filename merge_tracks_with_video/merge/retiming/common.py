@@ -6,21 +6,20 @@ from merge_tracks_with_video.constants import (
     ACCURACY_TIMEDELTA,
     SECONDS_IN_HOUR,
     SECONDS_IN_MINUTE,
-    SHORT_NAMES_FLAG_SEGMENTS,
     TIMESTAMP_MKVTOOLNIX
 )
 
 class TimestampCast():
-    @staticmethod
-    def timestamp_to_timedelta(timestamp):
+    @classmethod
+    def timestamp_to_timedelta(cls, timestamp):
         hours, minutes, seconds = timestamp.split(':')
         total_seconds = int(hours) * SECONDS_IN_HOUR
         total_seconds += int(minutes) * SECONDS_IN_MINUTE
         total_seconds += float(seconds)
         return timedelta(seconds=total_seconds)
 
-    @staticmethod
-    def timedelta_to_timestamp(td, **kwargs):
+    @classmethod
+    def timedelta_to_timestamp(cls, td, **kwargs):
         std = TIMESTAMP_MKVTOOLNIX
         hours_place = kwargs.get('hours_place', std['hours_place'])
         minutes_place = kwargs.get('minutes_place', std['minutes_place'])
@@ -40,31 +39,7 @@ class TimestampCast():
             f'{hours:0{hours_place}}:{minutes:0{minutes_place}}:'
             f'{seconds:0{seconds_place}}.{decimals:0{decimals_place}}')
 
-class _RemoveSegments():
-    def _get_remove_names(self):
-        names = set()
-        for name, n in SHORT_NAMES_FLAG_SEGMENTS.items():
-            if not self.get_opt(name):
-                names.add(name)
-                names.add(n)
-        remove_segments = self.get_opt('remove_segments')
-        names.update({name.lower() for name in remove_segments})
-        return names
-
-    def add_remove_idxs(self):
-        names = self._get_remove_names()
-        linked_segments = self.get_opt('linked_segments')
-        remove_uids = self.uids_info.get('remove_uids', set())
-
-        for idx, name in enumerate(self.names):
-            uid = self.uids[idx]
-            if (name.lower() in names or
-                not linked_segments and uid or
-                uid in remove_uids
-            ):
-                self.remove_idxs.add(idx)
-
-class _SplitFile(_RemoveSegments):
+class _SplitFile():
     def _get_split_command(self):
         command = [
             'mkvmerge', '-o', self.segment, '--split',
@@ -141,14 +116,25 @@ class _SplitFile(_RemoveSegments):
             self.offset_start = self.defacto_start - old_start
             self.offset_end = self.defacto_end - old_end
 
-class Common(_SplitFile):
-    def __init__(self):
-        super().__init__()
-        self.timedelta_to_timestamp = TimestampCast.timedelta_to_timestamp
-        self.timestamp_to_timedelta = TimestampCast.timestamp_to_timedelta
+class Common(_SplitFile, TimestampCast):
+    def add_remove_idxs(self):
+        def get_remove_names():
+            names = set()
+            remove_segments = self.get_opt('remove_segments')
+            names.update({name.lower() for name in remove_segments})
+            return names
 
-    def timedelta_to_timestamp(self, td, **kwargs):
-        return TimestampCast.timedelta_to_timestamp(td, **kwargs)
+        names = get_remove_names()
+        linked_segments = self.get_opt('linked_segments')
+        remove_uids = self.uids_info.get('remove_uids', set())
+
+        for idx, name in enumerate(self.names):
+            uid = self.uids[idx]
+            if (name.lower() in names or
+                not linked_segments and uid or
+                uid in remove_uids
+            ):
+                self.remove_idxs.add(idx)
 
     def save_track(self, tid, _tracks):
         if _tracks is True:

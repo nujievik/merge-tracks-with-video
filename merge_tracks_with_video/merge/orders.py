@@ -1,11 +1,13 @@
 class Orders():
     def _get_order_sort_key(self, fpath, fgroup, tids=[]):
+        def get_opt(x):
+            # Flag replace_targets=True will add parent dir to args
+            return self.get_opt(
+                x, fpath, fgroup, replace_targets=True, def_unset=False)
+
         if fpath in self.replace_targets:
             fpath, fgroup, _tid = self.replace_targets[fpath]
             tids = [_tid]
-        # replace_targets=True will add parent dir to args
-        get_opt = lambda x: self.get_opt(
-            x, fpath, fgroup, replace_targets=True, def_unset=False)
 
         _forced = get_opt('forced_display_flag')
         _default = get_opt('default_track_flag')
@@ -17,9 +19,8 @@ class Orders():
 
         langs = set()
         for tid in tids:
-            lang = self.files.info.language(tid, fpath, fgroup)
-            if lang:
-                langs.add(lang)
+            langs.add(self.files.info.language(tid, fpath, fgroup))
+        langs.discard('')  # Remove undefined
         if self.locale_language in langs:
             lang_sort = 0  # Locale first
         elif langs and not langs - {'jpn'}:
@@ -32,18 +33,18 @@ class Orders():
         return (*flag_sort, lang_sort)
 
     def _set_file_orders(self):
+        def get_sort_key(path):
+            return self._get_order_sort_key(
+                path, group, tids=self.files.info.file_tids(path))
+
         fids = {}
         fid = 0
-        for group in self.track_groups:
+        for group in self.groups['with_tracks']:
             lst = getattr(self, f'{group}_list')
             paths = sorted(lst) # sort by name
             sorted_paths = sorted(
                 paths,
-                key=lambda path: self._get_order_sort_key(
-                    path,
-                    group,
-                    tids=self.files.info.file_tids(path)
-                )
+                key=get_sort_key
             )
             lst[:] = sorted_paths
             for path in lst:
@@ -52,26 +53,34 @@ class Orders():
         return fids
 
     def _set_track_order(self, fids):
-        order = []
-        order_str = []
-        track_groups = self.track_groups
-        for group in track_groups:
+        fid_tid_group = {}
+        fid_tid_pairs = []
+        fid_tid_str = []
+
+        def get_sort_key(item):
+            return self._get_order_sort_key(*item)
+
+        groups = self.groups
+        for group in groups['tracks']:
             args = []
-            for _group in track_groups:
+            for _group in groups['with_tracks']:
                 lst = getattr(self, f'{_group}_list')
                 for path in lst:
                     for tid in self.files.info.tgroup_tids(group, path):
                         args.append((path, _group, [tid]))
-            sorted_args = sorted(
-                args, key=lambda item: self._get_order_sort_key(*item)
-            )
+            sorted_args = sorted(args, key=get_sort_key)
             for path, _, tids in sorted_args:
                 fid = fids[path]
                 tid = tids[0]  # tids always has 1 element
-                order.append((fid, tid))
-                order_str.append(f'{fid}:{tid}')
-        self.track_order = order
-        self.track_order_str = ','.join(order_str)
+                fid_tid_group.setdefault(fid, {})[tid] = group
+                fid_tid_pairs.append((fid, tid))
+                fid_tid_str.append(f'{fid}:{tid}')
+
+        order = self.track_order
+        order.clear()
+        order.update(fid_tid_group)
+        order['fid_tid_pairs'] = fid_tid_pairs
+        order['str'] = ','.join(fid_tid_str)
 
     def set_orders(self):
         fids = self._set_file_orders()
