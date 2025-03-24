@@ -1,9 +1,10 @@
+import os
 import re
 
 from merge_tracks_with_video.constants import (
-    EXTS_TUPLE,
+    EXTS,
     MATROSKA_DEFAULT,
-    PATTERNS,
+    PATTERNS
 )
 from merge_tracks_with_video.merge.retiming.common import TimestampCast
 
@@ -55,7 +56,7 @@ class _Stdouts():
 
 class ByMkvtools(_Stdouts):
     def by_query(self, query, fpath, tid=None):
-        if not fpath.endswith(EXTS_TUPLE['matroska']):
+        if not os.path.splitext(fpath)[1] in EXTS['matroska']:
             return ''
 
         for line in self._stdout_mkvinfo(fpath, tid):

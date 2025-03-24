@@ -12,9 +12,14 @@ class _SegmentSource():
                 if not entry.is_file():
                     continue
                 name = entry.name
-                if not name.endswith('.mkv'):
+                if not name[-4:].lower() == '.mkv':
                     continue
-                if not any(key in name for key in skip_file_patterns):
+                skip = False
+                for key in skip_file_patterns:
+                    if key in name:
+                        skip = True
+                        break
+                if not skip:
                     yield name
 
     def _get_base_mkv_names(self, base_dir):
@@ -38,7 +43,7 @@ class _SegmentSource():
         cut_stem = _stem[:idx_start]
         _end_char_slice = idx_start + 1
         for name in ftrie.starts_with(cut_stem):
-            if not name.endswith('.mkv'):
+            if not name[-4:].lower() == '.mkv':
                 continue
             # As a rule linked segments not has num in the same place
             elif '0' <= name[idx_start:_end_char_slice] <= '9':

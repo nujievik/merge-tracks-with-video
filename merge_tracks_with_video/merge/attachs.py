@@ -2,7 +2,7 @@ import os
 import re
 import shutil
 
-from merge_tracks_with_video.constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS
 
 class _Extract():
     def _get_attach_names(self, fpath):
@@ -19,7 +19,7 @@ class _Extract():
             shutil.rmtree(self.orig_attachs_dir)
 
         for fpath in self.video_list + self.signs_list + self.subtitles_list:
-            if not fpath.endswith(EXTS_TUPLE['matroska']):
+            if not os.path.splitext(fpath)[1] in EXTS['matroska']:
                 continue
             names = self._get_attach_names(fpath)
             if not names:
@@ -40,7 +40,7 @@ class _Extract():
 
         extracted_fonts = self.extracted_fonts
         for f in os.listdir(_dir):
-            if f.endswith(EXTS_TUPLE['fonts']):
+            if os.path.splitext(f)[1] in EXTS['fonts']:
                 extracted_fonts.add(f)
 
 class Attachs(_Extract):

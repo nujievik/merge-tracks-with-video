@@ -2,7 +2,7 @@ import os
 
 import srt
 
-from merge_tracks_with_video.constants import ASS_SPECS, EXTS_TUPLE
+from merge_tracks_with_video.constants import ASS_SPECS, EXTS
 
 class _IndepSource():
     def __init__(self, retiming_instance):
@@ -301,7 +301,8 @@ class _SingleSource(_IndepSource):
                 for ext, tids in ext_tids.items():
                     write_sub = getattr(self, f'_write_retimed_{ext[1:]}')
                     for tid in tids:
-                        if source.endswith(EXTS_TUPLE['retiming_subtitles']):
+                        ext = os.path.splitext(source)[1]
+                        if ext in EXTS['retiming_subtitles']:
                             _extracted = source  # Wo extract
                         else:
                             _extracted = os.path.join(

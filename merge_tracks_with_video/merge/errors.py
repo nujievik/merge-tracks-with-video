@@ -1,7 +1,7 @@
 import os
 import sys
 
-from merge_tracks_with_video.constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS
 
 class Errors():
     def _processing_mismatched_codec_private_data(self):
@@ -24,7 +24,7 @@ class Errors():
         splits = error.split("'")
         fpath = ''
         for idx, s in enumerate(splits):
-            if s.endswith(EXTS_TUPLE['total']):
+            if os.path.splitext(s)[1] in EXTS['total']:
                 fpath = "'".join(splits[1:idx+1])
         return fpath
 

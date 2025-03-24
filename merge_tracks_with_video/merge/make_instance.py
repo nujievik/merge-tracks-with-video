@@ -17,7 +17,7 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
         self.set_common_params()
 
     def _retiming_or_something_else(self):
-        if self.base_video.endswith('.mkv'):
+        if self.base_video[-4:].lower() == '.mkv':
             self.retiming = merge_tracks_with_video.merge.retiming. \
                 make_instance.init(self)
 

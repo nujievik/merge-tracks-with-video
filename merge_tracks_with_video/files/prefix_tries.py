@@ -1,6 +1,6 @@
 import os
 
-from merge_tracks_with_video.constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS, EXTS_LENGTHS
 
 class TrieNode:
     def __init__(self):
@@ -82,27 +82,43 @@ class PrefixTries():
         return trie
 
     def _iterate_dir_stems(self, path):
+        lengths = EXTS_LENGTHS['with_tracks']
+        exts = EXTS['with_tracks']
         skip_file_patterns = self.skip_file_patterns
         with os.scandir(path) as entries:
             for entry in entries:
                 if not entry.is_file():
                     continue
                 name = entry.name
-                if not name.endswith(EXTS_TUPLE['total_wo_fonts']):
-                    continue
-
-                if not any(key in name for key in skip_file_patterns):
-                    yield name.rsplit('.', 1)[0]
+                for length in lengths:
+                    if not name[-length:] in exts:
+                        continue
+                    skip = False
+                    for key in skip_file_patterns:
+                        if key in name:
+                            skip = True
+                            break
+                    if not skip:
+                        yield name.rsplit('.', 1)[0]
+                        break
 
     def _iterate_dir_files(self, path):
+        lengths = EXTS_LENGTHS['with_tracks']
+        exts = EXTS['with_tracks']
         skip_file_patterns = self.skip_file_patterns
         with os.scandir(path) as entries:
             for entry in entries:
                 if not entry.is_file():
                     continue
                 name = entry.name
-                if not name.endswith(EXTS_TUPLE['total_wo_fonts']):
-                    continue
-
-                if not any(key in name for key in skip_file_patterns):
-                    yield name
+                for length in lengths:
+                    if not name[-length:] in exts:
+                        continue
+                    skip = False
+                    for key in skip_file_patterns:
+                        if key in name:
+                            skip = True
+                            break
+                    if not skip:
+                        yield name
+                        break

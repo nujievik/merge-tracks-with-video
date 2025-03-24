@@ -1,3 +1,4 @@
+import itertools
 import os
 from datetime import timedelta
 
@@ -210,7 +211,7 @@ SETTING_OPTS['config']['split'].update(
 
 CHUNK_SIZE_READ = 1024 * 1024  # 1 MiB
 
-EXTS_SET = {
+EXTS = {
     # Common for video and audio
     'container': {
         '.3gp',
@@ -303,14 +304,49 @@ EXTS_SET = {
         '.srt'
     },
 }
-EXTS_SET['video'].update(EXTS_SET['container'])
-EXTS_SET['audio'].update(EXTS_SET['container'])
-EXTS_SET['total_wo_fonts'] = EXTS_SET['video'].union(
-    EXTS_SET['audio'], EXTS_SET['subtitles'])
-EXTS_SET['total'] = EXTS_SET['total_wo_fonts'].union(EXTS_SET['fonts'])
+EXTS['video'].update(EXTS['container'])
+EXTS['audio'].update(EXTS['container'])
+EXTS['with_tracks'] = EXTS['video'].union(
+    EXTS['audio'], EXTS['subtitles'])
+EXTS['total'] = EXTS['with_tracks'].union(EXTS['fonts'])
 
-EXTS_TUPLE = {group: tuple(exts)
-              for group, exts in EXTS_SET.items()}
+EXTS_LOWER = {x: exts.copy() for x, exts in EXTS.items()}
+
+def _get_optimal_lengths(group):
+    optimal = []
+    exts = EXTS_LOWER[group]
+    lengths = (len(ext) for ext in exts)
+    length_count = {}
+    for length in lengths:
+        cnt = length_count.get(length, 0)
+        length_count[length] = cnt + 1
+
+    total = len(exts)
+    chance_length = {
+        count / total: length
+        for length, count in length_count.items()
+    }
+    for chance in sorted(chance_length, reverse=True):
+        optimal.append(chance_length[chance])
+
+    return optimal
+
+EXTS_LENGTHS = {x: _get_optimal_lengths(x) for x in EXTS_LOWER}
+
+# Add all possible combinations of chars
+for group, exts in EXTS.items():
+    to_upd = set()
+    for ext in exts:
+        to_upd.update({
+            ''.join(comb)
+            for comb in itertools.product(
+                *[(char.lower(), char.upper())
+                  for char in ext]
+            )
+        })
+    exts.update(to_upd)
+# Clear namespace
+del group, exts, ext, to_upd
 
 # The Matroska(tm) specification states that some elements have a
 # default value. Source: (https://mkvtoolnix.download/doc/mkvmerge.html

@@ -89,8 +89,10 @@ class Command():
             fpath, fgroup = parts['targets'][fid]
             if fpath in replace_targets:
                 fpath, fgroup, _tid = replace_targets[fpath]
+                retimed = True
             else:
                 _tid = tid
+                retimed = False
 
             if self.adding_track_names:
                 track_name = info.track_name(_tid, fpath, fgroup)
@@ -109,7 +111,8 @@ class Command():
                 val = _get_flag_value()
                 part.extend([f"--{flag.replace('_', '-')}", f'{tid}{val}'])
 
-            if fgroup in {'signs', 'subtitles'}:
+            # Retimed subtitles already in utf-8
+            if not retimed and fgroup in {'signs', 'subtitles'}:
                 encoding = info.char_encoding(fpath)
                 if (encoding and  # These encodings are recognized auto
                     not encoding.lower().startswith(('utf-', 'ascii'))

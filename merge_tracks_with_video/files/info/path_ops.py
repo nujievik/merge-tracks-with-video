@@ -1,7 +1,7 @@
 import os
 import re
 
-from merge_tracks_with_video.constants import EXTS_TUPLE
+from merge_tracks_with_video.constants import EXTS_LOWER
 
 class PathOps():
     def _relative_path(self, path):
@@ -46,7 +46,7 @@ class PathOps():
             else:
                 break
 
-        for ext in EXTS_TUPLE['total_wo_fonts']:
+        for ext in EXTS_LOWER['total']:
             if tail.lower().startswith(ext):
                 tail = tail[len(ext):]
             if tail.lower().endswith(ext):
