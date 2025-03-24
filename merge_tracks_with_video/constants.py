@@ -192,26 +192,6 @@ SETTING_OPTS = {
         },
     },
 
-    'exclude_in_target': {
-        'continue_on_error',
-        'force_retiming',
-        'limit_generate',
-        'limit_search_above',
-        'linked_segments',
-        'locale_language',
-        'output',
-        'pos_save_directory',
-        'pos_start_directory',
-        'pro_mode',
-        'quiet',
-        'range_generate',
-        'remove_segments',
-        'save_directory',
-        'search_above',
-        'start_directory',
-        'verbose',
-    },
-
     'special_targets': {
         'audio',
         'global',
@@ -220,8 +200,8 @@ SETTING_OPTS = {
         'video',
     }
 }
-SETTING_OPTS['exclude_in_target'].update(INVERSE_UNSET_ON_PRO)
-SETTING_OPTS['config']['split'].update({x for x in TOOLS['names']})
+SETTING_OPTS['config']['split'].update(
+    {x for x in TOOLS['names']})
 
 
 #

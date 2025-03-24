@@ -109,6 +109,7 @@ class Errors():
                 if self.continue_on_error:
                     print('Trying to generate next files.')
                 else:
+                    # On True stdout was printed above
                     if verbose is None:
                         print(stdout)
                     sys.exit(1)

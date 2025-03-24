@@ -61,8 +61,8 @@ class Audio():
             _start = self.starts[idx] + nonuid_length + offset
             if _start >= timedelta(0):
                 self.start = _start
-            else:
-                self.start -= offset
+            else:  # Timestamp can't be negative
+                self.start = _start - offset
             self.end = self.ends[idx] + nonuid_length
 
             self.segment = os.path.join(

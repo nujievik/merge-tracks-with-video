@@ -179,6 +179,8 @@ def init():
     ):
         glob_opts['save_directory'] = glob_opts['start_directory']
 
+    print(manager.setted_opts)
+
 if __name__ == '__main__':
     merge_tracks_with_video.tools.init()
     init()
