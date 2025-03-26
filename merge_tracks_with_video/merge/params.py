@@ -30,14 +30,16 @@ class _CommonParams():
 
     def set_common_params(self):
         self.append_to = {}
+        self.dirs = {}
         self.groups = {}
         self.replace_targets = {}
         self.setted_opts = {}
         self.track_order = {}
+        self.count_gen = 0
 
-        pro_mode = self.get_opt('pro_mode', 'global')
-        def get_opt(x):
-            return self.get_opt(x, 'global', pro_mode=pro_mode)
+        pro_mode = self.files.get_opt('pro_mode')
+        def get_opt(x, *args):
+            return self.files.get_opt(x, *args, pro_mode=pro_mode)
         attrs = [
             'adding_default_track_flags', 'adding_forced_display_flags',
             'adding_languages', 'adding_sub_charsets',
@@ -55,20 +57,21 @@ class _CommonParams():
         groups = self.groups
         groups['total'] = ['video', 'audio', 'signs', 'subtitles', 'fonts']
         for group in groups['total']:
-            groups[group] = self.get_opt('files', group)
+            groups[group] = get_opt('files', group)
             setattr(self, f'{group}_list', [])
         groups['with_tracks'] = groups['total'][:-1]
         groups['tracks'] = ['video', 'audio', 'subtitles']
 
+        dirs = self.dirs
+        for _dir in self.files.dir_ftrie_pairs:
+            dirs[_dir] = get_opt('files', _dir)
+        self.extracted_fonts = set()
+        self.set_external_fonts()
+
         self.save_dir = get_opt('save_directory')
-        self.orig_attachs_dir = self.files.ensure_end_sep(
-            os.path.join(self.temp_dir, 'orig_attachs')
-        )
+        self.orig_attachs_dir = os.path.join(self.temp_dir, 'orig_attachs')
         self.command_json = os.path.join(self.temp_dir, 'command.json')
         os.makedirs(self.temp_dir, exist_ok=True)
-
-        self.count_gen = 0
-        self.count_gen_earlier = 0
 
 class Params(_CommonParams):
     def _clear_setted_on_previos_stem(self):
@@ -94,15 +97,16 @@ class Params(_CommonParams):
         _setted_opts.clear()
 
     def _set_file_lists(self):
+        dirs = self.dirs
+        sep = os.sep
         stem = self.stem
         for _dir, ftrie in self.files.dir_ftrie_pairs.items():
-            if not self.get_opt('files', _dir):
+            if not dirs[_dir]:
                 continue
             for f in ftrie.starts_with(stem):
-                fpath = _dir + f
+                fpath = _dir + sep + f
                 if not self.get_opt('files', fpath):
                     continue
-
                 fgroup = self.files.info.file_group(fpath)
                 if self.groups[fgroup]:
                     lst = getattr(self, f'{fgroup}_list')
@@ -122,6 +126,8 @@ class Params(_CommonParams):
         self.fgroup = 'video'
 
         self.chapters = None
+        self.fonts = self.get_opt('fonts')
+        self.need_cut = False
         self.need_retiming = False
 
         return True
@@ -133,7 +139,7 @@ class Params(_CommonParams):
             stem = self.stem
 
             if self.need_retiming:
-                if self.retiming.need_cut:
+                if self.need_cut:
                     stem += '_cutted_video'
                 else:
                     stem += '_merged_video'
@@ -141,11 +147,16 @@ class Params(_CommonParams):
             for group in ['audio', 'subtitles']:
                 if not getattr(self, f'{group}_list'):
                     continue
-
                 if self.get_opt(f'{group}_tracks'):
                     stem += f'_added_{group}'
                 else:
                     stem += f'_replaced_{group}'
+
+            if self.external_fonts:
+                if self.fonts:
+                    stem += f'_added_fonts'
+                else:
+                    stem += f'_replaced_'
 
         self.out_path = os.path.join(self.save_dir, f'{stem}.mkv')
         return True

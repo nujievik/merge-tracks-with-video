@@ -44,15 +44,13 @@ class _SplitFile():
         command = [
             'mkvmerge', '-o', self.segment, '--split',
             f'parts:{self.start}-{self.end}', '--no-chapters',
-            '--no-global-tags', '--no-subtitles', f'--{self.ftype}-tracks',
-            f'{self.tid}'
+            '--no-global-tags', '--no-subtitles', '--no-attachments',
+            f'--{self.ftype}-tracks', f'{self.tid}'
         ]
         if self.ftype == 'video':
             command.append('--no-audio')
-            if not self.get_opt('fonts'):
-                command.append('--no-attachments')
         else:
-            command.extend(['--no-video', '--no-attachments'])
+            command.append('--no-video')
         command.append(self.source)
         return command
 

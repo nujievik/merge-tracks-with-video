@@ -45,6 +45,7 @@ DEFAULT_OPTS = {
 
         'limit_generate': 9999999,
         'limit_search_above': 3,
+        'limit_check_files': 128,
         #'limit_tracks': 9999999,
 
         'adding_default_track_flags': True,

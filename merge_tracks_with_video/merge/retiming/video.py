@@ -5,51 +5,22 @@ from datetime import timedelta
 from merge_tracks_with_video.constants import ACCEPT_RETIMING_OFFSETS
 
 class _SegmentSource():
-    def _iterate_dir_mkv(self, base_dir):
-        skip_file_patterns = self.merge.files.skip_file_patterns
-        with os.scandir(base_dir) as entries:
-            for entry in entries:
-                if not entry.is_file():
-                    continue
-                name = entry.name
-                if not name[-4:].lower() == '.mkv':
-                    continue
-                skip = False
-                for key in skip_file_patterns:
-                    if key in name:
-                        skip = True
-                        break
-                if not skip:
-                    yield name
-
-    def _get_base_mkv_names(self, base_dir):
-        if base_dir != self.uids_info.get('base_dir', None):
-            names = []
-            count = 0
-            for f in self._iterate_dir_mkv(base_dir):
-                names.append(f)
-            names.sort(reverse=True)  # OP-ED symbols later than 0-9
-            self.uids_info['base_dir'] = base_dir
-            self.uids_info['base_mkv_names'] = names
-        else:
-            names = self.uids_info['base_mkv_names']
-        return names
-
     def _find_source_by_uid(self, uid):
-        base_dir = os.path.dirname(self.base_video) + os.sep
+        base_dir = os.path.dirname(self.base_video)
         ftrie = self.merge.files.dir_ftrie_pairs[base_dir]
-        _stem = self.merge.stem
         idx_start = self.merge.idx_start
-        cut_stem = _stem[:idx_start]
-        _end_char_slice = idx_start + 1
+        cut_stem = self.merge.stem[:idx_start]
+        end_char_slice = idx_start + 1
+        sep = os.sep
+
         for name in ftrie.starts_with(cut_stem):
             if not name[-4:].lower() == '.mkv':
                 continue
             # As a rule linked segments not has num in the same place
-            elif '0' <= name[idx_start:_end_char_slice] <= '9':
+            elif '0' <= name[idx_start:end_char_slice] <= '9':
                 continue
 
-            path = base_dir + name
+            path = base_dir + sep + name
             _uid = self.merge.files.info.by_query('Segment UID:', path)
             if uid == _uid:
                 self.source = path
@@ -57,13 +28,14 @@ class _SegmentSource():
             else:
                 self.uids_info.setdefault(_uid, {})['source'] = path
 
-        # If not found try find from all mkv
-        names = self._get_base_mkv_names(base_dir)
-        for name in names:
+        # If not found above try all mkv search
+        for name in sorted(ftrie.starts_with(''), reverse=True):
+            if not name[-4:].lower() == '.mkv':
+                continue
             if uid == self.merge.files.info.by_query(
-                'Segment UID:', base_dir + name
+                'Segment UID:', base_dir + sep + name
             ):
-                self.source = base_dir + name
+                self.source = base_dir + sep + name
                 return
 
     def _not_found_source(uid, exit_on_none=False):
@@ -100,7 +72,7 @@ class _SegmentSource():
                 else:
                     self.uid_info['source'] = self.source
 
-        return True if self.source else False
+        return self.source
 
 class Video(_SegmentSource):
     def _set_video_idx_end(self):

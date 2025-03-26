@@ -8,44 +8,21 @@ import merge_tracks_with_video.files.make_instance
 import merge_tracks_with_video.merge.make_instance
 import merge_tracks_with_video.options.settings
 
-"""
-def _get_message(key):
-    start_dir = options.manager.get_opt('start_dir')
-    save_dir = options.manager.get_opt('save_dir')
-
-    if key == 'try_gen':
-        return ("Trying to generate a new video in the save directory "
-                f"'{save_dir}' using files from the start directory "
-                f"'{start_dir}'.")
-
-    elif key == 'not_found':
-        if options.manager.get_opt('search_dirs'):
-            limit = options.manager.get_opt('lim_search_up')
-            tail = f' and {limit} directories up.'
-        else:
-            tail = '.'
-
-        return ("Files for generating a new video not found. Checked "
-                f"the directory '{start_dir}' and its subdirectories{tail}")
-
-    elif key == 'gen_earlier':
-        return (f"{merge.params.count_gen_earlier} video files in the save "
-                f"directory '{save_dir}' had generated names before the "
-                "current run of the script. Generation for these files has "
-                "been skipped.")
-
-    elif key == 'gen_success':
-        return ("\nThe generate was executed successfully. "
-                f"{merge.params.count_gen} video files were generated in "
-                f"the directory '{save_dir}'.")
-"""
-
 def main():
     tools.init()
     merge_tracks_with_video.options.settings.init()
     files_instance = merge_tracks_with_video.files.make_instance.init()
 
-    save_dir = files_instance.get_opt('save_directory')
+    get_opt = files_instance.get_opt
+    start_dir = get_opt('start_directory')
+    save_dir = get_opt('save_directory')
+    verbose = not get_opt('verbose') is False  # True on unset and True
+
+    if verbose:
+        print(f"Trying to generate a merged video in the save directory "
+              f"'{save_dir}' using files from the start directory "
+              f"'{start_dir}'.")
+
     temp_dir = os.path.join(
         save_dir, f'__temp_files__.{str(uuid.uuid4())[:8]}')
     try:
@@ -55,6 +32,16 @@ def main():
     finally:
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
+
+    if not merge.count_gen:
+        limit = get_opt('limit_search_above')
+        tail = '.' if not limit else f'and {limit} directories above.'
+        print(f"Files for generating a new merged video not found. Checked "
+              f"the directory '{start_dir}' and it's subdirectories{tail}")
+    elif verbose:
+        print(f"\nThe generate was executed successfully. "
+              f"{merge.count_gen} merged video were generated in the "
+              f"directory '{save_dir}'.")
 
 if __name__ == '__main__':
     main()

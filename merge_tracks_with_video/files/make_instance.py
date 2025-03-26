@@ -9,11 +9,11 @@ import merge_tracks_with_video.options.manager
 
 class _Fonts():
     def _scan_dir_fonts(self, path):
-        lengths = EXTS_LENGTHS['fonts']
         exts = EXTS['fonts']
+        lengths = EXTS_LENGTHS['fonts']
         with os.scandir(path) as entries:
             for entry in entries:
-                if not entry.is_file():
+                if entry.is_symlink() or not entry.is_file():
                     continue
                 name = entry.name
                 for length in lengths:
@@ -22,26 +22,28 @@ class _Fonts():
                         break
 
     def iterate_dir_fonts(self):
+        _scan_dir_fonts = self._scan_dir_fonts
         for _dir in self.dir_ftrie_pairs:
-            fonts = self._scan_dir_fonts(_dir)
+            fonts = _scan_dir_fonts(_dir)
             yield (_dir, fonts)
 
 class _Files(Directories, PrefixTries, _Fonts):
     def __init__(self, start_dir):
         super().__init__()
+        self.start_dir = start_dir
         self.dir_ftrie_pairs = {}
-        self.sep = os.sep
-        self.start_dir = self.ensure_end_sep(start_dir)
         self.get_opt = merge_tracks_with_video.options.manager.get_opt
         self.set_opt = merge_tracks_with_video.options.manager.set_opt
         self.skip_file_patterns = self.get_opt('skip_file_patterns')
         self.skip_directory_patterns = self.get_opt('skip_directory_patterns')
 
-        self.find_base_dir()
+        self.set_base_dir()
         self.len_base_dir = len(self.base_dir)
-        self.delete_stems_doubles()
-        self.set_dir_ftrie_pairs()
+        self.stems = self.get_stems_trie(self.base_dir)
+        if not self.stems.root.children:
+            return
 
+        self.set_dir_ftrie_pairs()
         self.info = merge_tracks_with_video.files.info.make_instance.init(
             self)
 

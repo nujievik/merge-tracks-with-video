@@ -5,86 +5,103 @@ import shutil
 from merge_tracks_with_video.constants import EXTS
 
 class _Extract():
-    def _get_attach_names(self, fpath):
+    def _extract_attachs(self, source):
         names = []
-        for line in self.files.info.stdout_mkvmerge_i(fpath):
+        for line in self.files.info.stdout_mkvmerge_i(source):
             match = re.search(r"file name '(.+?)'", line)
             if match:
                 name = match.group(1)
                 names.append(name)
-        return names
+        if not names:
+            return
 
-    def _extract_attachs(self):
-        if os.path.exists(self.orig_attachs_dir):
-            shutil.rmtree(self.orig_attachs_dir)
+        command = ['mkvextract', source, 'attachments']
+        orig_attachs_dir = self.orig_attachs_dir
+        sep = os.sep
+        for idx, name in enumerate(names, start=1):
+            command.append(f'{idx}:{orig_attachs_dir}{sep}{name}')
 
-        for fpath in self.video_list + self.signs_list + self.subtitles_list:
-            if not os.path.splitext(fpath)[1] in EXTS['matroska']:
-                continue
-            names = self._get_attach_names(fpath)
-            if not names:
-                continue
-
-            command = ['mkvextract', fpath, 'attachments']
-            for _idx, name in enumerate(names, start=1):
-                font = os.path.join(self.orig_attachs_dir, name)
-                command.append(f'{_idx}:{font}')
-
-            self.execute(command, get_stdout=False)
-            self.set_opt('fonts', False, fpath)
+        self.execute(command, get_stdout=False, to_json=self.command_json)
+        self.set_opt('fonts', False, source)
 
     def _set_extracted_fonts(self):
-        _dir = self.orig_attachs_dir
-        if not os.path.isdir(_dir):
+        orig_attachs_dir = self.orig_attachs_dir
+        if os.path.exists(orig_attachs_dir):
+            shutil.rmtree(orig_attachs_dir)
+
+        def save_fonts():
+            return self.get_opt('fonts', fpath, fgroup, replace_targets=True)
+        _extract_attachs = self._extract_attachs
+        exts = EXTS['matroska']
+        replace_targets = self.replace_targets
+        for fgroup in self.groups['with_tracks']:
+            lst = getattr(self, f'{fgroup}_list')
+            for fpath in lst:
+                if fgroup == 'video' and self.need_retiming:
+                    if not self.fonts:
+                        continue
+                    sources = {x for idx, x in self.retiming.sources.items()
+                               if idx in self.retiming.indexes}
+                    for source in sources:
+                        _extract_attachs(source)
+                else:
+                    if not save_fonts():
+                        continue
+                    source, *_ = replace_targets.get(fpath, fpath)
+                    if not os.path.splitext(source)[1] in exts:
+                        continue
+                    _extract_attachs(source)
+
+        if not os.path.isdir(orig_attachs_dir):
             return
 
         extracted_fonts = self.extracted_fonts
-        for f in os.listdir(_dir):
-            if os.path.splitext(f)[1] in EXTS['fonts']:
+        exts = EXTS['fonts']
+        for f in os.listdir(orig_attachs_dir):
+            if os.path.splitext(f)[1] in exts:
                 extracted_fonts.add(f)
 
 class Attachs(_Extract):
-    def _set_ext_fonts(self):
-        if getattr(self, 'ext_fonts', None) is None:
-            self.ext_fonts = {}
-            for _dir, fonts in self.files.iterate_dir_fonts():
-                if not self.get_opt('files', _dir):
+    def set_external_fonts(self):
+        self.external_fonts = {}
+        if not self.groups['fonts']:
+            return
+
+        dirs = self.dirs
+        external_fonts = self.external_fonts
+        get_opt = self.files.get_opt
+        sep = os.sep
+        for _dir, fonts in self.files.iterate_dir_fonts():
+            if not dirs[_dir]:
+                continue
+            for f in fonts:
+                if not get_opt('files', _dir + sep + f):
                     continue
-                for f in fonts:
-                    if not self.get_opt('files', _dir + f):
-                        continue
-                    self.ext_fonts[f] = _dir
-
-    def _set_fonts_list_if_extracted(self):
-        orig_attachs_dir = self.orig_attachs_dir
-        extracted_fonts = self.extracted_fonts
-        ext_fonts = self.ext_fonts
-        fonts_list = []
-        if self.groups['fonts']:
-            names = extracted_fonts.union(set(ext_fonts.keys()))
-            for name in sorted(names, key=str.lower):
-                if name in ext_fonts:
-                    fonts_list.append(ext_fonts[name] + name)
-                else:
-                    fonts_list.append(orig_attachs_dir + name)
-        self.fonts_list = fonts_list
-
-    def _set_fonts_list_if_len_mismatch(self):
-        ext_fonts = self.ext_fonts
-        fonts_list = []
-        if self.groups['fonts']:
-            for name in sorted(ext_fonts.keys(), key=str.lower):
-                fonts_list.append(ext_fonts[name] + name)
-        self.fonts_list = fonts_list
+                external_fonts[f] = _dir
 
     def set_fonts_list(self):
-        self.extracted_fonts = set()
-        self._set_ext_fonts()
+        self.extracted_fonts.clear()
         if self.sorting_fonts:
-            self._extract_attachs()
             self._set_extracted_fonts()
 
         if self.extracted_fonts:
-            self._set_fonts_list_if_extracted()
-        elif len(self.fonts_list) != len(self.ext_fonts):
-            self._set_fonts_list_if_len_mismatch()
+            fonts_list = self.fonts_list
+            fonts_list.clear()
+            external_fonts = self.external_fonts
+            extracted_fonts = self.extracted_fonts
+            orig_attachs_dir = self.orig_attachs_dir
+            names = extracted_fonts.union(set(external_fonts.keys()))
+            sep = os.sep
+            for name in sorted(names, key=str.lower):
+                if name in external_fonts:
+                    fonts_list.append(external_fonts[name] + sep + name)
+                else:
+                    fonts_list.append(orig_attachs_dir + sep + name)
+
+        elif len(self.fonts_list) != len(self.external_fonts):
+            fonts_list = self.fonts_list
+            fonts_list.clear()
+            external_fonts = self.external_fonts
+            sep = os.sep
+            for name in sorted(external_fonts.keys(), key=str.lower):
+                fonts_list.append(external_fonts[name] + sep + name)

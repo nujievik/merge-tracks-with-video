@@ -1,70 +1,62 @@
 import os
 import re
 
-class _BaseDir():
-    def ensure_end_sep(self, path):
-        return path + self.sep if path[-1] != self.sep else path
+class Directories():
+    def set_base_dir(self):
+        limit_search_above = self.get_opt('limit_search_above')
+        if not limit_search_above:
+            # Set self.start_dir to self.base_dir
+            self.base_dir = self.start_dir
+            return
 
-    def delete_stems_doubles(self):
-        stems = self.stems
-        to_delete = set()
-        for stem in stems.starts_with(''):
-            _stems = stems.starts_with(stem)
-            if len(_stems) > 1:
-                for _stem in _stems:
-                    if _stem != stem:
-                        to_delete.add(_stem)
-        for stem in to_delete:
-            stems.delete(stem)
+        start_dir = self.start_dir
+        start_files = self.get_files_trie(start_dir)
+        # Save start_files
+        self.dir_ftrie_pairs[start_dir] = start_files
+        limit_check_files = self.get_opt('limit_check_files')
+        iterator = self.iterate_stems_with_tracks
 
-    def find_base_dir(self):
-        base_dir = None
-        stems = self.get_stems_trie(self.start_dir)
-        files = self.get_files_trie(self.start_dir)
-        self.dir_ftrie_pairs[self.start_dir] = files
-
-        for stem in stems.starts_with(''):
-            if len(files.starts_with(stem)) > 1:
-                self.stems = stems
-                self.base_dir = self.start_dir
+        # Set start_dir to self.base_dir on starts_with(stem) > 1
+        cnt = 1
+        for stem in iterator(start_dir):
+            if len(start_files.starts_with(stem)) > 1:
+                self.base_dir = start_dir
                 return
+            cnt += 1
+            #print(cnt)
+            if cnt > limit_check_files:
+                break
 
-        _dir = os.path.dirname(self.start_dir)
-        for _ in range(self.get_opt('limit_search_above')):
+        # Set above _dir to self.base_dir on starts_with(stem)
+        _dir = start_dir
+        for _ in range(limit_search_above):
             _dir = os.path.dirname(_dir)
             if not _dir:
                 break
-            _stems = self.get_stems_trie(_dir)
-            for _stem in _stems.starts_with(''):
-                if stems.starts_with(_stem):
-                    to_delete = set()
-                    for _stem in _stems.starts_with(''):
-                        if not stems.starts_with(_stem):
-                            to_delete.add(_stem)
-                    for stem in to_delete:
-                        _stems.delete(stem)
 
-                    self.stems = _stems
-                    self.base_dir = self.ensure_end_sep(_dir)
-                    # Set priority for files in start_directory
-                    start_dir = os.path.normpath(self.start_dir)
+            cnt = 1
+            for stem in iterator(_dir):
+                if start_files.starts_with(stem):
+                    self.base_dir = _dir
+                    # self.base_dir above start_dir so set priority to
+                    # files in start_dir
                     self.set_opt('track_enabled_flag', True, start_dir)
                     return
+                cnt += 1
+                if cnt > limit_check_files:
+                    break
 
-        self.stems = stems
-        self.base_dir = self.start_dir
+        # Set start_dir to self.base_dir if not found above
+        self.base_dir = start_dir
 
-class Directories(_BaseDir):
     def _scan_dir_subdirs(self, path):
-        sep = self.sep
         len_base_dir = self.len_base_dir
         skip_directory_patterns = self.skip_directory_patterns
-
         with os.scandir(path) as entries:
             for entry in entries:
-                if not entry.is_dir():
+                if entry.is_symlink() or not entry.is_dir():
                     continue
-                _path = entry.path + sep
+                _path = entry.path
                 _rel_path = _path[len_base_dir:].lower()
                 words = set(re.findall(r'\b\w+\b', _rel_path))
                 if not words & skip_directory_patterns:
@@ -77,11 +69,12 @@ class Directories(_BaseDir):
 
     def set_dir_ftrie_pairs(self):
         dir_ftrie_pairs = self.dir_ftrie_pairs
+        get_files_trie = self.get_files_trie
+
         if self.base_dir != self.start_dir:
-            files = self.get_files_trie(self.base_dir)
-            dir_ftrie_pairs[self.base_dir] = files
+            dir_ftrie_pairs[self.base_dir] = get_files_trie(self.base_dir)
 
         for _dir in self._iterate_subdirs(self.base_dir):
             if _dir in dir_ftrie_pairs:
                 continue
-            dir_ftrie_pairs[_dir] = self.get_files_trie(_dir)
+            dir_ftrie_pairs[_dir] = get_files_trie(_dir)

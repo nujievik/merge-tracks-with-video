@@ -24,24 +24,21 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
 
         self.parse_base_chapters()
         self.add_remove_idxs()
-        self._set_need_flags()
 
-    def _set_need_flags(self):
+        need_retiming = False
         if any(uid for uid in self.uids):
-            self.need_retiming = True
-
+            need_retiming = True
         if self.remove_idxs:
-            self.need_retiming = True
-            self.need_cut = True
+            need_retiming = True
+            need_cut = True
         else:
-            self.need_cut = False
+            need_cut = False
+        self.merge.need_cut = need_cut
+        self.merge.need_retiming = need_retiming
 
-        if getattr(self, 'need_retiming', None) is None:
-            self.need_retiming = False
+    def processing(self):
+        check_package('ffmpeg')
 
-        self.merge.need_retiming = self.need_retiming
-
-    def _processing_init(self):
         self.video_segments = {}
         self.retimed_video = []
         self.retimed_audio = []
@@ -62,12 +59,9 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
         self.initial_audio = self.merge.audio_list
         self.initial_signs = self.merge.signs_list
         self.initial_subtitles = self.merge.subtitles_list
-        for opt in ['audio_tracks', 'subtitles_tracks', 'chapters']:
-            setattr(self, opt, self.get_opt(opt))
+        for x in ['audio_tracks', 'chapters', 'subtitles_tracks']:
+            setattr(self, x, self.get_opt(x))
 
-    def processing(self):
-        check_package('ffmpeg')
-        self._processing_init()
         self.correct_none_times()
         self.fill_retimed_video()
         self.fill_retimed_audio()
@@ -82,7 +76,7 @@ class _MergeRetiming(Audio, Chapters, Common, Subtitles, Video):
         self.generate_new_chapters()
 
     def processing_mismatched_codec_private_data(self):
-        self.need_cut = True
+        self.merge.need_cut = True
         self.set_opt('linked_segments', False, 'global')
         self.add_remove_idxs()
 
