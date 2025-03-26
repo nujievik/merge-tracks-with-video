@@ -32,54 +32,14 @@ TOOLS = {
 
 DEFAULT_OPTS = {
     'global': {
+        # File paths options
         'start_directory': os.getcwd(),
         'save_directory': os.getcwd(),
-
         'output': None,  # By default usage orig name + suffixes
-        'continue_on_error': False,
-
-        'verbose': None,
-        'pro_mode': False,
-        'locale_language': 'rus',
         'range_generate': [0, 9999999],
-
         'limit_generate': 9999999,
-        'limit_search_above': 3,
+        'limit_search_above': 8,
         'limit_check_files': 128,
-        #'limit_tracks': 9999999,
-
-        'adding_default_track_flags': True,
-        'adding_forced_display_flags': True,
-        'adding_languages': True,
-        'adding_sub_charsets': True,
-        'adding_track_enabled_flags': True,
-        'adding_track_names': True,
-        'adding_track_orders': True,
-
-        'remove_segments': set(),
-        'linked_segments': True,
-        'force_retiming': True,
-
-        'audio_tracks': True,
-        'video_tracks': True,
-        'subtitles_tracks': True,
-        'fonts': True,
-        'sorting_fonts': True,
-        'chapters': True,
-
-        'track_name': '',
-        'language': '',
-        # By default None-value flags is restricted to limits
-        'forced_display_flag': None,
-        'limit_forced_display_flag': 0,
-        'default_track_flag': None,
-        'limit_default_track_flag': 1,
-        'track_enabled_flag': None,
-        'limit_track_enabled_flag': 9999999,
-
-        'specials': [],
-        'target': 'global',
-        'files': True,
 
         'skip_file_patterns': {
             '_added_',
@@ -89,7 +49,7 @@ DEFAULT_OPTS = {
         },
 
         'skip_directory_patterns': {
-            '__temp_files__'
+            '__temp_files__',
             'bdmenu',
             'bonus',
             'commentary',
@@ -105,6 +65,46 @@ DEFAULT_OPTS = {
             'specials',
             'бонус',
         },
+
+        # Global options
+        'verbose': None,
+        'continue_on_error': False,
+        'locale_language': 'rus',
+        'pro_mode': False,
+
+        # Inverse on Pro-mode
+        'adding_default_track_flags': True,
+        'adding_forced_display_flags': True,
+        'adding_languages': True,
+        'adding_sub_charsets': True,
+        'adding_track_enabled_flags': True,
+        'adding_track_names': True,
+        'adding_track_orders': True,
+        'sorting_fonts': True,
+
+        # Retiming options
+        'remove_segments': set(),
+        'linked_segments': True,
+        'force_retiming': True,
+
+        # Target options
+        'target': 'global',
+        'files': True,
+        'audio_tracks': True,
+        'video_tracks': True,
+        'subtitles_tracks': True,
+        'chapters': True,
+        'fonts': True,
+        # By default None-value flags is restricted to limits
+        'default_track_flag': None,
+        'limit_default_track_flag': 1,
+        'forced_display_flag': None,
+        'limit_forced_display_flag': 0,
+        'track_enabled_flag': None,
+        'limit_track_enabled_flag': 9999999,
+        'track_name': '',
+        'language': '',
+        'specials': [],
     },
 }
 
@@ -175,6 +175,7 @@ SETTING_OPTS = {
         },
 
         'bool_only': {
+            'chapters',
             'continue_on_error',
             'fonts',
             'force_retiming',
@@ -202,6 +203,7 @@ SETTING_OPTS = {
         'video',
     }
 }
+SETTING_OPTS['config']['bool_only'].update(INVERSE_UNSET_ON_PRO)
 SETTING_OPTS['config']['split'].update(
     {x for x in TOOLS['names']})
 

@@ -57,8 +57,6 @@ class PrefixTries():
             for entry in entries:
                 if entry.is_symlink() or not entry.is_file():
                     continue
-                elif not entry.is_file():
-                    continue
                 name = entry.name
                 for length in lengths:
                     if not name[-length:] in exts:

@@ -29,6 +29,8 @@ class Command():
         if not self.get_opt('chapters'):
             part.append('--no-chapters')
 
+        part.extend(self.get_opt('specials'))
+
         _part = part.copy()
         part.append(fpath)
         _append = [f'+{x}' for x in self.append_to.get(fpath, [])]

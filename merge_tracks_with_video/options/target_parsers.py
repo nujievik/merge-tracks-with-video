@@ -15,11 +15,12 @@ class TargetParsers():
             prog=__package_name__, add_help=False,
             usage='%(prog)s [start_dir] [save_dir] [options]'
         )
-        self._add_glob_args()
-        self.target_parser = self._get_target_parser()
+        target_dests = self._add_glob_args()
+        self._set_target_parser(target_dests)
 
     def _add_glob_args(self):
         ct = CustomTypes()
+        default = DEFAULT_OPTS['global']
         parser = self.glob_parser
 
         def add_group(x):
@@ -31,26 +32,27 @@ class TargetParsers():
             help=argparse.SUPPRESS
         )
         add('--start-directory', type=ct.start_directory,
-            metavar='<start_dir>', help='Sets file search start directory.'
+            metavar='<start_dir>',
+            help=(
+                f'Sets file search start directory. Default: cwd '
+                f'({default['start_directory']}).'
+            )
         )
         add('pos_save_directory', type=ct.save_directory, nargs='?',
             help=argparse.SUPPRESS
         )
         add('--save-directory', type=ct.save_directory, metavar='<save_dir>',
-            help='Sets merged files save directory.'
+            help=(
+                'Sets merged files save directory. Default: same as start '
+                'directory.'
+            )
         )
         add('-o', '--output', type=ct.output, metavar='out[,pu,t,...]',
             help=(
                 "Write to the files 'out{episode_number}put.mkv' in the "
                 "save directory, where {episode_number} is the number "
                 "extracted from the source file name, or empty if no number "
-                "is present."
-            )
-        )
-        add('--limit-search-above', type=ct.non_negative_int, metavar='<n>',
-            help=(
-                'Sets the maximum number of directory levels to search above '
-                'the start directory.'
+                "is present. Default: video name + suffixes what's done."
             )
         )
         add('--range-generate', type=ct.range_generate, metavar='[n][,m]',
@@ -58,6 +60,35 @@ class TargetParsers():
         )
         add('--limit-generate', type=ct.positive_int, metavar='<n>',
             help='Sets the maximum number of generated files.'
+        )
+        add('--limit-search-above', type=ct.non_negative_int, metavar='<n>',
+            help=(
+                f'Sets the maximum number of directory levels to search '
+                f'above the start directory. Default: '
+                f'{default['limit_search_above']}.'
+            )
+        )
+        add('--limit-check-files', type=ct.positive_int, metavar='<n>',
+            help=(
+                f'Sets the maximum number of files with track extensions '
+                f'to check for prefix matches during the search above. '
+                f'Default: {default['limit_check_files']}.'
+            )
+        )
+        add('--skip-file-patterns', type=ct.set_patterns, metavar='<n,m,...>',
+            help=(
+                f'Sets skip file patterns on file names (case sensitive). '
+                f'Default: {', '.join(sorted(default['skip_file_patterns']))}'
+            )
+        )
+        add('--skip-directory-patterns', type=ct.set_patterns,
+            metavar='<n,m,...>',
+            help=(
+                f'Sets skip directory patterns on words in relative '
+                f'directory path (relative about topmost file directory; '
+                f'case insensitive). Default: '
+                f'{', '.join(sorted(default['skip_directory_patterns']))}'
+            )
         )
 
 
@@ -103,7 +134,7 @@ class TargetParsers():
 
 
         add = add_group('Retiming options')
-        add('--remove-segments', type=ct.remove_segments,
+        add('--remove-segments', type=ct.set_patterns,
             metavar='<n,m,...>',
             help='Remove segments whose names are listed in n,m etc.'
         )
@@ -154,6 +185,9 @@ class TargetParsers():
         add('--no-fonts', action='store_false', default=None, dest='fonts',
             help="Don't copy any font."
         )
+        add('--no-chapters', action='store_false', default=None,
+            dest='chapters', help="Don't keep chapters."
+        )
         # Supports "Accumulate single values" principle, similar to
         # mkvmerge behavior,  where each --track-name can accept a
         # single value (e.g. --track-name 2:name --track-name 3:name).
@@ -177,7 +211,7 @@ class TargetParsers():
                 help=(f'Sets the bool limit for the {key[2:]} separately for '
                       'each track group (audio, video, signs, subtitles). '
                       'All bool value exceeding the limit will be set to 0. '
-                      f'Default limit: {DEFAULT_OPTS['global'][limit_dest]}.'
+                      f'Default limit: {default[limit_dest]}.'
                 )
             )
         # Mkvmerge also usage hidden --forced-track as alternative
@@ -195,12 +229,13 @@ class TargetParsers():
                     f'use a single {_meta} value without TID prefixes.'
                 )
             )
-        add('--specials', nargs=1, metavar='<options>',
+        add('--specials', type=ct.specials, metavar='<options>',
             help='Sets unpresented mkvmerge options.'
         )
 
-        self.target_dests = {x.dest for x in parser._actions}.difference(
+        target_dests = {x.dest for x in parser._actions}.difference(
             non_target_dests)
+
 
         add = add_group('Other options')
         for x in sorted(TOOLS['names']):
@@ -214,14 +249,16 @@ class TargetParsers():
             version=f'{__package_name__} {__version__}',
             help='Show version information.')
 
-    def _get_target_parser(self):
+        return target_dests
+
+    def _set_target_parser(self, target_dests):
         parser = argparse.ArgumentParser(
             prog=__package_name__, add_help=False,
             usage='%(prog)s [start_dir] [save_dir] [options]'
         )
         group = parser.add_argument_group('Target options')
         for arg in self.glob_parser._actions:
-            if arg.dest in self.target_dests:
+            if arg.dest in target_dests:
                 group._add_action(arg)
         group.add_argument(
             '--no-files', action='store_false', default=None, dest='files',
@@ -231,4 +268,4 @@ class TargetParsers():
         other_group.add_argument(
             '-h', '--help', action='help', help='Show this help.'
         )
-        return parser
+        self.target_parser = parser

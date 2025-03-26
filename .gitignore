@@ -1,5 +1,7 @@
 *.egg-info/
 *.pyc
+*.spec
 __pycache__/
 build/
+dist/
 tests/

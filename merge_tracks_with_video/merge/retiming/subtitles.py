@@ -218,7 +218,7 @@ class _MultipleSource(_IndepSource):
                 retimed = os.path.join(
                     self.retiming.temp_dir, 'orig_subs',
                     f'subs_{count}{ext}')
-                with open(retimed, 'w') as file:
+                with open(retimed, 'w', encoding='utf-8') as file:
                     write_sub(file)
 
                 retimed_subtitles.append(retimed)
@@ -319,7 +319,7 @@ class _SingleSource(_IndepSource):
                         _dir = os.path.join(temp_dir, 'ext_subs', name_dir)
                         os.makedirs(_dir, exist_ok=True)
                         retimed = os.path.join(_dir, f'subs_{count}{ext}')
-                        with open(retimed, 'w') as file:
+                        with open(retimed, 'w', encoding='utf-8') as file:
                             write_sub(file)
 
                         retimed_subtitles.append(retimed)

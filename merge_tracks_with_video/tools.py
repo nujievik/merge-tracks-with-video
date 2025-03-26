@@ -91,7 +91,7 @@ def execute(command, **kwargs):
     to_json = kwargs.get('to_json', None)
     try:
         if to_json:
-            with open(to_json, 'w') as file:
+            with open(to_json, 'w', encoding='utf-8') as file:
                 json.dump(command[1:], file, indent=4)
             _command = [command[0], f'@{to_json}']
         else:

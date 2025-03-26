@@ -1,7 +1,5 @@
 # merge-tracks-with-video
 
-## Script for fast merging external tracks with video
-
 ## How to use
 
 1. [Download](
@@ -12,14 +10,10 @@ executable file (.exe) for Windows x64 or the packaged script set
 3. Run it in the directory containing the videos or external tracks.
 
 The default behavior can be changed by configuring the
-[configuration file](#configuration-file) or by passing
-[command-line arguments](#command-line-arguments). In particular, you
-don't need to copy the script into the directory with the files, but
-you can simply pass the directory as an argument:
-
-```
-merge-tracks-with-video.exe "directory with files"
-```
+[configuration file](
+https://github.com/nujievik/merge-tracks-with-video/blob/main/config-merge-tracks-with-video.ini)
+or by passing command-line arguments.
+Usage `merge-tracks-with-video.exe --help` to print supported options.
 
 ## Dependencies
 
@@ -29,16 +23,20 @@ merge-tracks-with-video.exe "directory with files"
 - [Python](https://www.python.org/downloads/)
 - [srt](https://github.com/cdown/srt)
 
-## License
+## Installation via pip
 
-- **Own Code**: [GNU General Public License v3.0](
-https://www.gnu.org/licenses/gpl-3.0.html)
-- **Chardet**: [GNU Lesser General Public License v2.1](
-https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
-- **FFprobe** (part of FFmpeg):
-[GNU Lesser General Public License v2.1](
-https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html)
-- **MKVToolNix**: [GNU General Public License v2.0](
-https://www.gnu.org/licenses/old-licenses/gpl-2.0.html)
-- **Python**: [PSF License](https://www.python.org/psf/license/)
-- **srt**: [MIT License](https://opensource.org/license/MIT)
+Alternatively, you can install the package via pip:
+1. Clone the repository:
+```
+git clone https://github.com/nujievik/merge-tracks-with-video
+```
+2. Navigate to the repository directory:
+```
+cd merge-tracks-with-video
+```
+3. Install:
+```
+pip install .
+```
+After installation, you can use the merge-tracks-with-video command in
+your terminal or command prompt.

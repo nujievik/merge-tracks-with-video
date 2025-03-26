@@ -29,7 +29,9 @@ class _SegmentSource():
                 self.uids_info.setdefault(_uid, {})['source'] = path
 
         # If not found above try all mkv search
-        for name in sorted(ftrie.starts_with(''), reverse=True):
+        names = ftrie.starts_with('')
+        names.sort(reverse=True)
+        for name in names:
             if not name[-4:].lower() == '.mkv':
                 continue
             if uid == self.merge.files.info.by_query(

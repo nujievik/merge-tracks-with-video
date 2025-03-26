@@ -144,3 +144,9 @@ class ByMkvtools(_Stdouts):
 
         _info['file_group'] = fgroup
         return fgroup
+
+    def has_chapters(self, fpath):
+        for line in self.stdout_mkvmerge_i(fpath):
+            if line.startswith('Chapters:'):
+                return True
+        return False

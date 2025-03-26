@@ -102,18 +102,21 @@ class _Parse(TargetParsers):
                 "Please fix or remove the config and re-run the script.")
             sys.exit(1)
 
+        default = DEFAULT_OPTS['global']
+        setting = SETTING_OPTS['config']
         sections = config.sections()
+        supported = set(default).union(setting['bool_replace_keys'])
         to_parse = []
         for section in sections:
             for key, value in config.items(section):
                 lower_key = key.replace('-', '_')
 
-                if lower_key not in DEFAULT_OPTS['global']:
+                if lower_key not in supported or '_' in key:
                     print(f"Error: unsupported option '{key}' in the config "
                           f"{path}")
                     sys.exit(1)
 
-                elif lower_key in SETTING_OPTS['config']['bool_only']:
+                elif lower_key in setting['bool_only']:
                     _value = PATTERNS['bool'].get(value.lower(), None)
                     if _value is None:
                         print("Error: incorrect Bool value for option "
@@ -123,17 +126,17 @@ class _Parse(TargetParsers):
                         manager.set_opt(lower_key, _value)
                         continue
 
-                elif (lower_key in SETTING_OPTS['config']['bool_maybe'] and
+                elif (lower_key in setting['bool_maybe'] and
                       value.lower() in PATTERNS['bool']
                 ):
-                    _key = SETTING_OPTS['config']['bool_replace_keys'].get(
+                    _key = setting['bool_replace_keys'].get(
                         lower_key, lower_key)
                     _value = PATTERNS['bool'][value.lower()]
                     manager.set_opt(_key, _value)
 
                 else:
                     to_parse.append(f'--{key}')
-                    if key in SETTING_OPTS['config']['split']:
+                    if key in setting['split']:
                         to_parse.extend(value.split())
                     else:
                         to_parse.append(value)

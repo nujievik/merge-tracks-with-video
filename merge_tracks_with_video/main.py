@@ -2,14 +2,13 @@ import os
 import shutil
 import uuid
 
-from . import tools
-
 import merge_tracks_with_video.files.make_instance
 import merge_tracks_with_video.merge.make_instance
 import merge_tracks_with_video.options.settings
+import merge_tracks_with_video.tools
 
 def main():
-    tools.init()
+    merge_tracks_with_video.tools.init()
     merge_tracks_with_video.options.settings.init()
     files_instance = merge_tracks_with_video.files.make_instance.init()
 
@@ -35,9 +34,9 @@ def main():
 
     if not merge.count_gen:
         limit = get_opt('limit_search_above')
-        tail = '.' if not limit else f'and {limit} directories above.'
+        above = '' if not limit else f', {limit} directories above,'
         print(f"Files for generating a new merged video not found. Checked "
-              f"the directory '{start_dir}' and it's subdirectories{tail}")
+              f"the directory '{start_dir}'{above} and it's subdirectories.")
     elif verbose:
         print(f"\nThe generate was executed successfully. "
               f"{merge.count_gen} merged video were generated in the "

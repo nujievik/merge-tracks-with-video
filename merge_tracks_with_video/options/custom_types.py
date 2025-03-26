@@ -18,7 +18,7 @@ class CustomTypes():
         vals = raw.split(',')
         return (vals[0], ''.join(vals[1:]))
 
-    def remove_segments(self, raw):
+    def set_patterns(self, raw):
         vals = self._get_str_vals(raw)
         return set(vals)
 
@@ -209,3 +209,6 @@ class CustomTypes():
                      "or single True/False")
                 )
         return vals
+
+    def specials(self, raw):
+        return raw.split()
