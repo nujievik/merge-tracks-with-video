@@ -123,13 +123,13 @@ class Video(_SegmentSource):
 
             times = get_times(td)  # Receive I-frame time <= td
             _delta = td - next(iter(times))
-            times.update(get_times(_delta))  # Receive next I-frame
+            # Receive next I-frame
+            times.update(get_times(td + _delta))
             times.add(duration_vid)  # Also add duration
 
             # Usage time with lowest offset
             offset = timedelta(seconds=99999)
             for _td in times:
-                _offset = abs(td - _td)
                 if abs(td - _td) < offset:
                     time = _td
                     offset = abs(td - _td)

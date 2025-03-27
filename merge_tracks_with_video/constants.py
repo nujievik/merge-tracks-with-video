@@ -364,7 +364,7 @@ ASS_SPECS = {
 # For audio it's acceptable delta between video track and audio track.
 # However, output delta maybe more (<= I-frames frequency)
 ACCEPT_RETIMING_OFFSETS = {
-    'video': timedelta(milliseconds=5000),
+    'video': timedelta(milliseconds=10000),
     'audio': timedelta(milliseconds=100)
 }
 
