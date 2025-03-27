@@ -29,10 +29,11 @@ class ByFfprobe():
         # Some builds of ffprobe incorrectly process the large
         # -read_intervals option. In this case, use the value from
         # mkvinfo
-        if not durations:
+        if len(durations) != 2:
             duration = self.by_query('Duration:', fpath)
-            _info['video'] = duration
-            _info['audio'] = duration
+            for key in ['video', 'audio']:
+                if _info.get(key, None) is None:
+                    _info[key] = duration
             durations.append(duration)
 
         _info['max'] = max(durations)
