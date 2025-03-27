@@ -212,6 +212,7 @@ SETTING_OPTS['config']['split'].update(
 # Files constants
 #
 
+ACCEPTABLE_ENCODING_CONFIDENCE = 0.9
 CHUNK_SIZE_READ = 1024 * 1024  # 1 MiB
 
 EXTS = {
@@ -315,28 +316,7 @@ EXTS['total'] = EXTS['with_tracks'].union(EXTS['fonts'])
 
 EXTS_LOWER = {x: exts.copy() for x, exts in EXTS.items()}
 
-def _get_optimal_lengths(group):
-    optimal = []
-    exts = EXTS_LOWER[group]
-    lengths = (len(ext) for ext in exts)
-    length_count = {}
-    for length in lengths:
-        cnt = length_count.get(length, 0)
-        length_count[length] = cnt + 1
-
-    total = len(exts)
-    chance_length = {
-        count / total: length
-        for length, count in length_count.items()
-    }
-    for chance in sorted(chance_length, reverse=True):
-        optimal.append(chance_length[chance])
-
-    return optimal
-
-EXTS_LENGTHS = {x: _get_optimal_lengths(x) for x in EXTS_LOWER}
-
-# Add all possible combinations of chars
+# Add all possible combinations of EXTS chars
 for group, exts in EXTS.items():
     to_upd = set()
     for ext in exts:

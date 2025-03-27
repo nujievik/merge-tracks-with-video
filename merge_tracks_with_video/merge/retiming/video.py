@@ -259,7 +259,8 @@ class Video(_SegmentSource):
         first = self.video_segments['paths'][0]
         self.retimed_video[:] = [first]
         self.merge.append_to[first] = self.video_segments['paths'][1:]
-        self.set_merge_replace_targets(first, self.base_video, 'video')
+        self.merge.replace_targets[first] = (self.base_video, 'video',
+                                             self.tid)
 
     def fill_retimed_video(self):
         # Save first video track. Without re-encoding sync video, audio,

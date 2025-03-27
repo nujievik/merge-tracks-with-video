@@ -1,6 +1,6 @@
 import os
 
-from merge_tracks_with_video.constants import EXTS, EXTS_LENGTHS
+from merge_tracks_with_video.constants import EXTS
 
 class TrieNode:
     def __init__(self):
@@ -51,42 +51,36 @@ class PrefixTries():
 
     def iterate_stems_with_tracks(self, path):
         exts = EXTS['with_tracks']
-        lengths = EXTS_LENGTHS['with_tracks']
         skip_file_patterns = self.skip_file_patterns
         with os.scandir(path) as entries:
             for entry in entries:
                 if entry.is_symlink() or not entry.is_file():
                     continue
-                name = entry.name
-                for length in lengths:
-                    if not name[-length:] in exts:
-                        continue
-                    skip = False
-                    for key in skip_file_patterns:
-                        if key in name:
-                            skip = True
-                            break
-                    if not skip:
-                        yield name.rsplit('.', 1)[0]
+                stem, ext = os.path.splitext(entry.name)
+                if not ext in exts:
+                    continue
+                skip = False
+                for key in skip_file_patterns:
+                    if key in stem:
+                        skip = True
                         break
+                if not skip:
+                    yield stem
 
     def iterate_files_with_tracks(self, path):
         exts = EXTS['with_tracks']
-        lengths = EXTS_LENGTHS['with_tracks']
         skip_file_patterns = self.skip_file_patterns
         with os.scandir(path) as entries:
             for entry in entries:
                 if entry.is_symlink() or not entry.is_file():
                     continue
                 name = entry.name
-                for length in lengths:
-                    if not name[-length:] in exts:
-                        continue
-                    skip = False
-                    for key in skip_file_patterns:
-                        if key in name:
-                            skip = True
-                            break
-                    if not skip:
-                        yield name
+                if not os.path.splitext(name)[1] in exts:
+                    continue
+                skip = False
+                for key in skip_file_patterns:
+                    if key in name:
+                        skip = True
                         break
+                if not skip:
+                    yield name

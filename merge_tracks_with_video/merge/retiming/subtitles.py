@@ -9,7 +9,7 @@ class _IndepSource():
         self.retiming = retiming_instance
         self.encoding = self.retiming.merge.files.info.char_encoding
 
-    def _get_ext_tids_pairs(self, fpath, fgroup):
+    def _get_ext_tids_pairs(self, fpath, fgroup, base=False):
         tids = {}
         ext_key_pairs = {
             '.ass': 'subtitles (SubStationAlpha)',
@@ -21,10 +21,13 @@ class _IndepSource():
         if not total_tids:
             return tids
 
-        fdir = os.path.dirname(fpath)
-        _tracks = self.retiming.get_opt(
-            'subtitles_tracks', fpath, fgroup, fdir)
-        save_track = self.retiming.save_track
+        if base:
+            _tracks = self.retiming.subtitles_tracks
+        else:
+            fdir = os.path.dirname(fpath)
+            _tracks = self.retiming.get_opt(
+                'subtitles_tracks', fpath, fgroup, fdir)
+        save_track = self.retiming.merge.save_track
 
         for ext, key in ext_key_pairs.items():
             _tids = tgroup_tids(key, fpath)
@@ -42,7 +45,7 @@ class _IndepSource():
     def _extract_track(self, tid, source, out_path):
         command = ['mkvextract', 'tracks', source, f'{tid}:{out_path}']
         msg = f"Extracting subtitles track '{tid}' from the file '{source}'."
-        self.execute(command, msg=msg, get_stdout=False)
+        self.retiming.execute(command, msg=msg, get_stdout=False)
 
     def _iterate_section_lines(self, section, source):
         in_section = False
@@ -208,9 +211,8 @@ class _MultipleSource(_IndepSource):
         retimed_subtitles = []
 
         base_video = self.retiming.base_video
-        set_replace_targets = self.retiming.set_merge_replace_targets
-        ext_tids = self._get_ext_tids_pairs(base_video, 'video')
-
+        ext_tids = self._get_ext_tids_pairs(base_video, 'video', base=True)
+        replace_targets = self.retiming.merge.replace_targets
         for ext, tids in ext_tids.items():
             write_sub = getattr(self, f'_write_retimed_{ext[1:]}')
             for tid in tids:
@@ -222,7 +224,7 @@ class _MultipleSource(_IndepSource):
                     write_sub(file)
 
                 retimed_subtitles.append(retimed)
-                set_replace_targets(retimed, base_video, 'video')
+                replace_targets[retimed] = (base_video, 'video', tid)
                 count += 1
 
         return retimed_subtitles
@@ -289,10 +291,10 @@ class _SingleSource(_IndepSource):
         extracted = self.extracted
         sources = self.sources
         get_opt = self.retiming.get_opt
-        save_track = self.retiming.save_track
+        save_track = self.retiming.merge.save_track
         indexes = self.retiming.indexes
         temp_dir = self.retiming.temp_dir
-        set_replace_targets = self.retiming.set_merge_replace_targets
+        replace_targets = self.retiming.merge.replace_targets
 
         for group, _sources in self._get_group_sources_pairs().items():
             for source in _sources:
@@ -323,7 +325,7 @@ class _SingleSource(_IndepSource):
                             write_sub(file)
 
                         retimed_subtitles.append(retimed)
-                        set_replace_targets(retimed, source, group)
+                        replace_targets[retimed] = (source, group, tid)
                         count += 1
 
         return retimed_subtitles

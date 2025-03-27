@@ -61,13 +61,24 @@ class Orders():
             return self._get_order_sort_key(*item)
 
         groups = self.groups
+        replace_targets = self.replace_targets
+        save_track = self.save_track
+        tgroup_tids = self.files.info.tgroup_tids
         for group in groups['tracks']:
             args = []
             for _group in groups['with_tracks']:
                 lst = getattr(self, f'{_group}_list')
                 for path in lst:
-                    for tid in self.files.info.tgroup_tids(group, path):
-                        args.append((path, _group, [tid]))
+                    # It's was extracted in self.retiming
+                    if path in replace_targets and _group != 'video':
+                        for tid in tgroup_tids(group, path):
+                            args.append((path, _group, [tid]))
+                    else:
+                        _tracks = self.get_opt(f'{group}_tracks', path,
+                                               _group, replace_targets=True)
+                        for tid in tgroup_tids(group, path):
+                            if save_track(tid, _tracks):
+                                args.append((path, _group, [tid]))
             sorted_args = sorted(args, key=get_sort_key)
             for path, _, tids in sorted_args:
                 fid = fids[path]

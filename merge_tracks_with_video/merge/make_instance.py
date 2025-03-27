@@ -120,7 +120,8 @@ class _Merge(Attachs, Errors, Command, Orders, Params):
                 self.retiming.processing()
             self.set_fonts_list()
 
-            if execute_merge():
+            execute_merge()
+            if os.path.exists(self.out_path):
                 count_gen += 1
 
         self.count_gen = count_gen

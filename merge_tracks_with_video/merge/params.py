@@ -28,6 +28,16 @@ class _CommonParams():
 
         return self.files.get_opt(key, *args, **kwargs)
 
+    def save_track(self, tid, _tracks):
+        if _tracks is True:
+            return True
+        elif isinstance(_tracks, set):
+            value = True if tid in _tracks else False
+            value = not value if '!' in _tracks else value
+            return value
+        else:
+            return False
+
     def set_common_params(self):
         self.append_to = {}
         self.dirs = {}

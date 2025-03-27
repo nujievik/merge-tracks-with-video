@@ -5,12 +5,13 @@ class Audio():
     def _get_audio_to_retime(self):
         to_retime = []
         base_video = self.base_video
+        save_track = self.merge.save_track
         tgroup_tids = self.merge.files.info.tgroup_tids
 
         if self.audio_tracks and self.need_extract_orig:
             _tracks = self.audio_tracks
             for tid in tgroup_tids('audio', base_video):
-                if self.save_track(tid, _tracks):
+                if save_track(tid, _tracks):
                     to_retime.append((base_video, 'video', tid))
 
         sources = [vid for vid in self.initial_video if vid != base_video]
@@ -21,7 +22,7 @@ class Audio():
             parent_dir = os.path.dirname(source)
             _tracks = self.get_opt('audio_tracks', source, fgroup, parent_dir)
             for tid in tgroup_tids('audio', source):
-                if self.save_track(tid, _tracks):
+                if save_track(tid, _tracks):
                     to_retime.append((source, fgroup, tid))
 
         return to_retime
@@ -94,4 +95,4 @@ class Audio():
             first = segments[0]
             self.retimed_audio.append(first)
             self.merge.append_to[first] = segments[1:]
-            self.set_merge_replace_targets(first, fpath, fgroup)
+            self.merge.replace_targets[first] = (fpath, fgroup, self.tid)

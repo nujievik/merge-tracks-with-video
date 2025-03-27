@@ -134,20 +134,6 @@ class Common(_SplitFile, TimestampCast):
             ):
                 self.remove_idxs.add(idx)
 
-    def save_track(self, tid, _tracks):
-        if _tracks is True:
-            return True
-        elif isinstance(_tracks, set):
-            value = True if tid in _tracks else False
-            value = not value if '!' in _tracks else value
-            return value
-        else:
-            return False
-
-    def set_merge_replace_targets(self, retimed, fpath, fgroup):
-        self.merge.replace_targets[retimed] = (
-            fpath, fgroup, self.tid)
-
     def get_previous_lengths(self, idx):
         lengths = {}
         for x in ['uid', 'nonuid']:

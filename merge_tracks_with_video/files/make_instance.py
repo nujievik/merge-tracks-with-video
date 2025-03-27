@@ -3,23 +3,21 @@ import os
 from .directories import Directories
 from .prefix_tries import PrefixTries
 
-from merge_tracks_with_video.constants import EXTS, EXTS_LENGTHS
+from merge_tracks_with_video.constants import EXTS
 import merge_tracks_with_video.files.info.make_instance
 import merge_tracks_with_video.options.manager
 
 class _Fonts():
     def _scan_dir_fonts(self, path):
         exts = EXTS['fonts']
-        lengths = EXTS_LENGTHS['fonts']
         with os.scandir(path) as entries:
             for entry in entries:
                 if entry.is_symlink() or not entry.is_file():
                     continue
                 name = entry.name
-                for length in lengths:
-                    if name[-length:] in exts:
-                        yield name
-                        break
+                if not os.path.splitext(name)[1] in exts:
+                    continue
+                yield name
 
     def iterate_dir_fonts(self):
         _scan_dir_fonts = self._scan_dir_fonts
