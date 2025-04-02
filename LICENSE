@@ -678,8 +678,8 @@ Public License instead of this License.  But first, please read
 
 This project also uses the following third-party components:
 
-- Chardet: licensed under GNU LGPL v2.1
-- MKVToolNix: licensed under GNU GPL v2.0
 - Python: licensed under PSF License
+- Chardet (python module): licensed under GNU LGPL v2.1
+- srt (python module): licensed under MIT Licence
 - FFprobe (part of FFmpeg): licensed under GNU LGPL v2.1 or GNU GPL v2.0
-- srt: licensed under MIT Licence
+- MKVToolNix: licensed under GNU GPL v2.0
