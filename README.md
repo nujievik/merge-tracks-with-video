@@ -9,7 +9,7 @@ The unique feature is the support for MKV segment linking.
 
 1. [Download](
 https://github.com/nujievik/merge-tracks-with-video/releases) the
-executable file (.exe).
+executable file merge-tracks-with-video.exe
 2. Run it in the directory containing the video or external tracks.
 
 ### Other system
@@ -27,7 +27,7 @@ executable file (.exe).
     - [MKVToolNix](https://mkvtoolnix.download/)
 2. [Download](
 https://github.com/nujievik/merge-tracks-with-video/releases) the
-executable archive (.pyz).
+executable archive merge-tracks-with-video.pyz
 3. Run it in the directory containing the video or external tracks.
 ```
 python merge-tracks-with-video.pyz "file directory"
@@ -60,7 +60,6 @@ Usage `merge-tracks-with-video.exe --help` to print supported options.
 
 ## Installation via pip
 
-Alternatively, you can install the package via pip:
 1. Clone the repository:
 ```
 git clone https://github.com/nujievik/merge-tracks-with-video
