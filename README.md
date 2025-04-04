@@ -19,6 +19,8 @@ executable file.
     - Python modules
     ```
     pip install chardet
+    ```
+    ```
     pip install srt
     ```
     - [FFprobe (part of FFmpeg)](https://ffmpeg.org/download.html)
@@ -32,7 +34,7 @@ python merge-tracks-with-video.pyz "file directory"
 ```
 
 Alternatively, you can [install the package via pip](
-#Installation_via_pip).
+#Installation-via-pip).
 
 The default behavior can be changed by configuring the
 [configuration file](
