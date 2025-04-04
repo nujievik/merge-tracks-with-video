@@ -9,7 +9,7 @@ The unique feature is the support for MKV segment linking.
 
 1. [Download](
 https://github.com/nujievik/merge-tracks-with-video/releases) the
-executable file.
+executable file (.exe).
 2. Run it in the directory containing the video or external tracks.
 
 ### Other system
