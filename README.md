@@ -42,21 +42,13 @@ https://github.com/nujievik/merge-tracks-with-video/blob/main/config-merge-track
 or by passing command-line arguments.
 Usage `merge-tracks-with-video.exe --help` to print supported options.
 
-## Dependencies
-
-- [Python](https://www.python.org/downloads/)
-- Python modules:
-    - [Chardet](https://github.com/chardet/chardet)
-    - [srt](https://github.com/cdown/srt)
-- [FFprobe](https://ffmpeg.org/download.html)
-- [MKVToolNix](https://mkvtoolnix.download/)
-
 ## Notices
 
-- Video and external tracks must has a same part of name. Example:
+- Video and external tracks must have a same part of name. Example:
 **Death Note - 01**.mkv and **Death Note - 01**.rus.aac
 - Files will be searched in the start directory, in the base directory 
-(topmost file directory) and it's subdirectories.
+(topmost file directory relative start directory) and it's
+subdirectories.
 
 ## Installation via pip
 
@@ -73,7 +65,7 @@ cd merge-tracks-with-video
 pip install .
 ```
 4. Install remainder dependencies:
-    - [FFprobe](https://ffmpeg.org/download.html)
+    - [FFprobe (part of FFmpeg)](https://ffmpeg.org/download.html)
     - [MKVToolNix](https://mkvtoolnix.download/)
 
 After installation, you can use the **merge-tracks-with-video** command
