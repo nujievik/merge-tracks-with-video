@@ -1,17 +1,38 @@
 # merge-tracks-with-video
 
-A simple automated solution for merging video with external tracks. The
-unique feature is the support for MKV segment linking.
+The simple automated solution for merging video with external tracks.
+The unique feature is the support for MKV segment linking.
 
 ## How to use
 
+### Windows x64
+
 1. [Download](
 https://github.com/nujievik/merge-tracks-with-video/releases) the
-executable file (.exe) for Windows x64 or the executable archive
-(.pyz) for other system.
-2. If you use the **executable archive**, install [dependencies](
-#dependencies).
+executable file.
+2. Run it in the directory containing the video or external tracks.
+
+### Other system
+
+1. Install dependencies:
+    - [Python](https://www.python.org/downloads/)
+    - Python modules
+    ```
+    pip install chardet
+    pip install srt
+    ```
+    - [FFprobe (part of FFmpeg)](https://ffmpeg.org/download.html)
+    - [MKVToolNix](https://mkvtoolnix.download/)
+2. [Download](
+https://github.com/nujievik/merge-tracks-with-video/releases) the
+executable archive (.pyz).
 3. Run it in the directory containing the video or external tracks.
+```
+python merge-tracks-with-video.pyz "file directory"
+```
+
+Alternatively, you can [install the package via pip](
+#Installation_via_pip).
 
 The default behavior can be changed by configuring the
 [configuration file](
@@ -56,6 +77,9 @@ pip install .
 
 After installation, you can use the **merge-tracks-with-video** command
 in your terminal or command prompt.
+```
+merge-tracks-with-video "file directory"
+```
 
 ## Alternative GUI solutions
 
