@@ -95,7 +95,8 @@ class _Parse(TargetParsers):
     def _parse_config(self, path):
         config = configparser.ConfigParser()
         try:
-            config.read(path)
+            with open(path, 'r', encoding='utf-8') as f:
+                config.read_file(f)
         except Exception:
             print(
                 f"Error: Incorrect config in the file '{path}'.\n"
@@ -153,7 +154,8 @@ class _Parse(TargetParsers):
             os.path.join(os.getcwd(), __config_name__)
         ]
         for path in config_paths:
-            self._parse_config(path)
+            if os.path.isfile(path):
+                self._parse_config(path)
 
     def sys_argv(self):
         self._parse_args(sys.argv[1:])
