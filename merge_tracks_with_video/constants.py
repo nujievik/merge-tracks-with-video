@@ -49,7 +49,6 @@ DEFAULT_OPTS = {
         },
 
         'skip_directory_patterns': {
-            '__temp_files__',
             'bdmenu',
             'bonus',
             'commentary',
@@ -63,6 +62,7 @@ DEFAULT_OPTS = {
             'pv',
             'special',
             'specials',
+            'temp_files',
             'бонус',
         },
 
@@ -123,10 +123,13 @@ PATTERNS = {
         '0': False,
     },
 
+    # Any word in lower relative path or track name must have full match
     'languages': {
         'rus': {
             'ru',
             'rus',
+            'russub',
+            'russubs',
             'russian',
             'надписи',
             'субтитры',

@@ -23,7 +23,6 @@ class Directories():
                 self.base_dir = start_dir
                 return
             cnt += 1
-            #print(cnt)
             if cnt > limit_check_files:
                 break
 

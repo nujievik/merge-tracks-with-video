@@ -47,7 +47,9 @@ class Command():
                 value = value.get(tid, None)
             limit = get_opt(f'limit_{flag}')
             tgroup = order[fid][tid]
-            if fgroup == 'signs' and tgroup == 'subtitles':
+            # Earlier signs tracks was saved as subtitles because
+            # MKVToolnix don't separate it. Here need separate it
+            if tgroup == 'subtitles' and is_signs(fpath, [tid]):
                 tgroup = 'signs'
             count = flags.setdefault(tgroup, {}).setdefault(flag, 0)
 
@@ -83,6 +85,7 @@ class Command():
         flags = {}
         positions = {}
         info = self.files.info
+        is_signs = self.files.info.is_signs
         order = self.track_order
         replace_targets = self.replace_targets
 

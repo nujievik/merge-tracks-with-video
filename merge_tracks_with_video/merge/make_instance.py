@@ -144,7 +144,7 @@ if __name__ == '__main__':
 
     save_dir = files_instance.get_opt('save_directory')
     temp_dir = os.path.join(
-        save_dir, f'__temp_files__.{str(uuid.uuid4())[:8]}')
+        save_dir, f'temp_files.{str(uuid.uuid4())[:8]}')
     try:
         _merge = init(files_instance, temp_dir)
         _merge.processing()

@@ -23,7 +23,7 @@ def main():
               f"'{start_dir}'.")
 
     temp_dir = os.path.join(
-        save_dir, f'__temp_files__.{str(uuid.uuid4())[:8]}')
+        save_dir, f'temp_files.{str(uuid.uuid4())[:8]}')
     try:
         merge = merge_tracks_with_video.merge.make_instance.init(
             files_instance, temp_dir)
@@ -36,7 +36,7 @@ def main():
         limit = get_opt('limit_search_above')
         above = '' if not limit else f', {limit} directories above,'
         print(f"Files for generating a new merged video not found. Checked "
-              f"the directory '{start_dir}'{above} and it's subdirectories.")
+              f"the directory '{start_dir}'{above} and its subdirectories.")
     elif verbose:
         print(f"\nThe generate was executed successfully. "
               f"{merge.count_gen} merged video were generated in the "

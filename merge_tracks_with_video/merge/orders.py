@@ -17,6 +17,8 @@ class Orders():
                      _flag_order.get(_default, 1),
                      _flag_order.get(_enabled, 1))
 
+        signs_sort = 0 if self.files.info.is_signs(fpath, tids) else 1
+
         langs = set()
         for tid in tids:
             langs.add(self.files.info.language(tid, fpath, fgroup))
@@ -30,7 +32,7 @@ class Orders():
         else:
             lang_sort = 1  # Undefined lang
 
-        return (*flag_sort, lang_sort)
+        return (*flag_sort, signs_sort, lang_sort)
 
     def _set_file_orders(self):
         def get_sort_key(path):
