@@ -44,10 +44,10 @@ Usage `merge-tracks-with-video.exe --help` to print supported options.
 
 ## Notices
 
-- Video and external tracks must have a same part of name. Example:
+- Video and external tracks must have a same begin of name. Example:
 **Death Note - 01**.mkv and **Death Note - 01**.rus.aac
 - Files will be searched in the start directory, in the base directory 
-(topmost file directory relative start directory) and it's
+(topmost file directory relative start directory) and its
 subdirectories.
 
 ## Installation via pip
