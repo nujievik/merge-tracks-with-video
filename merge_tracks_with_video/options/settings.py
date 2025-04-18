@@ -182,7 +182,8 @@ def init():
     if ('start_directory' in glob_opts and
         not 'save_directory' in glob_opts
     ):
-        glob_opts['save_directory'] = glob_opts['start_directory']
+        glob_opts['save_directory'] = os.path.join(
+            glob_opts['start_directory'], 'merged')
 
 if __name__ == '__main__':
     merge_tracks_with_video.tools.init()

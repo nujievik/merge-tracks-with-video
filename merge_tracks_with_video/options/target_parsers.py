@@ -43,8 +43,8 @@ class TargetParsers():
         )
         add('--save-directory', type=ct.save_directory, metavar='<save_dir>',
             help=(
-                'Sets merged files save directory. Default: same as start '
-                'directory.'
+                "Sets merged files save directory. Default: subdirectory "
+                "'merged' in the start directory."
             )
         )
         add('-o', '--output', type=ct.output, metavar='out[,pu,t,...]',

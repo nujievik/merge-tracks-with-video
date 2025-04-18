@@ -34,19 +34,14 @@ DEFAULT_OPTS = {
     'global': {
         # File paths options
         'start_directory': os.getcwd(),
-        'save_directory': os.getcwd(),
+        'save_directory': os.path.join(os.getcwd(), "merged"),
         'output': None,  # By default usage orig name + suffixes
         'range_generate': [0, 9999999],
         'limit_generate': 9999999,
         'limit_search_above': 8,
         'limit_check_files': 128,
 
-        'skip_file_patterns': {
-            '_added_',
-            '_cutted_',
-            '_merged_',
-            '_replaced_',
-        },
+        'skip_file_patterns': set(),
 
         'skip_directory_patterns': {
             'bdmenu',
@@ -55,6 +50,7 @@ DEFAULT_OPTS = {
             'creditless',
             'endings',
             'extra',
+            'merged',
             'nc',
             'nd',
             'op',
