@@ -151,3 +151,8 @@ if __name__ == '__main__':
     finally:
         if os.path.exists(temp_dir):
             shutil.rmtree(temp_dir)
+        if save_dir.endswith("merged") and os.path.exists(save_dir):
+            try:
+                os.rmdir(save_dir)  # Remove only empty
+            except Exception:
+                pass
