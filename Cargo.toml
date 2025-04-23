@@ -1,0 +1,24 @@
+[package]
+name = "mux-media"
+version = "0.13.0-dev1"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+colored = "3.0"
+env_logger = "0.11"
+fluent = "0.16"
+fluent-bundle = "0.15"
+globset = "0.4"
+home = "0.5"
+itertools = "0.10"
+log = "0.4"
+once_cell = "1.21.3"
+phf = { version = "0.11", features = ["macros"] }
+serde_json = "1.0"
+strum = "0.25"
+strum_macros = "0.25"
+unic-langid = "0.9"
+
+[dev-dependencies]
+serial_test = "2"
