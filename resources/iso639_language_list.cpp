@@ -2695,7 +2695,7 @@ static language_init_t const s_languages_init[] = {
   { "Inor",                                                       "ior",     "",   "",    false, false },
   { "Inpui Naga",                                                 "nkf",     "",   "",    false, false },
   { "Interglossa",                                                "igs",     "",   "",    false, false },
-  { "Interlingua (International Auxiliary Language Association)", "ina",     "ia", "",    true,  false },
+  { "Interlingua (IALA)",                                         "ina",     "ia", "",    true,  false },
   { "Interlingue",                                                "ile",     "ie", "",    true,  false },
   { "International Sign",                                         "ils",     "",   "",    false, false },
   { "Intha",                                                      "int",     "",   "",    false, false },

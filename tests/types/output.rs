@@ -1,7 +1,7 @@
 use super::common;
 
 use common::{data_dir, data_file};
-use mux_media::Output;
+use mux_media::types::Output;
 use serial_test::serial;
 use std::path::PathBuf;
 
@@ -39,7 +39,7 @@ fn build_path_with_empty_dir() {
 
     let result = output.build_path("01");
     let mut expected = PathBuf::from(std::env::current_dir().unwrap());
-    expected.push("merged");
+    expected.push("muxed");
     expected.push("file_01_part.mp4");
 
     assert_eq!(result, expected);
@@ -74,7 +74,7 @@ fn build_path_empty() {
 
     let result = output.build_path("01");
     let mut expected = PathBuf::from(std::env::current_dir().unwrap());
-    expected.push("merged");
+    expected.push("muxed");
     expected.push("01.mkv");
 
     assert_eq!(result, expected);
@@ -86,5 +86,5 @@ fn dir_access() {
     let output = Output::from_path(&path).unwrap();
 
     let dir = data_dir();
-    assert_eq!(output.dir, dir);
+    assert_eq!(*output.get_dir(), dir);
 }

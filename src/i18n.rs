@@ -1,89 +1,55 @@
-use crate::Verbosity;
-use fluent::{FluentArgs, FluentBundle, FluentResource};
-//use log::{debug, error, info, trace, warn};
-use std::rc::Rc;
-use unic_langid::LanguageIdentifier;
+mod eng;
+mod rus;
 
-use once_cell::unsync::Lazy;
+use crate::types::LangCode;
+use std::cell::RefCell;
 
 thread_local! {
-    static BUNDLE: Lazy<FluentBundle<Rc<FluentResource>>> = Lazy::new(|| {
-        let lang = Language::from_code("rus");
-        let bundle = lang.bundle();
-        bundle
-    });
+    static LANG_CODE: RefCell<LangCode> = RefCell::new(LangCode::default());
 }
 
-pub fn get_msg(key: &str, args: Option<&[(&str, &str)]>) -> String {
-    BUNDLE.with(|bundle| {
-        let msg = match bundle.get_message(key) {
-            Some(msg) => msg,
-            None => return format!("MISSING MESSAGE, '{}'", key),
-        };
-        let pattern = match msg.value() {
-            Some(value) => value,
-            None => return format!("NO VALUE IN MESSAGE, '{}'", key),
-        };
-
-        let mut fluent_args = FluentArgs::new();
-        if let Some(pairs) = args {
-            for (k, v) in pairs {
-                fluent_args.set(*k, *v);
-            }
-        }
-
-        let mut errors = vec![];
-        bundle
-            .format_pattern(pattern, Some(&fluent_args), &mut errors)
-            .to_string()
-    })
+pub enum Msg<'a> {
+    FailGetStartDir,
+    FailGetOut,
+    FailInitPatterns { s: &'a str },
+    FailCheckPkg { s: &'a str, s1: &'a str },
+    FailWriteJson { s: &'a str },
+    ExeCommand,
+    FieldNotHasLim { s: &'a str },
 }
 
-pub fn init_env_logger(verbosity: &Verbosity) {
-    env_logger::Builder::new()
-        .filter_level(verbosity.to_level_filter())
-        .init();
-}
-
-/*
- info!("Info message (Normal+)");
- warn!("Something might be wrong");
- error!("Something went wrong");
- debug!("Debug details here");
- trace!("Trace everything");
-*/
-
-enum Language {
-    Eng,
-    Rus,
-}
-
-impl Language {
-    pub fn from_code(code: &str) -> Self {
-        match code {
-            "rus" => Language::Rus,
-            _ => Language::Eng,
+impl<'a> Msg<'a> {
+    pub fn get(self) -> String {
+        match Self::get_lang_code() {
+            LangCode::Eng => eng::eng(self),
+            LangCode::Rus => rus::rus(self),
+            _ => eng::eng(self),
         }
     }
 
-    fn bundle(&self) -> FluentBundle<Rc<FluentResource>> {
-        let lang: LanguageIdentifier = match self {
-            Language::Eng => "eng".parse().unwrap(),
-            Language::Rus => "rus".parse().ok().unwrap_or("eng".parse().unwrap()),
-        };
+    pub fn set_lang_code(lng: LangCode) {
+        if Self::is_supported_lang(&lng) {
+            LANG_CODE.with(|code| *code.borrow_mut() = lng);
+        } else {
+            let dflt = LangCode::default();
+            eprintln!(
+                "Warning: Language '{}' not supported. Use default '{}'",
+                lng.as_ref(),
+                dflt.as_ref()
+            );
+            LANG_CODE.with(|code| *code.borrow_mut() = dflt);
+        }
+    }
 
-        let ftl_string = match self {
-            Language::Eng => include_str!("../locales/eng/main.ftl"),
-            Language::Rus => include_str!("../locales/rus/main.ftl"),
-        };
+    fn is_supported_lang(lng: &LangCode) -> bool {
+        match lng {
+            LangCode::Eng => true,
+            LangCode::Rus => true,
+            _ => false,
+        }
+    }
 
-        let res = FluentResource::try_new(ftl_string.to_owned()).expect("Failed to parse FTL");
-
-        let mut bundle = FluentBundle::new(vec![lang]);
-        bundle
-            .add_resource(Rc::new(res))
-            .expect("Failed to add FTL to bundle");
-
-        bundle
+    fn get_lang_code() -> LangCode {
+        LANG_CODE.with(|code| code.borrow().clone())
     }
 }
