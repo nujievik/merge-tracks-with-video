@@ -1,3 +1,3 @@
 pub mod i18n;
-pub mod init;
+pub mod traits;
 pub mod types;

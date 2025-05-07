@@ -1,4 +1,5 @@
 use crate::i18n::Msg;
+use crate::traits::TryInit;
 use crate::types::AppError;
 use log::{debug, warn};
 use std::collections::HashMap;
@@ -18,44 +19,58 @@ pub enum Tool {
     Mkvmerge,
 }
 
-#[derive(AsRefStr, PartialEq)]
-#[strum(serialize_all = "kebab-case")]
-pub enum ToolPkg {
-    Ffmpeg,
-    Mkvtoolnix,
-}
-
-impl ToolPkg {
-    pub fn tools(&self) -> &'static [Tool] {
-        match self {
-            ToolPkg::Ffmpeg => &[Tool::Ffprobe],
-            ToolPkg::Mkvtoolnix => &[Tool::Mkvextract, Tool::Mkvinfo, Tool::Mkvmerge],
-        }
+impl Tool {
+    fn is_mkvtoolnix(&self) -> bool {
+        self != &Self::Ffprobe
     }
 
-    pub fn all() -> impl Iterator<Item = ToolPkg> {
-        [ToolPkg::Ffmpeg, ToolPkg::Mkvtoolnix].into_iter()
+    fn iter_mkvtoolnix() -> impl Iterator<Item = Self> {
+        vec![Self::Mkvextract, Self::Mkvinfo, Self::Mkvmerge].into_iter()
+    }
+
+    fn to_str_package(&self) -> &'static str {
+        if self.is_mkvtoolnix() {
+            "mkvtoolnix"
+        } else {
+            "ffmpeg"
+        }
     }
 }
 
 pub struct Tools {
-    paths: HashMap<Tool, PathBuf>,
+    paths: Option<HashMap<Tool, PathBuf>>,
     json: Option<PathBuf>,
 }
 
 impl Tools {
     pub fn new() -> Self {
-        let mut paths = HashMap::new();
+        Self {
+            paths: None,
+            json: None,
+        }
+    }
 
-        for package in ToolPkg::all() {
-            for &tool in package.tools() {
-                if let Some(path) = Self::get_path(tool, package == ToolPkg::Mkvtoolnix) {
-                    paths.insert(tool, path);
-                }
+    pub fn try_set_paths(
+        mut self,
+        tools: impl IntoIterator<Item = Tool>,
+    ) -> Result<Self, AppError> {
+        for tool in tools {
+            if let Some(path) = Self::get_path(tool) {
+                self.paths
+                    .get_or_insert_with(HashMap::new)
+                    .insert(tool, path);
+            } else {
+                return Err(AppError::from(
+                    Msg::FailSetPaths {
+                        s: tool.as_ref(),
+                        s1: tool.to_str_package(),
+                    }
+                    .get(),
+                ));
             }
         }
 
-        Self { paths, json: None }
+        Ok(self)
     }
 
     pub fn json(mut self, json: impl Into<PathBuf>) -> Self {
@@ -63,30 +78,17 @@ impl Tools {
         self
     }
 
-    pub fn check_pkg(&self, pkg: ToolPkg) -> Result<(), AppError> {
-        for &tool in pkg.tools() {
-            if !self.paths.contains_key(&tool) {
-                let msg = Msg::FailCheckPkg {
-                    s: tool.as_ref(),
-                    s1: pkg.as_ref(),
-                };
-                return Err(AppError::from(msg.get()));
-            }
-        }
-        Ok(())
-    }
+    fn get_path(tool: Tool) -> Option<PathBuf> {
+        let tool_str = tool.as_ref();
+        let mut potential_paths = vec![PathBuf::from(tool_str)];
 
-    fn get_path(tool: Tool, is_mkvtoolnix: bool) -> Option<PathBuf> {
-        let tool = tool.as_ref();
-        let mut potential_paths = vec![PathBuf::from(tool)];
-
-        if is_mkvtoolnix && cfg!(target_os = "windows") {
+        if cfg!(target_os = "windows") && tool.is_mkvtoolnix() {
             for dir in &[
                 "C:\\Program Files\\MkvToolNix",
                 "C:\\Program Files (x86)\\MkvToolNix",
             ] {
                 let mut path = PathBuf::from(dir);
-                path.push(tool);
+                path.push(tool_str);
                 path.set_extension("exe");
                 potential_paths.push(path);
             }
@@ -124,7 +126,7 @@ impl Tools {
         Ok(args)
     }
 
-    pub fn execute<I, T>(&self, tool: Tool, args: I, msg: Option<&str>) -> Result<String, String>
+    pub fn execute<I, T>(&self, tool: Tool, args: I, msg: Option<&str>) -> Result<String, AppError>
     where
         I: IntoIterator<Item = T> + Clone,
         T: AsRef<OsStr>,
@@ -133,13 +135,15 @@ impl Tools {
             debug!("{}", msg);
         }
 
-        let mut command = match self.paths.get(&tool) {
-            Some(path) => Command::new(path),
-            None => Command::new(tool.as_ref()),
-        };
+        let mut command = Command::new(
+            self.paths
+                .as_ref()
+                .and_then(|paths| paths.get(&tool))
+                .map(|p| p.as_path())
+                .unwrap_or_else(|| Path::new(tool.as_ref())),
+        );
 
-        let use_json = self.json.is_some()
-            && matches!(tool, Tool::Mkvmerge | Tool::Mkvinfo | Tool::Mkvextract);
+        let use_json = self.json.is_some() && tool.is_mkvtoolnix();
 
         let args_json = if use_json {
             let json = self.json.as_deref().unwrap_or(Path::new(".command.json"));
@@ -170,8 +174,17 @@ impl Tools {
             Ok(output) if output.status.success() => {
                 Ok(String::from_utf8_lossy(&output.stdout).to_string())
             }
-            Ok(output) => Err(String::from_utf8_lossy(&output.stdout).to_string()),
-            Err(e) => Err(format!("Execution error: {}", e)),
+            Ok(output) => Err(AppError::from(
+                String::from_utf8_lossy(&output.stdout).to_string(),
+            )),
+            Err(e) => Err(AppError::from(format!("Execution error: {}", e))),
         }
+    }
+}
+
+impl TryInit for Tools {
+    fn try_init() -> Result<Self, AppError> {
+        let tools = Self::new().try_set_paths(Tool::iter_mkvtoolnix())?;
+        Ok(tools)
     }
 }

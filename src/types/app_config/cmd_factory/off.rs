@@ -1,17 +1,21 @@
 use super::Blocks;
-use crate::types::tracks::flags::from_arg_matches::TracksFlagsArg;
-use crate::types::tracks::names::from_arg_matches::TracksNamesArg;
-use crate::types::tracks::{TracksFlags, TracksNames};
+use crate::types::attachs::{Attachs, from_arg_matches::AttachsArg};
+use crate::types::tracks::{
+    TracksFlags, TracksLangs, TracksNames, flags::from_arg_matches::TracksFlagsArg,
+    langs::from_arg_matches::TracksLangsArg, names::from_arg_matches::TracksNamesArg,
+};
 use crate::types::traits::ClapArgID;
 use clap::{Arg, ArgAction};
 
 impl Blocks {
-    pub fn inverse(mut self) -> Self {
-        let mut cmd = self.cmd.next_help_heading("Inverse on Pro");
+    pub fn off(mut self) -> Self {
+        let mut cmd = self.cmd.next_help_heading("Off on Pro options");
 
         for help in TracksFlagsArg::iter_help()
-            .map(AnyTrackArg::Flag)
-            .chain(TracksNamesArg::iter_help().map(AnyTrackArg::Name))
+            .map(AnyOffArg::Flag)
+            .chain(TracksNamesArg::iter_help().map(AnyOffArg::Name))
+            .chain(TracksLangsArg::iter_help().map(AnyOffArg::Lang))
+            .chain(AttachsArg::iter_help().map(AnyOffArg::Sort))
         {
             let add = help.help_to_add();
             let add_str = add.as_str();
@@ -44,49 +48,61 @@ impl Blocks {
     }
 }
 
-enum AnyTrackArg {
+enum AnyOffArg {
     Flag(TracksFlagsArg),
     Name(TracksNamesArg),
+    Lang(TracksLangsArg),
+    Sort(AttachsArg),
 }
 
-impl AnyTrackArg {
+impl AnyOffArg {
     fn help_to_add(&self) -> Self {
         match self {
-            AnyTrackArg::Flag(f) => AnyTrackArg::Flag(f.help_to_add()),
-            AnyTrackArg::Name(n) => AnyTrackArg::Name(n.help_to_add()),
+            AnyOffArg::Flag(x) => AnyOffArg::Flag(x.help_to_add()),
+            AnyOffArg::Name(x) => AnyOffArg::Name(x.help_to_add()),
+            AnyOffArg::Lang(x) => AnyOffArg::Lang(x.help_to_add()),
+            AnyOffArg::Sort(x) => AnyOffArg::Sort(x.help_to_add()),
         }
     }
 
     fn help_to_no_add(&self) -> Self {
         match self {
-            AnyTrackArg::Flag(f) => AnyTrackArg::Flag(f.help_to_no_add()),
-            AnyTrackArg::Name(n) => AnyTrackArg::Name(n.help_to_no_add()),
+            AnyOffArg::Flag(x) => AnyOffArg::Flag(x.help_to_no_add()),
+            AnyOffArg::Name(x) => AnyOffArg::Name(x.help_to_no_add()),
+            AnyOffArg::Lang(x) => AnyOffArg::Lang(x.help_to_no_add()),
+            AnyOffArg::Sort(x) => AnyOffArg::Sort(x.help_to_no_add()),
         }
     }
 
     fn long(&self) -> &'static str {
         match self {
-            AnyTrackArg::Flag(f) => f.long(),
-            AnyTrackArg::Name(n) => n.long(),
+            AnyOffArg::Flag(x) => x.long(),
+            AnyOffArg::Name(x) => x.long(),
+            AnyOffArg::Lang(x) => x.long(),
+            AnyOffArg::Sort(x) => x.long(),
         }
     }
 
     fn help(&self) -> &'static str {
         match self {
-            AnyTrackArg::Flag(f) => f.help(),
-            AnyTrackArg::Name(n) => n.help(),
+            AnyOffArg::Flag(x) => x.help(),
+            AnyOffArg::Name(x) => x.help(),
+            AnyOffArg::Lang(x) => x.help(),
+            AnyOffArg::Sort(x) => x.help(),
         }
     }
 
     fn as_str(&self) -> &'static str {
         match self {
-            AnyTrackArg::Flag(f) => TracksFlags::as_str(*f),
-            AnyTrackArg::Name(n) => TracksNames::as_str(*n),
+            AnyOffArg::Flag(x) => TracksFlags::as_str(*x),
+            AnyOffArg::Name(x) => TracksNames::as_str(*x),
+            AnyOffArg::Lang(x) => TracksLangs::as_str(*x),
+            AnyOffArg::Sort(x) => Attachs::as_str(*x),
         }
     }
 }
 
-trait InverseBlockFactory {
+trait OffBlockFactory {
     fn iter_help() -> impl Iterator<Item = Self>;
     fn help_to_add(&self) -> Self;
     fn help_to_no_add(&self) -> Self;
@@ -94,7 +110,7 @@ trait InverseBlockFactory {
     fn help(&self) -> &'static str;
 }
 
-impl InverseBlockFactory for TracksFlagsArg {
+impl OffBlockFactory for TracksFlagsArg {
     fn iter_help() -> impl Iterator<Item = Self> {
         [
             TracksFlagsArg::HelpAddDefaults,
@@ -147,7 +163,7 @@ impl InverseBlockFactory for TracksFlagsArg {
     }
 }
 
-impl InverseBlockFactory for TracksNamesArg {
+impl OffBlockFactory for TracksNamesArg {
     fn iter_help() -> impl Iterator<Item = Self> {
         [TracksNamesArg::HelpAddNames].into_iter()
     }
@@ -178,6 +194,78 @@ impl InverseBlockFactory for TracksNamesArg {
     fn help(&self) -> &'static str {
         match self {
             TracksNamesArg::HelpAddNames => "On/Off auto set track-names",
+            _ => panic!("Received not Help inverse arg"),
+        }
+    }
+}
+
+impl OffBlockFactory for TracksLangsArg {
+    fn iter_help() -> impl Iterator<Item = Self> {
+        [TracksLangsArg::HelpAddLangs].into_iter()
+    }
+
+    fn help_to_add(&self) -> Self {
+        match self {
+            TracksLangsArg::HelpAddLangs => TracksLangsArg::AddLangs,
+            _ => panic!("Received unsupported Help arg"),
+        }
+    }
+
+    fn help_to_no_add(&self) -> Self {
+        match self {
+            TracksLangsArg::HelpAddLangs => TracksLangsArg::NoAddLangs,
+            _ => panic!("Received unsupported Help arg"),
+        }
+    }
+
+    fn long(&self) -> &'static str {
+        match self {
+            TracksLangsArg::HelpAddLangs => "add-langs / --no-add-langs",
+            TracksLangsArg::AddLangs => "add-langs",
+            TracksLangsArg::NoAddLangs => "no-add-langs",
+            _ => panic!("Received not inverse arg"),
+        }
+    }
+
+    fn help(&self) -> &'static str {
+        match self {
+            TracksLangsArg::HelpAddLangs => "On/Off auto set track-languages",
+            _ => panic!("Received not Help inverse arg"),
+        }
+    }
+}
+
+impl OffBlockFactory for AttachsArg {
+    fn iter_help() -> impl Iterator<Item = Self> {
+        [AttachsArg::HelpSortFonts].into_iter()
+    }
+
+    fn help_to_add(&self) -> Self {
+        match self {
+            AttachsArg::HelpSortFonts => AttachsArg::SortFonts,
+            _ => panic!("Received unsupported Help arg"),
+        }
+    }
+
+    fn help_to_no_add(&self) -> Self {
+        match self {
+            AttachsArg::HelpSortFonts => AttachsArg::NoSortFonts,
+            _ => panic!("Received unsupported Help arg"),
+        }
+    }
+
+    fn long(&self) -> &'static str {
+        match self {
+            AttachsArg::HelpSortFonts => "sort-fonts / --no-sort-fonts",
+            AttachsArg::SortFonts => "sort-fonts",
+            AttachsArg::NoSortFonts => "no-sort-fonts",
+            _ => panic!("Received not inverse arg"),
+        }
+    }
+
+    fn help(&self) -> &'static str {
+        match self {
+            AttachsArg::HelpSortFonts => "On/Off sort in-files fonts",
             _ => panic!("Received not Help inverse arg"),
         }
     }

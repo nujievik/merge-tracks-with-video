@@ -9,13 +9,9 @@ thread_local! {
 }
 
 pub enum Msg<'a> {
-    FailGetStartDir,
-    FailGetOut,
-    FailInitPatterns { s: &'a str },
-    FailCheckPkg { s: &'a str, s1: &'a str },
-    FailWriteJson { s: &'a str },
     ExeCommand,
-    FieldNotHasLim { s: &'a str },
+    FailSetPaths { s: &'a str, s1: &'a str },
+    FailWriteJson { s: &'a str },
 }
 
 impl<'a> Msg<'a> {

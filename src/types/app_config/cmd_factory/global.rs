@@ -47,7 +47,7 @@ impl Blocks {
                     .short('p')
                     .long("pro")
                     .alias("pro-mode")
-                    .help("Off auto set for all Inverse on Pro")
+                    .help("Off all auto 'Off on Pro options'")
                     .action(ArgAction::SetTrue),
             );
 

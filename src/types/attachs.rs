@@ -1,6 +1,7 @@
-mod base_impls;
+mod base;
 pub(super) mod from_arg_matches;
 mod id;
+mod off_on_pro;
 
 use id::AttachID;
 use std::collections::HashSet;
@@ -9,6 +10,7 @@ use std::collections::HashSet;
 pub struct Attachs {
     pub fonts: BaseAttachsFields,
     pub other: BaseAttachsFields,
+    pub sort_fonts: Option<bool>,
 }
 
 #[derive(Clone)]

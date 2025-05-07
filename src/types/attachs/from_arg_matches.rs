@@ -2,7 +2,11 @@ use super::{Attachs, BaseAttachsFields};
 use crate::types::traits::ClapArgID;
 use clap::{ArgMatches, Error, FromArgMatches, error::ErrorKind};
 
+#[derive(Clone, Copy)]
 pub(in crate::types) enum AttachsArg {
+    HelpSortFonts,
+    SortFonts,
+    NoSortFonts,
     Attachs,
     NoAttachs,
     Fonts,
@@ -14,6 +18,9 @@ impl ClapArgID for Attachs {
 
     fn as_str(arg: Self::Arg) -> &'static str {
         match arg {
+            AttachsArg::HelpSortFonts => "help_sort_fonts",
+            AttachsArg::SortFonts => "sort_fonts",
+            AttachsArg::NoSortFonts => "no_sort_fonts",
             AttachsArg::Attachs => "attachs",
             AttachsArg::NoAttachs => "no_attachs",
             AttachsArg::Fonts => "fonts",
@@ -37,7 +44,27 @@ impl FromArgMatches for Attachs {
         let fonts = base_fields_from_matches(matches, AttachsArg::Fonts, AttachsArg::NoFonts)?;
         let other = base_fields_from_matches(matches, AttachsArg::Attachs, AttachsArg::NoAttachs)?;
 
-        Ok(Self { fonts, other })
+        let sort_fonts = match matches
+            .try_remove_one::<bool>(Attachs::as_str(AttachsArg::SortFonts))
+            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
+        {
+            Some(true) => Some(true),
+            _ => {
+                match matches
+                    .try_remove_one::<bool>(Attachs::as_str(AttachsArg::NoSortFonts))
+                    .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
+                {
+                    Some(true) => Some(false),
+                    _ => None,
+                }
+            }
+        };
+
+        Ok(Self {
+            fonts,
+            other,
+            sort_fonts,
+        })
     }
 
     fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), Error> {

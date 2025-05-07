@@ -1,12 +1,17 @@
 use super::Blocks;
 
 use super::val_parsers::ChaptersParser;
-use crate::types::attachs::{Attachs, BaseAttachsFields, from_arg_matches::AttachsArg};
-use crate::types::chapters::{Chapters, ChaptersArg};
-use crate::types::tracks::{BaseTracksFields, BaseTracksFlagsFields, Tracks, TracksFlags};
-use crate::types::tracks::{TracksNames, names::from_arg_matches::TracksNamesArg};
-use crate::types::tracks::{flags::from_arg_matches::TracksFlagsArg, from_arg_matches::TracksArg};
-use crate::types::traits::ClapArgID;
+use crate::types::{
+    attachs::{Attachs, BaseAttachsFields, from_arg_matches::AttachsArg},
+    chapters::{Chapters, ChaptersArg},
+    specials::{Specials, from_arg_matches::SpecialsArg},
+    tracks::{
+        BaseTracksFields, BaseTracksFlagsFields, Tracks, TracksFlags, TracksLangs, TracksNames,
+        flags::from_arg_matches::TracksFlagsArg, from_arg_matches::TracksArg,
+        langs::from_arg_matches::TracksLangsArg, names::from_arg_matches::TracksNamesArg,
+    },
+    traits::ClapArgID,
+};
 use clap::{Arg, ArgAction, builder::ValueParser};
 use std::str::FromStr;
 
@@ -162,14 +167,14 @@ impl Blocks {
                     .long("defaults")
                     .aliases(&["default-track-flag", "default-track"])
                     .value_name("[n:]B[,m:B]...")
-                    .help("Bool value default-track-flag's")
+                    .help("Bool default-track-flags")
                     .value_parser(ValueParser::new(BaseTracksFlagsFields::from_str)),
             )
             .arg(
                 Arg::new(TracksFlags::as_str(TracksFlagsArg::LimDefaults))
                     .long("lim-defaults")
                     .value_name("n")
-                    .help("Max true default-track-flag's in auto")
+                    .help("Max true default-track-flags in auto")
                     .value_parser(clap::value_parser!(u32)),
             )
             .arg(
@@ -177,14 +182,14 @@ impl Blocks {
                     .long("forceds")
                     .aliases(&["forced-display-flag", "forced-track"])
                     .value_name("[n:]B[,m:B]...")
-                    .help("Bool forced-display-flag")
+                    .help("Bool forced-display-flags")
                     .value_parser(ValueParser::new(BaseTracksFlagsFields::from_str)),
             )
             .arg(
                 Arg::new(TracksFlags::as_str(TracksFlagsArg::LimForceds))
                     .long("lim-forceds")
                     .value_name("n")
-                    .help("Max true forced-display-flag's in auto")
+                    .help("Max true forced-display-flags in auto")
                     .value_parser(clap::value_parser!(u32)),
             )
             .arg(
@@ -192,14 +197,14 @@ impl Blocks {
                     .long("enableds")
                     .alias("track-enabled-flag")
                     .value_name("[n:]B[,m:B]...")
-                    .help("Bool track-enabled-flag")
+                    .help("Bool track-enabled-flags")
                     .value_parser(ValueParser::new(BaseTracksFlagsFields::from_str)),
             )
             .arg(
                 Arg::new(TracksFlags::as_str(TracksFlagsArg::LimEnableds))
                     .long("lim-enableds")
                     .value_name("n")
-                    .help("Max true track-enabled-flag's in auto")
+                    .help("Max true track-enabled-flags in auto")
                     .value_parser(clap::value_parser!(u32)),
             )
             .arg(
@@ -207,23 +212,25 @@ impl Blocks {
                     .long("names")
                     .aliases(&["track-names", "track-name"])
                     .value_name("[n:]N[,m:N]...")
-                    .help("Track names"),
+                    .help("Track names")
+                    .value_parser(ValueParser::new(TracksNames::from_str)),
+            )
+            .arg(
+                Arg::new(TracksLangs::as_str(TracksLangsArg::Langs))
+                    .long("langs")
+                    .aliases(&["languages", "language"])
+                    .value_name("[n:]L[,m:L]...")
+                    .help("Track languages")
+                    .value_parser(ValueParser::new(TracksLangs::from_str)),
+            )
+            .arg(
+                Arg::new(Specials::as_str(SpecialsArg::Specials))
+                    .long("specials")
+                    .value_name("\"n[ m]...\"")
+                    .allow_hyphen_values(true)
+                    .help("Set unpresented mkvmerge options")
+                    .value_parser(ValueParser::new(Specials::from_str)),
             );
-        /*
-        .arg(
-            Arg::new("language")
-            .long("lang")
-            .alias("language")
-            .value_name("L or n:L[,m:L]...")
-            .help("Track language"),
-        )
-        .arg(
-            Arg::new("specials")
-            .long("specials")
-            .value_name("spl")
-            .help("Set unpresented mkvmerge options"),
-        )
-        */
 
         self
     }

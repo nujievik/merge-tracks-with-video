@@ -76,7 +76,7 @@ impl FromStr for BaseTracksFlagsFields {
         let mut map_unhashed: Option<Vec<(TrackID, bool)>> = None;
 
         for part in s.split(',').map(str::trim).filter(|s| !s.is_empty()) {
-            let (id, b) = part.rsplit_once(':').unwrap_or((part, "true"));
+            let (id, b) = part.split_once(':').unwrap_or((part, "true"));
             let id = TrackID::from_str(id)?;
             let b = Self::parse_bool(b)?;
 

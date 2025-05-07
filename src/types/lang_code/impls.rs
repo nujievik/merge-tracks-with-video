@@ -1,6 +1,7 @@
 use super::LangCode;
 use super::list_langs::LIST_LANGS;
 use super::map_from_str::MAP_FROM_STR;
+use crate::types::AppError;
 use std::str::FromStr;
 
 impl Default for LangCode {
@@ -10,13 +11,13 @@ impl Default for LangCode {
 }
 
 impl FromStr for LangCode {
-    type Err = String;
+    type Err = AppError;
 
     fn from_str(s: &str) -> Result<Self, <LangCode as FromStr>::Err> {
         MAP_FROM_STR
             .get(s)
             .copied()
-            .ok_or_else(|| format!("Invalid language code: '{}'", s))
+            .ok_or_else(|| AppError::from(format!("Invalid language code: '{}'", s)))
     }
 }
 

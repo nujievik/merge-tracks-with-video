@@ -1,4 +1,4 @@
-use super::{BaseTracksFields, Tracks, TracksFlags};
+use super::{BaseTracksFields, Tracks, TracksFlags, TracksLangs, TracksNames};
 use crate::types::traits::ClapArgID;
 use clap::{ArgMatches, Error, FromArgMatches, error::ErrorKind};
 
@@ -48,6 +48,8 @@ impl FromArgMatches for Tracks {
         let buttons = base_fields_from_matches(matches, TracksArg::Buttons, TracksArg::NoButtons)?;
 
         let flags = TracksFlags::from_arg_matches_mut(matches)?;
+        let names = TracksNames::from_arg_matches_mut(matches)?;
+        let langs = TracksLangs::from_arg_matches_mut(matches)?;
 
         Ok(Self {
             audio,
@@ -55,6 +57,8 @@ impl FromArgMatches for Tracks {
             video,
             buttons,
             flags,
+            names,
+            langs,
         })
     }
 

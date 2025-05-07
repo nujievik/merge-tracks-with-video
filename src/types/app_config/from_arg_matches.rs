@@ -1,7 +1,9 @@
 use super::{AppConfig, clap_arg_id::AppConfigArg};
 use crate::types::output::OutputArg;
-use crate::types::traits::ClapArgID;
-use crate::types::{Attachs, Chapters, Input, LangCode, Output, Retiming, Tracks, Verbosity};
+use crate::types::traits::{ClapArgID, OffOnPro};
+use crate::types::{
+    Attachs, Chapters, Input, LangCode, Output, Retiming, Specials, Tracks, Verbosity,
+};
 use clap::error::ErrorKind;
 use clap::{ArgMatches, Error, FromArgMatches};
 
@@ -58,10 +60,19 @@ impl FromArgMatches for AppConfig {
             None => false,
         };
 
+        let pro = match matches
+            .try_remove_one::<bool>(AppConfig::as_str(AppConfigArg::Pro))
+            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
+        {
+            Some(b) => b,
+            None => false,
+        };
+
         let retiming = Retiming::from_arg_matches_mut(matches)?;
-        let tracks = Tracks::from_arg_matches_mut(matches)?;
+        let tracks = Tracks::from_arg_matches_mut(matches)?.off_on_pro(pro);
         let chapters = Chapters::from_arg_matches_mut(matches)?;
-        let attachs = Attachs::from_arg_matches_mut(matches)?;
+        let attachs = Attachs::from_arg_matches_mut(matches)?.off_on_pro(pro);
+        let specials = Specials::from_arg_matches_mut(matches)?;
 
         Ok(Self {
             input,
@@ -73,6 +84,7 @@ impl FromArgMatches for AppConfig {
             tracks,
             chapters,
             attachs,
+            specials,
         })
     }
 

@@ -1,6 +1,6 @@
 mod global;
-mod inverse;
 mod io;
+mod off;
 mod other;
 mod retiming;
 mod target;
@@ -14,7 +14,7 @@ impl clap::CommandFactory for AppConfig {
         Blocks::new()
             .io()
             .global()
-            .inverse()
+            .off()
             .retiming()
             .target()
             .other()
