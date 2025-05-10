@@ -1,7 +1,7 @@
 use super::super::{AppConfig, clap_arg_id::AppConfigArg};
 use super::Blocks;
+use crate::traits::ClapArgID;
 use crate::types::LangCode;
-use crate::types::traits::ClapArgID;
 use crate::types::verbosity::{Verbosity, VerbosityArg};
 use clap::{Arg, ArgAction, builder::ValueParser};
 use std::str::FromStr;

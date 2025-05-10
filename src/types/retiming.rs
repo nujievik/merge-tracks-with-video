@@ -1,5 +1,4 @@
-use crate::types::traits::ClapArgID;
-use clap::error::ErrorKind;
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
 use clap::{ArgMatches, Error};
 use globset::GlobSet;
 
@@ -19,7 +18,7 @@ impl Retiming {
     }
 }
 
-pub(in crate::types) enum RetimingArg {
+pub enum RetimingArg {
     RmSegments,
     NoLinked,
     Less,
@@ -49,25 +48,14 @@ impl clap::FromArgMatches for Retiming {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let rm_segments = matches
-            .try_remove_one::<GlobSet>(Self::as_str(RetimingArg::RmSegments))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?;
-
-        let no_linked = match matches
-            .try_remove_one::<bool>(Self::as_str(RetimingArg::NoLinked))
-            .map_err(|e| Error::raw(ErrorKind::ValueValidation, e.to_string()))?
-        {
-            Some(b) => b,
-            None => Self::default_no_linked(),
-        };
-
-        let less = match matches
-            .try_remove_one::<bool>(Self::as_str(RetimingArg::Less))
-            .map_err(|e| Error::raw(ErrorKind::ValueValidation, e.to_string()))?
-        {
-            Some(b) => b,
-            None => Self::default_less(),
-        };
+        let rm_segments = val_from_matches!(matches, GlobSet, RetimingArg::RmSegments, @no_default);
+        let no_linked = val_from_matches!(
+            matches,
+            bool,
+            RetimingArg::NoLinked,
+            Self::default_no_linked
+        );
+        let less = val_from_matches!(matches, bool, RetimingArg::Less, Self::default_less);
 
         Ok(Self {
             rm_segments,

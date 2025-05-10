@@ -1,8 +1,8 @@
-use crate::types::traits::ClapArgID;
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
 use clap::{ArgMatches, Error};
 use std::sync::Once;
 
-static INIT_LOGGER: Once = Once::new();
+static ENV_LOGGER: Once = Once::new();
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Verbosity {
@@ -27,9 +27,9 @@ impl Verbosity {
         }
     }
 
-    pub fn init_env_logger(&self) {
+    pub fn set_env_logger(&self) {
         let level = self.to_level_filter();
-        INIT_LOGGER.call_once(|| {
+        ENV_LOGGER.call_once(|| {
             env_logger::Builder::new().filter_level(level).init();
         });
     }
@@ -72,23 +72,17 @@ impl clap::FromArgMatches for Verbosity {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let quiet = Self::as_str(VerbosityArg::Quiet);
-        if matches.try_contains_id(quiet).unwrap_or(false) && matches.get_flag(quiet) {
-            return Ok(Self::Quiet);
-        }
-
-        let verbose = Self::as_str(VerbosityArg::Verbose);
-        match matches.try_contains_id(verbose) {
-            Ok(true) => Ok(Self::from_count(matches.get_count(verbose))),
-            Ok(false) => Ok(Self::default()),
-            Err(_) => {
-                eprintln!(
-                    "Warning: matches does not contain id '{}'. Use default",
-                    verbose
-                );
-                Ok(Self::default())
-            }
-        }
+        Ok(
+            if val_from_matches!(matches, bool, VerbosityArg::Quiet, @no_default).unwrap_or(false) {
+                Self::Quiet
+            } else if let Some(cnt) =
+                val_from_matches!(matches, u8, VerbosityArg::Verbose, @no_default)
+            {
+                Self::from_count(cnt)
+            } else {
+                Self::default()
+            },
+        )
     }
 
     fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), Error> {

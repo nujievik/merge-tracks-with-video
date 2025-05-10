@@ -1,21 +1,19 @@
+use mux_media::i18n::Msg;
 use mux_media::traits::TryInit;
-use mux_media::types::{AppError, AppConfig, RawAppConfig};
+use mux_media::types::{AppConfig, AppError, RawAppConfig, Tools};
 
 macro_rules! unwrap_or_return {
     ($expr:expr) => {
         match $expr {
             Ok(val) => val,
-            Err(AppError { code: 0, message }) => {
-                if let Some(msg) = message {
-                    println!("{}", msg);
+            Err(err) => {
+                let err: AppError = err.into();
+                err.print();
+                if err.use_stderr() {
+                    return Err(err.code);
+                } else {
+                    return Ok(());
                 }
-                return Ok(());
-            }
-            Err(AppError { code, message }) => {
-                if let Some(msg) = message {
-                    eprintln!("Error: {}", msg);
-                }
-                return Err(code);
             }
         }
     };
@@ -23,7 +21,11 @@ macro_rules! unwrap_or_return {
 
 fn main() -> Result<(), i32> {
     let cfg = unwrap_or_return!(RawAppConfig::try_init());
-    let _cfg = unwrap_or_return!(AppConfig::try_from(cfg));
+    let cfg = unwrap_or_return!(AppConfig::try_from(cfg));
+    let _tools = unwrap_or_return!(Tools::try_init());
+
+    cfg.verbosity.set_env_logger();
+    Msg::set_lang_code(cfg.locale);
 
     Ok(())
 }

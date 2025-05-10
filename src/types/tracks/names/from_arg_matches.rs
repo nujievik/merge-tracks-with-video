@@ -1,9 +1,9 @@
 use super::super::TracksNames;
-use crate::types::traits::ClapArgID;
-use clap::{ArgMatches, Error, FromArgMatches, error::ErrorKind};
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
+use clap::{ArgMatches, Error};
 
 #[derive(Clone, Copy)]
-pub(in crate::types) enum TracksNamesArg {
+pub enum TracksNamesArg {
     HelpAddNames,
     AddNames,
     NoAddNames,
@@ -23,7 +23,7 @@ impl ClapArgID for TracksNames {
     }
 }
 
-impl FromArgMatches for TracksNames {
+impl clap::FromArgMatches for TracksNames {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, Error> {
         let mut matches = matches.clone();
         Self::from_arg_matches_mut(&mut matches)
@@ -35,32 +35,8 @@ impl FromArgMatches for TracksNames {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let add = match matches
-            .try_remove_one::<bool>(TracksNames::as_str(TracksNamesArg::AddNames))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(true) => Some(true),
-            _ => {
-                match matches
-                    .try_remove_one::<bool>(TracksNames::as_str(TracksNamesArg::NoAddNames))
-                    .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-                {
-                    Some(true) => Some(false),
-                    _ => None,
-                }
-            }
-        };
-
-        let names = match matches
-            .try_remove_one::<TracksNames>(TracksNames::as_str(TracksNamesArg::Names))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(names) => names,
-            None => TracksNames::new(),
-        }
-        .add(add);
-
-        Ok(names)
+        let add = val_from_matches!(matches, bool, TracksNamesArg::AddNames, TracksNamesArg::NoAddNames, @off_on_pro);
+        Ok(val_from_matches!(matches, Self, TracksNamesArg::Names, Self::new).add(add))
     }
 
     fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), Error> {

@@ -1,8 +1,8 @@
 use super::{BaseTracksFields, Tracks, TracksFlags, TracksLangs, TracksNames};
-use crate::types::traits::ClapArgID;
-use clap::{ArgMatches, Error, FromArgMatches, error::ErrorKind};
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
+use clap::{ArgMatches, Error};
 
-pub(in crate::types) enum TracksArg {
+pub enum TracksArg {
     Audio,
     NoAudio,
     Subs,
@@ -30,7 +30,7 @@ impl ClapArgID for Tracks {
     }
 }
 
-impl FromArgMatches for Tracks {
+impl clap::FromArgMatches for Tracks {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, Error> {
         let mut matches = matches.clone();
         Self::from_arg_matches_mut(&mut matches)
@@ -42,10 +42,10 @@ impl FromArgMatches for Tracks {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let audio = base_fields_from_matches(matches, TracksArg::Audio, TracksArg::NoAudio)?;
-        let subs = base_fields_from_matches(matches, TracksArg::Subs, TracksArg::NoSubs)?;
-        let video = base_fields_from_matches(matches, TracksArg::Video, TracksArg::NoVideo)?;
-        let buttons = base_fields_from_matches(matches, TracksArg::Buttons, TracksArg::NoButtons)?;
+        let audio = Self::base_from_matches(matches, TracksArg::Audio, TracksArg::NoAudio)?;
+        let subs = Self::base_from_matches(matches, TracksArg::Subs, TracksArg::NoSubs)?;
+        let video = Self::base_from_matches(matches, TracksArg::Video, TracksArg::NoVideo)?;
+        let buttons = Self::base_from_matches(matches, TracksArg::Buttons, TracksArg::NoButtons)?;
 
         let flags = TracksFlags::from_arg_matches_mut(matches)?;
         let names = TracksNames::from_arg_matches_mut(matches)?;
@@ -68,30 +68,18 @@ impl FromArgMatches for Tracks {
     }
 }
 
-fn base_fields_from_matches(
-    matches: &mut ArgMatches,
-    arg: TracksArg,
-    no_arg: TracksArg,
-) -> Result<BaseTracksFields, Error> {
-    let no_flag = match matches
-        .try_remove_one::<bool>(Tracks::as_str(no_arg))
-        .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-    {
-        Some(b) => b,
-        None => BaseTracksFields::default_no_flag(),
-    };
-
-    let base = if no_flag {
-        BaseTracksFields::new().no_flag(true)
-    } else {
-        match matches
-            .try_remove_one::<BaseTracksFields>(Tracks::as_str(arg))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(base) => base,
-            None => BaseTracksFields::new(),
-        }
-    };
-
-    Ok(base)
+impl Tracks {
+    fn base_from_matches(
+        matches: &mut ArgMatches,
+        arg: TracksArg,
+        no_arg: TracksArg,
+    ) -> Result<BaseTracksFields, Error> {
+        Ok(
+            if val_from_matches!(matches, bool, no_arg, BaseTracksFields::default_no_flag) {
+                BaseTracksFields::new().no_flag(true)
+            } else {
+                val_from_matches!(matches, BaseTracksFields, arg, BaseTracksFields::new)
+            },
+        )
+    }
 }

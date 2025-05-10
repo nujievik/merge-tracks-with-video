@@ -88,7 +88,7 @@ impl RangeU32 {
             Ok(dflt)
         } else {
             part.parse::<u32>()
-                .map_err(|_| AppError::from(format!("Invalid number: '{}'", part)))
+                .map_err(|_| AppError::from(format!("invalid digit '{}'", part)))
         }
     }
 }

@@ -1,9 +1,9 @@
 use super::{super::TracksFlags, BaseTracksFlagsFields};
-use crate::types::traits::ClapArgID;
-use clap::{ArgMatches, Error, FromArgMatches, error::ErrorKind};
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
+use clap::{ArgMatches, Error};
 
 #[derive(Clone, Copy)]
-pub(in crate::types) enum TracksFlagsArg {
+pub enum TracksFlagsArg {
     HelpAddDefaults,
     AddDefaults,
     NoAddDefaults,
@@ -45,7 +45,7 @@ impl ClapArgID for TracksFlags {
     }
 }
 
-impl FromArgMatches for TracksFlags {
+impl clap::FromArgMatches for TracksFlags {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, Error> {
         let mut matches = matches.clone();
         Self::from_arg_matches_mut(&mut matches)
@@ -57,21 +57,21 @@ impl FromArgMatches for TracksFlags {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let defaults = base_from_matches(
+        let defaults = Self::base_from_matches(
             matches,
             TracksFlagsArg::AddDefaults,
             TracksFlagsArg::NoAddDefaults,
             TracksFlagsArg::Defaults,
             TracksFlagsArg::LimDefaults,
         )?;
-        let forceds = base_from_matches(
+        let forceds = Self::base_from_matches(
             matches,
             TracksFlagsArg::AddForceds,
             TracksFlagsArg::NoAddForceds,
             TracksFlagsArg::Forceds,
             TracksFlagsArg::LimForceds,
         )?;
-        let enableds = base_from_matches(
+        let enableds = Self::base_from_matches(
             matches,
             TracksFlagsArg::AddEnableds,
             TracksFlagsArg::NoAddEnableds,
@@ -92,56 +92,35 @@ impl FromArgMatches for TracksFlags {
     }
 }
 
-fn base_from_matches(
-    matches: &mut ArgMatches,
-    add_arg: TracksFlagsArg,
-    no_add_arg: TracksFlagsArg,
-    arg: TracksFlagsArg,
-    lim_arg: TracksFlagsArg,
-) -> Result<BaseTracksFlagsFields, Error> {
-    let add = match matches
-        .try_remove_one::<bool>(TracksFlags::as_str(add_arg))
-        .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-    {
-        Some(true) => Some(true),
-        _ => {
-            match matches
-                .try_remove_one::<bool>(TracksFlags::as_str(no_add_arg))
-                .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-            {
-                Some(true) => Some(false),
-                _ => None,
-            }
-        }
-    };
+impl TracksFlags {
+    fn base_from_matches(
+        matches: &mut ArgMatches,
+        add_arg: TracksFlagsArg,
+        no_add_arg: TracksFlagsArg,
+        arg: TracksFlagsArg,
+        lim_arg: TracksFlagsArg,
+    ) -> Result<BaseTracksFlagsFields, Error> {
+        let add = val_from_matches!(matches, bool, add_arg, no_add_arg, @off_on_pro);
+        let lim_true = match val_from_matches!(matches, u32, lim_arg, @no_default) {
+            Some(u) => u,
+            None => match arg {
+                TracksFlagsArg::Defaults => TracksFlags::default_lim_true_defaults(),
+                TracksFlagsArg::Forceds => TracksFlags::default_lim_true_forceds(),
+                TracksFlagsArg::Enableds => TracksFlags::default_lim_true_enableds(),
+                _ => Err(AppError::from(format!(
+                    "No found default limit for arg '{}'",
+                    TracksFlags::as_str(arg)
+                )))?,
+            },
+        };
 
-    let lim_true = match matches
-        .try_remove_one::<u32>(TracksFlags::as_str(lim_arg))
-        .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-    {
-        Some(u) => u,
-        None => match arg {
-            TracksFlagsArg::Defaults => TracksFlags::default_lim_true_defaults(),
-            TracksFlagsArg::Forceds => TracksFlags::default_lim_true_forceds(),
-            TracksFlagsArg::Enableds => TracksFlags::default_lim_true_enableds(),
-            _ => {
-                return Err(Error::raw(
-                    ErrorKind::UnknownArgument,
-                    format!("Not default limit for arg '{}'", TracksFlags::as_str(arg)),
-                ));
-            }
-        },
-    };
-
-    let base = match matches
-        .try_remove_one::<BaseTracksFlagsFields>(TracksFlags::as_str(arg))
-        .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-    {
-        Some(base) => base,
-        None => BaseTracksFlagsFields::new(),
+        Ok(val_from_matches!(
+            matches,
+            BaseTracksFlagsFields,
+            arg,
+            BaseTracksFlagsFields::new
+        )
+        .add(add)
+        .lim_true(lim_true))
     }
-    .add(add)
-    .lim_true(lim_true);
-
-    Ok(base)
 }

@@ -1,8 +1,7 @@
 use super::Blocks;
-
 use super::val_parsers::patterns_parser;
+use crate::traits::ClapArgID;
 use crate::types::retiming::{Retiming, RetimingArg};
-use crate::types::traits::ClapArgID;
 use clap::{Arg, ArgAction, builder::ValueParser};
 
 impl Blocks {

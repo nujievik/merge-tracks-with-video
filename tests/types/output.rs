@@ -6,7 +6,7 @@ use serial_test::serial;
 use std::path::PathBuf;
 
 #[test]
-fn build_path() {
+fn test_build_path() {
     let path = data_file("file_,_part.mp4");
     let output = Output::from_path(&path).unwrap();
 
@@ -17,7 +17,7 @@ fn build_path() {
 }
 
 #[test]
-fn err_not_writable_path() {
+fn test_err_not_writable_path() {
     let result = Output::from_path("/");
 
     if let Err(err) = result {
@@ -34,7 +34,7 @@ fn err_not_writable_path() {
 
 #[test]
 #[serial]
-fn build_path_with_empty_dir() {
+fn test_build_path_with_empty_dir() {
     let output = Output::from_path("file_,_part.mp4").unwrap();
 
     let result = output.build_path("01");
@@ -46,7 +46,7 @@ fn build_path_with_empty_dir() {
 }
 
 #[test]
-fn build_path_with_empty_tail() {
+fn test_build_path_with_empty_tail() {
     let path = data_file("file_.mp4");
     let output = Output::from_path(&path).unwrap();
 
@@ -57,7 +57,7 @@ fn build_path_with_empty_tail() {
 }
 
 #[test]
-fn build_path_with_empty_ext() {
+fn test_build_path_with_empty_ext() {
     let path = data_file("file_,_part");
     let output = Output::from_path(&path).unwrap();
 
@@ -69,7 +69,7 @@ fn build_path_with_empty_ext() {
 
 #[test]
 #[serial]
-fn build_path_empty() {
+fn test_build_path_empty() {
     let output = Output::from_path("").unwrap();
 
     let result = output.build_path("01");
@@ -81,7 +81,7 @@ fn build_path_empty() {
 }
 
 #[test]
-fn dir_access() {
+fn test_dir_access() {
     let path = data_file("file_,_part");
     let output = Output::from_path(&path).unwrap();
 

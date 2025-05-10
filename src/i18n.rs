@@ -10,8 +10,11 @@ thread_local! {
 
 pub enum Msg<'a> {
     ExeCommand,
+    FailCreateThdPool,
     FailSetPaths { s: &'a str, s1: &'a str },
     FailWriteJson { s: &'a str },
+    NoInputFiles,
+    UnsupLngLog { s: &'a str, s1: &'a str },
 }
 
 impl<'a> Msg<'a> {
@@ -27,13 +30,17 @@ impl<'a> Msg<'a> {
         if Self::is_supported_lang(&lng) {
             LANG_CODE.with(|code| *code.borrow_mut() = lng);
         } else {
-            let dflt = LangCode::default();
-            eprintln!(
-                "Warning: Language '{}' not supported. Use default '{}'",
-                lng.as_ref(),
-                dflt.as_ref()
-            );
-            LANG_CODE.with(|code| *code.borrow_mut() = dflt);
+            LANG_CODE.with(|code| {
+                let using = code.borrow();
+                eprintln!(
+                    "Warning: {}",
+                    Msg::UnsupLngLog {
+                        s: lng.as_ref(),
+                        s1: using.as_ref()
+                    }
+                    .get()
+                );
+            });
         }
     }
 

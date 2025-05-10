@@ -1,6 +1,6 @@
 use super::Blocks;
-
 use super::val_parsers::ChaptersParser;
+use crate::traits::ClapArgID;
 use crate::types::{
     attachs::{Attachs, BaseAttachsFields, from_arg_matches::AttachsArg},
     chapters::{Chapters, ChaptersArg},
@@ -10,7 +10,6 @@ use crate::types::{
         flags::from_arg_matches::TracksFlagsArg, from_arg_matches::TracksArg,
         langs::from_arg_matches::TracksLangsArg, names::from_arg_matches::TracksNamesArg,
     },
-    traits::ClapArgID,
 };
 use clap::{Arg, ArgAction, builder::ValueParser};
 use std::str::FromStr;

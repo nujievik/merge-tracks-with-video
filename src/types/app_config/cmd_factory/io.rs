@@ -1,9 +1,9 @@
+use super::super::{AppConfig, clap_arg_id::AppConfigArg};
 use super::Blocks;
 use super::val_parsers::{InputDirParser, OutputParser, patterns_parser};
+use crate::traits::ClapArgID;
 use crate::types::RangeU32;
-use crate::types::input::{Input, InputArg};
-use crate::types::output::{Output, OutputArg};
-use crate::types::traits::ClapArgID;
+use crate::types::input::{Input, from_arg_matches::InputArg};
 use clap::{Arg, builder::ValueParser};
 use std::str::FromStr;
 
@@ -22,7 +22,7 @@ impl Blocks {
                     .value_parser(ValueParser::new(InputDirParser)),
             )
             .arg(
-                Arg::new(Output::as_str(OutputArg::Out))
+                Arg::new(AppConfig::as_str(AppConfigArg::Output))
                     .short('o')
                     .long("output")
                     .value_name("out[,put]")
@@ -39,7 +39,7 @@ impl Blocks {
                     .value_parser(ValueParser::new(RangeU32::from_str)),
             )
             .arg(
-                Arg::new(Output::as_str(OutputArg::Lim))
+                Arg::new(AppConfig::as_str(AppConfigArg::Lim))
                     .long("lim")
                     .aliases(&["limit-mux", "lim-mux", "limit"])
                     .value_name("n")

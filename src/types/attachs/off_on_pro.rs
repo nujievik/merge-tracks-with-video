@@ -1,5 +1,5 @@
 use super::Attachs;
-use crate::types::traits::OffOnPro;
+use crate::traits::OffOnPro;
 
 impl OffOnPro for Attachs {
     fn off_on_pro(mut self, pro: bool) -> Self {

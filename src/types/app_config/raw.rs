@@ -2,7 +2,7 @@
 mod tests;
 
 use crate::traits::TryInit;
-use crate::types::{AppError, Target, TargetGroup, Tool, Tools, LangCode};
+use crate::types::{AppError, LangCode, Target, TargetGroup, Tool, Tools};
 use std::collections::HashMap;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -32,7 +32,7 @@ impl TryInit for RawAppConfig {
 
         if let Some((tool, args)) = cfg.call_tool {
             let tools = Tools::new().try_set_paths([tool])?;
-            let msg = tools.execute(tool, args, None)?;
+            let msg = tools.execute(&tool, args, None)?;
             println!("{}", msg);
             return Err(AppError::ok());
         }
@@ -92,7 +92,7 @@ impl RawAppConfig {
                 "--target" | "-t" => {
                     if let Some(trg_arg) = iter.next() {
                         let trg_str = trg_arg.to_string_lossy();
-                        if trg_str == "global" {
+                        if trg_str == "global" || trg_str == "g" {
                             current_target = None;
                         } else {
                             let target = Self::parse_target(&trg_arg)?;

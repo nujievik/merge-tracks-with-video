@@ -24,6 +24,16 @@ impl Tool {
         self != &Self::Ffprobe
     }
 
+    pub fn iter() -> impl Iterator<Item = Self> {
+        vec![
+            Self::Ffprobe,
+            Self::Mkvextract,
+            Self::Mkvinfo,
+            Self::Mkvmerge,
+        ]
+        .into_iter()
+    }
+
     fn iter_mkvtoolnix() -> impl Iterator<Item = Self> {
         vec![Self::Mkvextract, Self::Mkvinfo, Self::Mkvmerge].into_iter()
     }
@@ -126,7 +136,7 @@ impl Tools {
         Ok(args)
     }
 
-    pub fn execute<I, T>(&self, tool: Tool, args: I, msg: Option<&str>) -> Result<String, AppError>
+    pub fn execute<I, T>(&self, tool: &Tool, args: I, msg: Option<&str>) -> Result<String, AppError>
     where
         I: IntoIterator<Item = T> + Clone,
         T: AsRef<OsStr>,
@@ -138,7 +148,7 @@ impl Tools {
         let mut command = Command::new(
             self.paths
                 .as_ref()
-                .and_then(|paths| paths.get(&tool))
+                .and_then(|paths| paths.get(tool))
                 .map(|p| p.as_path())
                 .unwrap_or_else(|| Path::new(tool.as_ref())),
         );

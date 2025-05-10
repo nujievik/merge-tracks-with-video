@@ -1,6 +1,6 @@
 use super::{AppConfig, raw::RawAppConfig};
-use clap::{CommandFactory, FromArgMatches};
 use crate::types::AppError;
+use clap::{CommandFactory, FromArgMatches};
 
 impl TryFrom<RawAppConfig> for AppConfig {
     type Error = AppError;

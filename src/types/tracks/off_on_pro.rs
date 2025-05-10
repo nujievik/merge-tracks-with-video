@@ -1,5 +1,5 @@
 use super::{Tracks, TracksFlags, TracksLangs, TracksNames};
-use crate::types::traits::OffOnPro;
+use crate::traits::OffOnPro;
 
 impl OffOnPro for Tracks {
     fn off_on_pro(mut self, pro: bool) -> Self {

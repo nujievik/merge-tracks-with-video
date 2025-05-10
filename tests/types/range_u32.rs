@@ -2,30 +2,30 @@ use mux_media::types::RangeU32;
 use std::str::FromStr;
 
 #[test]
-fn new() {
+fn test_new() {
     let range = RangeU32::new();
     assert_eq!(0, range.start);
     assert_eq!(u32::MAX, range.end);
 }
 
 #[test]
-fn from_str() {
+fn test_from_str() {
     for s in &[
         "", "5", "0", " 10 ", "5,10", "5,", ",10", "5-10", "5-", "-10", "5..10",
     ] {
-        assert_eq!(true, RangeU32::from_str(s).is_ok());
+        assert!(RangeU32::from_str(s).is_ok());
     }
 }
 
 #[test]
-fn err_from_str() {
+fn test_err_from_str() {
     for s in &["a,10", "5,b", "5,10,15", "5-10-15", "5.10", "10,5"] {
-        assert_eq!(true, RangeU32::from_str(s).is_err());
+        assert!(RangeU32::from_str(s).is_err());
     }
 }
 
 #[test]
-fn expected_start_end() {
+fn test_expected_start_end() {
     let max = u32::MAX;
     let cases = [
         ("", (0, max)),
@@ -54,6 +54,32 @@ fn expected_start_end() {
                 (res.start, res.end)
             ),
             Err(e) => panic!("Unexpected error for input '{}': {}", s, e),
+        }
+    }
+}
+
+#[test]
+fn test_expected_err_messages() {
+    let cases = [
+        ("x", "invalid digit"),
+        ("1-x", "invalid digit"),
+        ("1,,8", "Too many ',' delimiters in input"),
+        (
+            "8-1",
+            "End of range (1) must be greater than or equal to start (8)",
+        ),
+    ];
+
+    for (input, expected_msg) in &cases {
+        match RangeU32::from_str(input) {
+            Err(e) => assert!(
+                e.to_string().contains(expected_msg),
+                "Expected error contains '{}' for input '{}', but got '{}'",
+                expected_msg,
+                input,
+                e.to_string(),
+            ),
+            Ok(_) => panic!("Expected error for input '{}', but got Ok", input),
         }
     }
 }

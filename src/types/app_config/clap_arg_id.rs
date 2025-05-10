@@ -1,7 +1,9 @@
 use super::AppConfig;
-use crate::types::traits::ClapArgID;
+use crate::traits::ClapArgID;
 
-pub(in crate::types) enum AppConfigArg {
+pub enum AppConfigArg {
+    Lim,
+    Output,
     Locale,
     ExitOnErr,
     Pro,
@@ -12,6 +14,8 @@ impl ClapArgID for AppConfig {
 
     fn as_str(arg: Self::Arg) -> &'static str {
         match arg {
+            AppConfigArg::Lim => "lim",
+            AppConfigArg::Output => "output",
             AppConfigArg::Locale => "locale",
             AppConfigArg::ExitOnErr => "exit_on_err",
             AppConfigArg::Pro => "pro",

@@ -9,7 +9,7 @@ fn run_with_args(args: &[&str]) -> RawAppConfig {
 }
 
 #[test]
-fn basic_split() {
+fn test_basic_split() {
     let raw = run_with_args(&[
         "arg1",
         "arg2",
@@ -50,7 +50,7 @@ fn basic_split() {
 }
 
 #[test]
-fn path_target() {
+fn test_path_target() {
     let current_dir = std::path::Path::new(file!())
         .parent()
         .expect("Should get parent directory")
@@ -74,7 +74,7 @@ fn path_target() {
 }
 
 #[test]
-fn subs_alias() {
+fn test_subs_alias() {
     let raw = run_with_args(&[
         "--target",
         "subtitles",
@@ -92,7 +92,7 @@ fn subs_alias() {
 }
 
 #[test]
-fn only_tool() {
+fn test_only_tool() {
     let raw = run_with_args(&["--mkvextract", "file.mkv"]);
 
     assert!(raw.args.is_empty());
@@ -101,7 +101,7 @@ fn only_tool() {
 }
 
 #[test]
-fn list_langs_flags() {
+fn test_list_langs_flags() {
     let raw1 = run_with_args(&["--list-langs"]);
     assert!(raw1.list_langs);
     assert!(!raw1.list_targets);
@@ -118,7 +118,7 @@ fn list_langs_flags() {
 }
 
 #[test]
-fn list_targets_flag() {
+fn test_list_targets_flag() {
     let raw = run_with_args(&["--list-targets"]);
     assert!(!raw.list_langs);
     assert!(raw.list_targets);
@@ -128,7 +128,7 @@ fn list_targets_flag() {
 }
 
 #[test]
-fn fail_nonexistent_path() {
+fn test_fail_nonexistent_path() {
     let result = RawAppConfig::new_from_args(oss(&["--target", "nonexistent/path", "--opt"]));
     assert!(result.is_err());
 
@@ -142,7 +142,19 @@ fn fail_nonexistent_path() {
 }
 
 #[test]
-fn multiple_target_switching() {
+fn test_args_before_target() {
+    let raw = run_with_args(&["--arg1", "--target", "audio", "--opt"]);
+    let map = raw.trg_args.unwrap();
+
+    assert_eq!(raw.args, oss(&["--arg1"]));
+    assert_eq!(
+        map.get(&Target::Group(TargetGroup::Audio)).unwrap(),
+               &oss(&["--opt"])
+    );
+}
+
+#[test]
+fn test_multiple_target_switching() {
     let raw = run_with_args(&[
         "init_arg", "--target", "audio", "--a1", "--target", "video", "--v1", "--target", "global",
         "--g1", "--target", "audio", "--a2", "--target", "video", "--v2",
@@ -163,19 +175,7 @@ fn multiple_target_switching() {
 }
 
 #[test]
-fn args_before_target() {
-    let raw = run_with_args(&["--arg1", "--target", "audio", "--opt"]);
-    let map = raw.trg_args.unwrap();
-
-    assert_eq!(raw.args, oss(&["--arg1"]));
-    assert_eq!(
-        map.get(&Target::Group(TargetGroup::Audio)).unwrap(),
-        &oss(&["--opt"])
-    );
-}
-
-#[test]
-fn empty_input() {
+fn test_empty_input() {
     let raw = run_with_args(&[]);
     assert!(!raw.list_langs);
     assert!(!raw.list_targets);

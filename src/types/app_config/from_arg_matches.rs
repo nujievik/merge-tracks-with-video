@@ -1,13 +1,12 @@
 use super::{AppConfig, clap_arg_id::AppConfigArg};
-use crate::types::output::OutputArg;
-use crate::types::traits::{ClapArgID, OffOnPro};
+use crate::traits::{ClapArgID, OffOnPro};
 use crate::types::{
-    Attachs, Chapters, Input, LangCode, Output, Retiming, Specials, Tracks, Verbosity,
+    AppError, Attachs, Chapters, Input, LangCode, Output, Retiming, Specials, Tracks, Verbosity,
 };
-use clap::error::ErrorKind;
-use clap::{ArgMatches, Error, FromArgMatches};
+use crate::val_from_matches;
+use clap::{ArgMatches, Error};
 
-impl FromArgMatches for AppConfig {
+impl clap::FromArgMatches for AppConfig {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, Error> {
         let mut matches = matches.clone();
         Self::from_arg_matches_mut(&mut matches)
@@ -21,52 +20,25 @@ impl FromArgMatches for AppConfig {
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
         let input = Input::from_arg_matches_mut(matches)?;
 
-        let lim = match matches
-            .try_remove_one::<u32>(Output::as_str(OutputArg::Lim))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(u) => u,
-            None => Output::default_lim(),
-        };
-
-        let output = match matches
-            .try_remove_one::<Output>(Output::as_str(OutputArg::Out))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(out) => out.lim(lim),
-            None => {
-                let mut path = input.get_dir();
-                path.push(Output::default_input_dir_subdir());
-                Output::from_path(path)
-                    .map_err(|e| Error::raw(ErrorKind::ValueValidation, e.to_string()))?
-            }
-        };
+        let lim = val_from_matches!(matches, u32, AppConfigArg::Lim, Output::default_lim);
+        let output = val_from_matches!(
+            matches,
+            Output,
+            AppConfigArg::Output,
+            || Output::try_from(&input),
+            try_default
+        )
+        .lim(lim);
 
         let verbosity = Verbosity::from_arg_matches_mut(matches)?;
-
-        let locale = match matches
-            .try_remove_one::<LangCode>(AppConfig::as_str(AppConfigArg::Locale))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(lng) => lng,
-            None => LangCode::default(),
-        };
-
-        let exit_on_err = match matches
-            .try_remove_one::<bool>(AppConfig::as_str(AppConfigArg::ExitOnErr))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(b) => b,
-            None => false,
-        };
-
-        let pro = match matches
-            .try_remove_one::<bool>(AppConfig::as_str(AppConfigArg::Pro))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(b) => b,
-            None => false,
-        };
+        let locale = val_from_matches!(matches, LangCode, AppConfigArg::Locale, LangCode::default);
+        let exit_on_err = val_from_matches!(
+            matches,
+            bool,
+            AppConfigArg::ExitOnErr,
+            Self::default_exit_on_err
+        );
+        let pro = val_from_matches!(matches, bool, AppConfigArg::Pro, Self::default_pro);
 
         let retiming = Retiming::from_arg_matches_mut(matches)?;
         let tracks = Tracks::from_arg_matches_mut(matches)?.off_on_pro(pro);

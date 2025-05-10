@@ -1,7 +1,6 @@
-use crate::types::traits::ClapArgID;
-use clap::{ArgMatches, Error, error::ErrorKind};
-use std::fs::{File, canonicalize};
-use std::path::{Path, PathBuf};
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
+use clap::{ArgMatches, Error};
+use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Chapters {
@@ -10,15 +9,15 @@ pub struct Chapters {
 }
 
 impl Chapters {
-    pub fn from_path(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
-        let path = canonicalize(path)?;
+    pub fn from_path(path: impl Into<PathBuf>) -> Result<Self, std::io::Error> {
+        let path = std::fs::canonicalize(path.into())?;
         if !path.is_file() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::IsADirectory,
                 "Is not a file",
             ));
         }
-        File::open(&path)?;
+        std::fs::File::open(&path)?;
 
         Ok(Self {
             no_flag: Self::default_no_flag(),
@@ -28,7 +27,7 @@ impl Chapters {
 
     fn new() -> Self {
         Self {
-            no_flag: false,
+            no_flag: Self::default_no_flag(),
             file: None,
         }
     }
@@ -43,7 +42,7 @@ impl Chapters {
     }
 }
 
-pub(in crate::types) enum ChaptersArg {
+pub enum ChaptersArg {
     NoChapters,
     Chapters,
 }
@@ -71,27 +70,18 @@ impl clap::FromArgMatches for Chapters {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let no_flag = match matches
-            .try_remove_one::<bool>(Chapters::as_str(ChaptersArg::NoChapters))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(b) => b,
-            None => Self::default_no_flag(),
-        };
+        let no_flag = val_from_matches!(
+            matches,
+            bool,
+            ChaptersArg::NoChapters,
+            Self::default_no_flag
+        );
 
-        let chapters = if no_flag {
+        Ok(if no_flag {
             Chapters::new().no_flag(true)
         } else {
-            match matches
-                .try_remove_one::<Self>(Chapters::as_str(ChaptersArg::Chapters))
-                .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-            {
-                Some(chp) => chp,
-                None => Chapters::new(),
-            }
-        };
-
-        Ok(chapters)
+            val_from_matches!(matches, Self, ChaptersArg::Chapters, Self::new)
+        })
     }
 
     fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), clap::Error> {

@@ -1,6 +1,6 @@
-mod from_path_helpers;
+mod helpers_from_path;
 
-use crate::types::traits::ClapArgID;
+use crate::types::{AppError, Input};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
@@ -70,18 +70,12 @@ impl Output {
     }
 }
 
-pub(in crate::types) enum OutputArg {
-    Out,
-    Lim,
-}
+impl TryFrom<&Input> for Output {
+    type Error = AppError;
 
-impl ClapArgID for Output {
-    type Arg = OutputArg;
-
-    fn as_str(arg: Self::Arg) -> &'static str {
-        match arg {
-            OutputArg::Out => "output",
-            OutputArg::Lim => "output_lim",
-        }
+    fn try_from(value: &Input) -> Result<Self, Self::Error> {
+        let mut path = value.dir.clone();
+        path.push(Self::default_input_dir_subdir());
+        Ok(Self::from_path(path)?)
     }
 }

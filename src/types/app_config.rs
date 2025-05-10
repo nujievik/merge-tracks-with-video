@@ -20,3 +20,13 @@ pub struct AppConfig {
     pub attachs: Attachs,
     pub specials: Specials,
 }
+
+impl AppConfig {
+    fn default_exit_on_err() -> bool {
+        false
+    }
+
+    fn default_pro() -> bool {
+        false
+    }
+}

@@ -1,9 +1,9 @@
 use super::Specials;
-use crate::types::traits::ClapArgID;
-use clap::{ArgMatches, Error, FromArgMatches, error::ErrorKind};
+use crate::{traits::ClapArgID, types::AppError, val_from_matches};
+use clap::{ArgMatches, Error, FromArgMatches};
 
 #[derive(Clone, Copy)]
-pub(in crate::types) enum SpecialsArg {
+pub enum SpecialsArg {
     Specials,
 }
 
@@ -29,15 +29,12 @@ impl FromArgMatches for Specials {
     }
 
     fn from_arg_matches_mut(matches: &mut ArgMatches) -> Result<Self, Error> {
-        let specials = match matches
-            .try_remove_one::<Specials>(Specials::as_str(SpecialsArg::Specials))
-            .map_err(|e| Error::raw(ErrorKind::UnknownArgument, e.to_string()))?
-        {
-            Some(spls) => spls,
-            None => Specials::new(),
-        };
-
-        Ok(specials)
+        Ok(val_from_matches!(
+            matches,
+            Specials,
+            SpecialsArg::Specials,
+            Self::new
+        ))
     }
 
     fn update_from_arg_matches_mut(&mut self, matches: &mut ArgMatches) -> Result<(), Error> {
